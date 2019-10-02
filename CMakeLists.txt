@@ -94,62 +94,53 @@ mark_as_advanced(VERSION_MAJOR VERSION_MINOR VERSION_PATCH)
                 #link_directories(${BOOST_LIBRARYDIR})
 file(GLOB SOURCES src/global/*.h    src/global/*.cpp
                   src/db/*.h        src/db/*.cpp
-                  src/db/drDB/*.h   src/db/drDB/*.cpp
-                  src/db/grDB/*.h   src/db/grDB/*.cpp
-                  src/db/macroDB/*.h src/db/macroDB/*.cpp
-                  src/db/techDB/*.h src/db/techDB/*.cpp
                   src/util/*.h      src/util/*.cpp 
                   src/parser/*.h    src/parser/*.cpp
-                  src/gr/*.h        src/gr/*.cpp
-                  src/dr/*.h        src/dr/*.cpp
-                  src/grdr/*.h      src/grdr/*.cpp
-                  src/parser/lefdef/*.h src/parser/lefdef/*.cpp src/parser/lefdef/*.cc
-                  src/writer/gdsii/*.h src/writer/gdsii/*.cpp
-                  src/main/ARouter.h src/main/ARouter.cpp)
+                  src/main/IdeaPlaceEx.h src/main/IdeaPlaceEx.cpp)
 
 file(GLOB EXE_SOURCES src/main/main.cpp)
 file(GLOB PY_API_SOURCES src/api/api.cpp)
 
 # linking libraries
-file(GLOB STATIC_LIB 
-    #lefdef
-    ${LIMBO_ROOT_DIR}/lib/libcdef.a 
-    ${LIMBO_ROOT_DIR}/lib/libcdefzlib.a 
-    ${LIMBO_ROOT_DIR}/lib/libdef.a 
-    ${LIMBO_ROOT_DIR}/lib/libdefzlib.a 
-    ${LIMBO_ROOT_DIR}/lib/libclef.a 
-    ${LIMBO_ROOT_DIR}/lib/libclefzlib.a 
-    ${LIMBO_ROOT_DIR}/lib/liblef.a 
-    ${LIMBO_ROOT_DIR}/lib/liblefzlib.a 
-    #limbo gdsparser
-    ${LIMBO_ROOT_DIR}/lib/libgdsdb.a 
-    ${LIMBO_ROOT_DIR}/lib/libgdsparser.a)
+#file(GLOB STATIC_LIB 
+#    #lefdef
+#    ${LIMBO_ROOT_DIR}/lib/libcdef.a 
+#    ${LIMBO_ROOT_DIR}/lib/libcdefzlib.a 
+#    ${LIMBO_ROOT_DIR}/lib/libdef.a 
+#    ${LIMBO_ROOT_DIR}/lib/libdefzlib.a 
+#    ${LIMBO_ROOT_DIR}/lib/libclef.a 
+#    ${LIMBO_ROOT_DIR}/lib/libclefzlib.a 
+#    ${LIMBO_ROOT_DIR}/lib/liblef.a 
+#    ${LIMBO_ROOT_DIR}/lib/liblefzlib.a 
+#    #limbo gdsparser
+#    ${LIMBO_ROOT_DIR}/lib/libgdsdb.a 
+#    ${LIMBO_ROOT_DIR}/lib/libgdsparser.a)
 
 
-#pybind11
-if (PYBIND11_DIR)
-    set(PYBIND11_ROOT_DIR ${PYBIND11_DIR})
-    message(STATUS "Use pybind11: ${PYBIND11_ROOT_DIR}")
-else()
-    set(PYBIND11_ROOT_DIR $ENV{PYBIND11_DIR})
-    message(STATUS "Use system pybind11: ${PYBIND11_ROOT_DIR}")
-endif()
-unset(PYBIND11_DIR CACHE)
-
-add_subdirectory(${PYBIND11_ROOT_DIR} "./pybind11")
-
-#Google Test
-if (GTEST_DIR)
-    set(GTEST_ROOT_DIR ${GTEST_DIR})
-    message(STATUS "Use google test: ${GTEST_ROOT_DIR}")
-else()
-    set(GTEST_ROOT_DIR $ENV{GTEST_DIR})
-    message(STATUS "Use system google test: ${GTEST_ROOT_DIR}")
-endif()
-unset(GTEST_DIR CACHE)
-
-# Python
-find_package(PythonLibs REQUIRED)
+##pybind11
+#if (PYBIND11_DIR)
+#    set(PYBIND11_ROOT_DIR ${PYBIND11_DIR})
+#    message(STATUS "Use pybind11: ${PYBIND11_ROOT_DIR}")
+#else()
+#    set(PYBIND11_ROOT_DIR $ENV{PYBIND11_DIR})
+#    message(STATUS "Use system pybind11: ${PYBIND11_ROOT_DIR}")
+#endif()
+#unset(PYBIND11_DIR CACHE)
+#
+#add_subdirectory(${PYBIND11_ROOT_DIR} "./pybind11")
+#
+##Google Test
+#if (GTEST_DIR)
+#    set(GTEST_ROOT_DIR ${GTEST_DIR})
+#    message(STATUS "Use google test: ${GTEST_ROOT_DIR}")
+#else()
+#    set(GTEST_ROOT_DIR $ENV{GTEST_DIR})
+#    message(STATUS "Use system google test: ${GTEST_ROOT_DIR}")
+#endif()
+#unset(GTEST_DIR CACHE)
+#
+## Python
+#find_package(PythonLibs REQUIRED)
 
 #Print out the used build type
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -186,11 +177,11 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${SPARSEHASH_ROOT_DIR}/include
 )
 
-target_link_libraries(${PROJECT_NAME} ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES})
-
-# Add modules to pybind
-#pybind11_add_module("arouterex" ${PY_API_SOURCES} ${SOURCES})
-#target_link_libraries("arouterex" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES})
-
-#Install
-install (TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX_DIR}/bin)
+#target_link_libraries(${PROJECT_NAME} ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES})
+#
+## Add modules to pybind
+##pybind11_add_module("arouterex" ${PY_API_SOURCES} ${SOURCES})
+##target_link_libraries("arouterex" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES})
+#
+##Install
+#install (TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX_DIR}/bin)

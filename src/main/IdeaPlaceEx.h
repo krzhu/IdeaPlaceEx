@@ -16,6 +16,20 @@ PROJECT_NAMESPACE_BEGIN
 /// @brief the main wrapper for the placement engine
 class IdeaPlaceEx
 {
+    public:
+        /// @brief default constructor
+        explicit IdeaPlaceEx() = default;
+        /// @brief the file-based input
+        /// @param the system arguments
+        /// @return if the parsing is successful
+        bool parseFileBased(int argc, char** argv);
+        /// @brief run the placement algorithm
+        /// @return whether the placement is successful
+        bool solve();
+        /// @brief the file-based output
+        /// @param the system arguments
+        /// @return if the writing is successful
+        bool outputFileBased(int argc, char** argv);
     protected:
         Database _db; ///< The placement engine database 
 };

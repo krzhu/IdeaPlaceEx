@@ -58,8 +58,8 @@ class Vector2D
         IndexType                                 size() const                                           { return _vec.size(); }
         InitListType                              type() const                                           { return _type; }
 
-        const T &                                 at(IndexType x, IndexType y) const                     { return this->at(xyToIndex(x, y)); }
-        T &                                       at(IndexType x, IndexType y)                           { return this->at(xyToIndex(x, y)); }
+        const T &                                 at(IndexType x, IndexType y) const                     { return this->atIdx(xyToIndex(x, y)); }
+        T &                                       at(IndexType x, IndexType y)                           { return this->atIdx(xyToIndex(x, y)); }
         const T &                                 at(XY<IndexType> xy) const                             { return this->at(xyToIndex(xy)); }
         T &                                       at(XY<IndexType> xy)                                   { return this->at(xyToIndex(xy)); }
         const T &                                 atIdx(IndexType idx) const                             { return AT(_vec, idx); }
