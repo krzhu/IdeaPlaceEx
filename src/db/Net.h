@@ -25,12 +25,18 @@ class Net
         /// @brief get the weight of the net
         /// @return the weight of this net
         IntType weight() const { return _weight; }
+        /// @brief get the name for the net
+        /// @return the name of this net
+        const std::string & name() const { return _name; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
         /// @brief set the weight of the net
         /// @param the weight of the net
         void setWeight(IntType weight) { _weight = weight; }
+        /// @brief set the name of the net
+        /// @param the name of the net
+        void setName(const std::string &name) { _name = name; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -45,6 +51,7 @@ class Net
         /// @return the databse pin index
         IndexType pinIdx(IndexType idx) const { return AT(_pinIdxArray, idx); }
     private:
+        std::string _name = ""; ///< The name for the net
         std::vector<IndexType> _pinIdxArray; ///< The index to the pins belonging to the net
         IntType _weight = 1; ///< The weight of this net
 };

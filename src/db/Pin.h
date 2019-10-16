@@ -32,12 +32,18 @@ class Pin
         /// @brief get the relative location of the pin with respect to the cell
         /// @return the relative location of the pin with respect to the cell
         Box<LocType> & shape() { return _shape; }
+        /// @brief get the name of the pin
+        /// @return the name of the pin
+        const std::string & name() const { return _name; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/
         /// @brief set the index of the cell this pin belonging to
         /// @param the index of the cell this pin belonging to
         void setCellIdx(IndexType cellIdx) { _cellIdx = cellIdx; }
+        /// @brief set the name of the pin
+        /// @param the name of the pin
+        void setName(const std::string &name) { _name = name; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -58,9 +64,10 @@ class Pin
         /// @return the middle point location of the pin
         XY<LocType> midLoc() const { return _shape.center(); }
     private:
+        std::string _name = ""; ///< The name for the pin
         std::vector<IndexType> _netIdxArray; ///< The indices of nets connected to this pin
         IndexType _cellIdx = INDEX_TYPE_MAX; ///< The cell this pin belongs to. Each pin can belong on only one cell
-        Box<LocType> _shape; ///< The relative location of this pin with respect to the cell
+        Box<LocType> _shape = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The relative location of this pin with respect to the cell
 };
 
 PROJECT_NAMESPACE_END

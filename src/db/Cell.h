@@ -29,6 +29,9 @@ class Cell
         /// @brief get the y coordinate of the cell
         /// @return the y coordinate of the cell
         LocType yLoc() const { return _loc.y(); }
+        /// @brief get the name of the cell
+        /// @return the name of the cell
+        const std::string & name() const { return _name; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
@@ -38,6 +41,9 @@ class Cell
         /// @brief set the y coordinate of the cell
         /// @param the y coordinate of the cell
         void setYLoc(LocType yLoc) { _loc.setY(yLoc); }
+        /// @brief set the name of the cell
+        /// @param the name of the cell
+        void setName(const std::string &name) { _name = name; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -56,7 +62,7 @@ class Cell
         void allocateLayers(IndexType numLayers) 
         { 
             /// Initialize the bounding box to invalid shape
-            _bboxArray.resize(numLayers, Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MAX, LOC_TYPE_MIN)); 
+            _bboxArray.resize(numLayers, Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN)); 
         }
         /// @brief check whether there is shape in the layer
         /// @return whether the layer has shape
@@ -76,15 +82,32 @@ class Cell
         /// @brief get the actual bounding box (after being offsetted by the location) of shapes in a layer
         /// @param first: the layer index
         /// @return the bounding box of the layer after offseted
-        Box<LocType> bboxOff(IndexType layerIdx) const
+        const Box<LocType> bboxOff(IndexType layerIdx) const
         {
             Assert(this->layerHasShape(layerIdx)); 
             return AT(_bboxArray, layerIdx).offsetBox(_loc);
         }
+        /*------------------------------*/ 
+        /* Supporting functions         */
+        /*------------------------------*/ 
+        /// @brief calculate the bounding box of the entire cell (union from each layer)
+        void calculateCellBBox()
+        {
+            _cellBBox = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
+            for (const auto &bbox : _bboxArray)
+            {
+                _cellBBox.unionBox(bbox);
+            }
+        }
+        /// @brief get the bounding box of the entire cell
+        /// @return the bounding box of the entire cell
+        const Box<LocType> & cellBBox() const { return _cellBBox; }
     private:
+        std::string _name; ///< The cell name
         XY<LocType> _loc; ///< The location of the cell
         std::vector<IndexType> _pinIdxArray; ///< The index to the pins belonging to the cell
         std::vector<Box<LocType>> _bboxArray; ///< _shapeArray[layer] = the bounding box of the shapes in the layer
+        Box<LocType> _cellBBox = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The bounding box of the entire cell
 };
 
 PROJECT_NAMESPACE_END

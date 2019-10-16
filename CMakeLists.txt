@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON )
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-set(PROJECT_NAME "ARouter")
+set(PROJECT_NAME "IdeaPlaceEx")
 project(${PROJECT_NAME})
 
 find_package (PkgConfig)
@@ -62,6 +62,24 @@ unset (SPARSEHASH_DIR CACHE)
 find_package(Boost 1.6 COMPONENTS system graph iostreams)
 find_package( ZLIB REQUIRED )
 
+
+
+# Find the directory for WNLIB. If cache variable WNLIB_DIR is defined, use it as the path to WNLIB, otherwise use the system WNLIB_DIR
+if (WNLIB_DIR)
+    set(WNLIB_ROOT_DIR ${WNLIB_DIR})
+    message(STATUS "Use WNLIB: ${WNLIB_ROOT_DIR}")
+else()
+    set(WNLIB_ROOT_DIR $ENV{WNLIB_DIR})
+    message(STATUS "Use system WNLIB ${WNLIB_ROOT_DIR}")
+endif()
+unset (WNLIB_DIR CACHE)
+find_library(WNLIB_LIBRARIES
+    NAMES text.a
+    HINTS ${WNLIB_ROOT_DIR}/acc
+    )
+message(STATUS "WNLIB_ROOT_DIR = ${WNLIB_ROOT_DIR}")
+message(STATUS "WNLIB_LIBRARIES = ${WNLIB_LIBRARIES}")
+
 # add a target to generate API documentation with Doxygen
 find_package(Doxygen)
 option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" ${DOXYGEN_FOUND})
@@ -91,30 +109,21 @@ mark_as_advanced(VERSION_MAJOR VERSION_MINOR VERSION_PATCH)
 
 
                 #$ENV{LEMON_INC}
-                #link_directories(${BOOST_LIBRARYDIR})
+#link_directories(${BOOST_LIBRARYDIR})
 file(GLOB SOURCES src/global/*.h    src/global/*.cpp
                   src/db/*.h        src/db/*.cpp
                   src/util/*.h      src/util/*.cpp 
                   src/parser/*.h    src/parser/*.cpp
+                  src/place/*.h    src/place/*.cpp
                   src/main/IdeaPlaceEx.h src/main/IdeaPlaceEx.cpp)
 
 file(GLOB EXE_SOURCES src/main/main.cpp)
 file(GLOB PY_API_SOURCES src/api/api.cpp)
 
 # linking libraries
-#file(GLOB STATIC_LIB 
-#    #lefdef
-#    ${LIMBO_ROOT_DIR}/lib/libcdef.a 
-#    ${LIMBO_ROOT_DIR}/lib/libcdefzlib.a 
-#    ${LIMBO_ROOT_DIR}/lib/libdef.a 
-#    ${LIMBO_ROOT_DIR}/lib/libdefzlib.a 
-#    ${LIMBO_ROOT_DIR}/lib/libclef.a 
-#    ${LIMBO_ROOT_DIR}/lib/libclefzlib.a 
-#    ${LIMBO_ROOT_DIR}/lib/liblef.a 
-#    ${LIMBO_ROOT_DIR}/lib/liblefzlib.a 
-#    #limbo gdsparser
-#    ${LIMBO_ROOT_DIR}/lib/libgdsdb.a 
-#    ${LIMBO_ROOT_DIR}/lib/libgdsparser.a)
+file(GLOB STATIC_LIB 
+    ${LIMBO_ROOT_DIR}/lib/libgdsdb.a 
+    ${LIMBO_ROOT_DIR}/lib/libgdsparser.a)
 
 
 ##pybind11
@@ -175,9 +184,16 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CAIRO_STATIC_INCLUDE_DIRS}
     ${LIMBO_ROOT_DIR}/include
     ${SPARSEHASH_ROOT_DIR}/include
+    ${WNLIB_ROOT_DIR}/acc/h
 )
 
-#target_link_libraries(${PROJECT_NAME} ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} 
+    ${STATIC_LIB} 
+    ${Boost_LIBRARIES} 
+    ${ZLIB_LIBRARIES} 
+    ${CAIRO_STATIC_LIBRARIES}
+    ${WNLIB_LIBRARIES}
+    )
 #
 ## Add modules to pybind
 ##pybind11_add_module("arouterex" ${PY_API_SOURCES} ${SOURCES})

@@ -135,10 +135,23 @@ namespace klib
     // Numerical functions
     // ================================================================================ 
 
-    /// @breif Round a float/double to IntType
-    inline IntType round2Int(RealType rValue) 
+    /// @breif Automatically decide whether to round a float/double. depending on the returning type.
+    template<typename T>
+    inline T autoRound(RealType rValue) 
     {
-        return static_cast<IntType>(std::round(rValue));
+        return static_cast<T>(std::round(rValue));
+    }
+
+    template<>
+    inline float autoRound(RealType rValue)
+    {
+        return rValue;
+    }
+
+    template<>
+    inline double autoRound(RealType rValue)
+    {
+        return rValue;
     }
 
 

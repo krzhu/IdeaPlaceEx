@@ -53,6 +53,9 @@ class Tech
             _spacingRule.at(layerIdxFirst, layerIdxSecond) = spacing;
             _spacingRule.at(layerIdxSecond, layerIdxFirst) = spacing;
         }
+        /// @brief set the dbu/ database unit
+        /// @param the databse unit
+        void setDbu(LocType dbu) { _dbu = dbu; }
         /*------------------------------*/ 
         /* Query the tech               */
         /*------------------------------*/ 
@@ -116,8 +119,24 @@ class Tech
             Assert(this->hasSpacingRule(layerIdxFirst, layerIdxSecond));
             return _spacingRule.at(layerIdxFirst, layerIdxSecond);
         }
+        /// @brief get the database unit
+        /// @return the database unit
+        LocType dbu() const { return _dbu; }
+        /// @brief get the number of layers
+        /// @return the number of layers
+        IndexType numLayers() const { return _gdsLayerIdxArray.size(); }
+        /*------------------------------*/ 
+        /* Getters                      */
+        /*------------------------------*/ 
+        /// @brief get the map from gds techlayer to IDEAPLACE layer
+        /// @return the map from gds techlayer to IDEAPLACE layer
+        const std::unordered_map<IndexType, IndexType> & layerIdxMap() const { return _layerIdxMap; }
+        /// @brief get the map from gds techlayer to IDEAPLACE layer
+        /// @return the map from gds techlayer to IDEAPLACE layer
+        std::unordered_map<IndexType, IndexType> & layerIdxMap() { return _layerIdxMap; }
     private:
-        std::unordered_map<IndexType, IndexType> _layerIdxMap; ///< A map from gds layer to IDEAPLACE layer. _layerIdxMap[]
+        LocType _dbu = 1000; ///< 1 um = _dbu database units
+        std::unordered_map<IndexType, IndexType> _layerIdxMap; ///< A map from gds layer to IDEAPLACE layer. _layerIdxMap[techlayer] = layer index
         std::vector<IndexType> _gdsLayerIdxArray; ///< The tech layer in GDS. _gdsLayerIdx[idx of layer] = techlayer in GDS
         std::vector<LocType> _widthRule; ///< The width rule of the layer
         std::vector<LocType> _areaRule; ///< The area rule of the layer

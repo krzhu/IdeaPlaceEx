@@ -23,6 +23,12 @@ class Database
         /// @brief default database
         explicit Database() = default;
         /*------------------------------*/ 
+        /* Initialization               */
+        /*------------------------------*/ 
+        /// @brief initializing cells. Allocate the correct number of layers
+        /// @return if successful
+        bool initCells();
+        /*------------------------------*/ 
         /* Getters                      */
         /*------------------------------*/ 
         /// @brief get the technology-wrapper of the placement
@@ -34,6 +40,9 @@ class Database
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
+        /// @brief get the number of symmetric groups
+        /// @return the number of the symmetric groups
+        IndexType numSymGroups() const { return 0; }
         /// @brief get the number of cells
         /// @return the number of cells
         IndexType numCells() const { return _cellArray.size(); }
@@ -77,6 +86,12 @@ class Database
         /// @brief allocate a new pin in the array
         /// @return the index of the pin
         IndexType allocatePin() { _pinArray.emplace_back(Pin()); return _pinArray.size() - 1; }
+        /*------------------------------*/ 
+        /* Supporting functions         */
+        /*------------------------------*/ 
+        /// @brief calcuate the total cell area
+        /// @return the total cell area
+        LocType calculateTotalCellArea() const;
 
     private:
         std::vector<Cell> _cellArray; ///< The cells of the placement problem
@@ -84,6 +99,10 @@ class Database
         std::vector<Pin> _pinArray; ///< The pins of the placement problem
         Tech _tech; ///< The tech information
 };
+
+inline LocType Database::calculateTotalCellArea() const
+{
+}
 
 PROJECT_NAMESPACE_END
 
