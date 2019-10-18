@@ -9,8 +9,11 @@
 #define IDEAPLACE_IDEAPLACEEX_H_
 
 #include "db/Database.h"
+/* Solver */
+#include "place/NlpWnconj.h"
 
 PROJECT_NAMESPACE_BEGIN
+
 
 /// @class IDEAPLACE::IdeaPlaceEx
 /// @brief the main wrapper for the placement engine

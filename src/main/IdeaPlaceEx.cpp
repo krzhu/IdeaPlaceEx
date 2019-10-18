@@ -9,6 +9,10 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+// A global pointer to NLP
+// This is for a trick to overly use static members in the NlpWnconj class
+NlpWnconj *nlpPtr = nullptr;
+
 bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
 {
     ProgArgs _args = ProgArgsDetails::parseProgArgsCMD(argc, argv);
@@ -64,6 +68,9 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
 
 bool IdeaPlaceEx::solve()
 {
+    NlpWnconj nlp(_db);
+    nlpPtr = &nlp;
+    nlp.solve();
     return true;
 }
 

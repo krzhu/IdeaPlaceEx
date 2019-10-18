@@ -9,5 +9,6 @@ int main(int argc, char* argv[])
 
     // Parsing in input, arguments are from system arguments
     _idea.parseFileBased(argc, argv);
+    _idea.solve();
     return 0;
 }

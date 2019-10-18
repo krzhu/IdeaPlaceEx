@@ -12,6 +12,7 @@
 #include "Net.h"
 #include "Pin.h"
 #include "Tech.h"
+#include "Parameters.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -37,6 +38,12 @@ class Database
         /// @brief get the technology-wrapper of the placement
         /// @return the technology
         Tech & tech() { return _tech; }
+        /// @brief get the placement parameter wrapper
+        /// @return the placement parameter wrapper
+        const Parameters & parameters() const { return _para; }
+        /// @brief get the placement parameter wrapper
+        /// @return the placement parameter wrapper
+        Parameters & parameters() { return _para; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -98,10 +105,17 @@ class Database
         std::vector<Net> _netArray; ///< The nets of the placement problem
         std::vector<Pin> _pinArray; ///< The pins of the placement problem
         Tech _tech; ///< The tech information
+        Parameters _para; ///< The parameters for the placement engine
 };
 
 inline LocType Database::calculateTotalCellArea() const
 {
+    LocType area = 0;
+    for (const auto &cell : _cellArray)
+    {
+        area += cell.cellBBox().area();
+    }
+    return area;
 }
 
 PROJECT_NAMESPACE_END
