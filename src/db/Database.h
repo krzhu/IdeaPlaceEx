@@ -99,6 +99,14 @@ class Database
         /// @brief calcuate the total cell area
         /// @return the total cell area
         LocType calculateTotalCellArea() const;
+        /*------------------------------*/ 
+        /* Debug functions              */
+        /*------------------------------*/ 
+#ifdef DEBUG_DRAW
+        /// @brief draw the cell blocks
+        /// @param the filename for saving
+        void drawCellBlocks(const std::string &name);
+#endif //DEBUG_DRAW
 
     private:
         std::vector<Cell> _cellArray; ///< The cells of the placement problem

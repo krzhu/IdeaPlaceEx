@@ -29,6 +29,12 @@ class Cell
         /// @brief get the y coordinate of the cell
         /// @return the y coordinate of the cell
         LocType yLoc() const { return _loc.y(); }
+        /// @brief get the xHi of the cell
+        /// @return xHi of the cell
+        LocType xHi() const { return _loc.x() + _cellBBox.xLen(); }
+        /// @brief get the yHi of the cell
+        /// @return yHi of the cell
+        LocType yHi() const { return _loc.y() + _cellBBox.yLen(); }
         /// @brief get the name of the cell
         /// @return the name of the cell
         const std::string & name() const { return _name; }
@@ -102,6 +108,19 @@ class Cell
         /// @brief get the bounding box of the entire cell
         /// @return the bounding box of the entire cell
         const Box<LocType> & cellBBox() const { return _cellBBox; }
+        /// @brief calculate the cellBBox offset by the current location
+        /// @return the cellBBox offset by the current location
+        Box<LocType> cellBBoxOff() const { return _cellBBox.offsetBox(_loc); }
+        /// @brief get if the cell has symmetric pair constraint
+        /// @return if the cell has symmetric pair constraint
+        bool hasSymPair() const { return false; }
+        /// @brief get the index of the other cell of the sym pair
+        /// @return the index of the other cell of the sym pair
+        IndexType symPairCellIdx() const { return INDEX_TYPE_MAX; }
+        /// @brief get if the cell has self symmetric constraint
+        /// @return if the cell has self symmetric constraint
+        bool hasSelfSym() const { return false; }
+
     private:
         std::string _name; ///< The cell name
         XY<LocType> _loc; ///< The location of the cell

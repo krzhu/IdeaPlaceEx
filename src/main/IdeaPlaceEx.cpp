@@ -71,6 +71,11 @@ bool IdeaPlaceEx::solve()
     NlpWnconj nlp(_db);
     nlpPtr = &nlp;
     nlp.solve();
+#ifdef DEBUG_DRAW
+    _db.drawCellBlocks("./debug/after_gr.gds");
+#endif //DEBUG_DRAW
+    CGLegalizer legalizer(_db);
+    legalizer.legalize();
     return true;
 }
 

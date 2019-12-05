@@ -10,7 +10,8 @@
 
 #include "db/Database.h"
 /* Solver */
-#include "place/NlpWnconj.h"
+#include "place/CGLegalizer.h"
+#include "place/NlpWnconj.h" //< This stupid package must be included here
 
 PROJECT_NAMESPACE_BEGIN
 

@@ -10,6 +10,10 @@
 
 //#define NODEBUG
 
+#define DEBUG_DRAW
+#define DEBUG_GR
+#define DEBUG_LEGALIZE
+
 #ifdef NODEBUG
 #define AT(vec, idx) vec[idx]
 #else

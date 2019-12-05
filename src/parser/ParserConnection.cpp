@@ -87,6 +87,7 @@ bool ParserConnection::read(const std::string &filename)
             // Add the pin to the net in the database
             _db.net(netIdx).addPin(pinIdx);
             _db.pin(pinIdx).addNetIdx(netIdx);
+            _db.pin(pinIdx).setCellIdx(cellIdx);
         }
     }
     return true;

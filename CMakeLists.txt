@@ -114,6 +114,7 @@ file(GLOB SOURCES src/global/*.h    src/global/*.cpp
                   src/db/*.h        src/db/*.cpp
                   src/util/*.h      src/util/*.cpp 
                   src/parser/*.h    src/parser/*.cpp
+                  src/writer/gdsii/*.h    src/writer/gdsii/*.cpp
                   src/place/*.h    src/place/*.cpp
                   src/main/IdeaPlaceEx.h src/main/IdeaPlaceEx.cpp)
 
