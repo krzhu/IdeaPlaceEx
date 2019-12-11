@@ -170,7 +170,206 @@ void CGLegalizer::generateConstraints()
     // Minimize the DAG
     dagTransitiveReduction(_hCG);
     dagTransitiveReduction(_vCG);
+    // Get necessary edges
+    getNecessaryEdges();
+    // Minimize the DAG
+    dagTransitiveReduction(_hCG);
+    dagTransitiveReduction(_vCG);
 
+    // FIXME: remove vertical edges between symmetric pairs and add the corresponding horizontal edges
+    for (IndexType symPairIdx = 0; symPairIdx < _db.numSymGroups(); ++symPairIdx)
+    {
+        const auto & symPair = _db.symPair(symPairIdx);
+        IndexType cellIdx1 = symPair.firstCell();
+        IndexType cellIdx2 = symPair.secondCell();
+        boost::remove_edge(boost::vertex(cellIdx1, _vCG.boostGraph()), boost::vertex(cellIdx2, _vCG.boostGraph()), 
+                _vCG.boostGraph());
+        boost::remove_edge(boost::vertex(cellIdx2, _vCG.boostGraph()), boost::vertex(cellIdx1, _vCG.boostGraph()), 
+                _vCG.boostGraph());
+        auto hEdge1 = boost::edge(boost::vertex(cellIdx1, _hCG.boostGraph()),
+                boost::vertex(cellIdx2, _hCG.boostGraph()), _hCG.boostGraph());
+        auto hEdge2 = boost::edge(boost::vertex(cellIdx2, _hCG.boostGraph()),
+                boost::vertex(cellIdx1, _hCG.boostGraph()), _hCG.boostGraph());
+        bool hasHorEdge = hEdge1.second || hEdge2.second;
+        if (!hasHorEdge)
+        {
+            if (_db.cell(cellIdx1).xLoc() <= _db.cell(cellIdx2).xLoc())
+            {
+                boost::add_edge(boost::vertex(cellIdx1, _hCG.boostGraph()),
+                        boost::vertex(cellIdx2, _hCG.boostGraph()),
+                        -_db.cell(cellIdx1).cellBBox().xLen(), _hCG.boostGraph());
+            }
+            else
+            {
+                boost::add_edge(boost::vertex(cellIdx2, _hCG.boostGraph()),
+                        boost::vertex(cellIdx1, _hCG.boostGraph()),
+                        -_db.cell(cellIdx2).cellBBox().xLen(), _hCG.boostGraph());
+            }
+        }
+    } // for (IndexType symPairIdx = 0; symPairIdx < _db.numSymGroups(); ++symPairIdx)
+
+    // reload the constraints from the boost graph and prepare for the LP solving
+    readloadConstraints();
+#ifdef DEBUG_LEGALIZE
+    DBG("Print the generated constraints... \n\n");
+    for (IndexType i = 0; i < _hConstraints.edges().size(); ++i)
+    {
+        const auto &edge = _hConstraints.edges()[i];
+        DBG("horizontal i %d %s \n", i, edge.toStr().c_str());
+    }
+    for (IndexType i = 0; i < _vConstraints.edges().size(); ++i)
+    {
+        const auto &edge = _vConstraints.edges()[i];
+        DBG("vertical i %d %s \n", i, edge.toStr().c_str());
+    }
+#endif
+}
+
+void CGLegalizer::readloadConstraints()
+{
+    // Clear the constraint edges and reload from the boost graph
+    _hConstraints.clear();
+    _vConstraints.clear();
+    auto idxMapH = boost::get(boost::vertex_index, _hCG.boostGraph());
+    auto idxMapV = boost::get(boost::vertex_index, _vCG.boostGraph());
+    auto weightMapH = boost::get(boost::edge_weight, _hCG.boostGraph());
+    auto weightMapV = boost::get(boost::edge_weight, _vCG.boostGraph());
+    ConstraintGraph::edge_iterator ei, eiEnd;
+    // horizontal
+    for (boost::tie(ei, eiEnd) = boost::edges(_hCG.boostGraph()); ei != eiEnd; ++ei)
+    {
+        IndexType sourceIdx = idxMapH[boost::source(*ei, _hCG.boostGraph())]; // source node of the edge
+        IndexType targetIdx = idxMapH[boost::target(*ei, _hCG.boostGraph())]; // target node of the edge
+        auto weight = boost::get(weightMapH, *ei);
+        _hConstraints.addConstraintEdge(sourceIdx, targetIdx, weight);
+    }
+    // vertical
+    for (boost::tie(ei, eiEnd) = boost::edges(_vCG.boostGraph()); ei != eiEnd; ++ei)
+    {
+        IndexType sourceIdx = idxMapV[boost::source(*ei, _vCG.boostGraph())]; // source node of the edge
+        IndexType targetIdx = idxMapV[boost::target(*ei, _vCG.boostGraph())]; // target node of the edge
+        auto weight = boost::get(weightMapV, *ei);
+        _vConstraints.addConstraintEdge(sourceIdx, targetIdx, weight);
+    }
+}
+
+void CGLegalizer::getNecessaryEdges()
+{
+    // DFS algorithm to get the other necessary edges
+    // FIXME: no symmetry nodes
+    IndexType numNodes = _db.numCells();
+
+    Vector2D<IntType> dpTabH(numNodes, numNodes, 0);
+    Vector2D<IntType> dpTabV(numNodes, numNodes, 0);
+    std::vector<IntType> visitedH(numNodes, 0);
+    std::vector<IntType> visitedV(numNodes, 0);
+    IndexType sourceIdx = _db.numCells();
+    ConstraintGraph::IndexMap idxMap = boost::get(boost::vertex_index, _hCG.boostGraph());
+
+    dfsGraph(dpTabH, visitedH, sourceIdx, _hCG, idxMap);
+    dfsGraph(dpTabV, visitedV, sourceIdx, _vCG, idxMap);
+
+    for (IndexType i = 0; i < numNodes; ++i)
+    {
+        for (IndexType j = 0; j < numNodes; ++j)
+        {
+            bool dp = dpTabH.at(i, j) == 1 || dpTabH.at(j, i) == 1
+                || dpTabV.at(i, j) == 1 || dpTabV.at(j, i) == 1;
+            if (!dp)
+            {
+                addEdgeGreedy(i, j);
+            }
+        }
+    }
+}
+
+void CGLegalizer::addEdgeGreedy(IndexType i, IndexType j)
+{
+    auto cellBox1 = _db.cell(i).cellBBoxOff();
+    auto cellBox2 = _db.cell(j).cellBBoxOff();
+    LocType spaceH = std::max(cellBox1.xLo() - cellBox2.xHi(), cellBox2.xLo() - cellBox1.xHi());
+    LocType spaceV = std::max(cellBox1.yLo() - cellBox2.yHi(), cellBox2.yLo() - cellBox1.yHi());
+    if (spaceH >= spaceV)
+    {
+        // Add edge to horizontal constraint graph
+        if (cellBox1.xLo() < cellBox2.xLo())
+        {
+            boost::add_edge(boost::vertex(i, _hCG.boostGraph()), boost::vertex(j, _hCG.boostGraph()), 
+                    -cellBox1.xLen(), _hCG.boostGraph());
+        }
+        else
+        {
+            boost::add_edge(boost::vertex(j, _hCG.boostGraph()), boost::vertex(i, _hCG.boostGraph()), 
+                    -cellBox2.xLen(), _hCG.boostGraph());
+        }
+    }
+    else
+    {
+        // Add edge to vertical constraint graph
+        if (cellBox1.yLo() < cellBox2.yLo())
+        {
+            boost::add_edge(boost::vertex(i, _vCG.boostGraph()), boost::vertex(j, _vCG.boostGraph()), 
+                    -cellBox1.yLen(), _vCG.boostGraph());
+        }
+        else
+        {
+            boost::add_edge(boost::vertex(j, _vCG.boostGraph()), boost::vertex(i, _vCG.boostGraph()), 
+                    -cellBox2.yLen(), _vCG.boostGraph());
+        }
+    }
+}
+
+void CGLegalizer::dfsGraph(Vector2D<IntType>& dpTab, std::vector<IntType> &visited, IndexType nodeIdx, 
+        ConstraintGraph &cg, ConstraintGraph::IndexMap &idxMap)
+{
+    IndexType sourceIdx  = _db.numCells();
+    IndexType targetIdx = sourceIdx + 1;
+    if (nodeIdx < sourceIdx)
+    {
+        AT(visited, nodeIdx) = 1;
+        dpTab.at(nodeIdx, nodeIdx) = 1;
+    }
+    auto neighbors = boost::adjacent_vertices(boost::vertex(nodeIdx, cg.boostGraph()), cg.boostGraph());
+    for (; neighbors.first != neighbors.second; ++neighbors.first)
+    {
+        IndexType neiNode = idxMap[*neighbors.first];
+        if (neiNode == targetIdx)
+        {
+            continue;
+        }
+        if (AT(visited, neiNode) == 0)
+        {
+            dfsGraph(dpTab, visited, neiNode, cg, idxMap);
+        }
+        if (nodeIdx == sourceIdx)
+        {
+            continue;
+        }
+        bool allOnes = true;
+        for (IndexType idx = 0; idx < dpTab.ySize(); ++ idx)
+        {
+            auto dp = dpTab.at(nodeIdx, idx);
+            if (dp == 0)
+            {
+                allOnes = false;
+                break;
+            }
+        }
+        if (!allOnes)
+        {
+            for(IndexType idx = 0; idx < dpTab.ySize(); ++ idx)
+            {
+                if (dpTab.at(nodeIdx, idx) == 1 || dpTab.at(neiNode, idx) == 1)
+                {
+                    dpTab.at(nodeIdx, idx) = 1;
+                }
+                else
+                {
+                    dpTab.at(nodeIdx, idx) = 0;
+                }
+            }
+        }
+    } // for (; neighbors.first != neighbors.second; ++neighbors.first)
 }
 
 void CGLegalizer::dagTransitiveReduction(ConstraintGraph &cg)

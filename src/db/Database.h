@@ -13,6 +13,7 @@
 #include "Pin.h"
 #include "Tech.h"
 #include "Parameters.h"
+#include "Constraints.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -49,7 +50,14 @@ class Database
         /*------------------------------*/ 
         /// @brief get the number of symmetric groups
         /// @return the number of the symmetric groups
-        IndexType numSymGroups() const { return 0; }
+        IndexType numSymGroups() const { return _symPairs.size(); }
+        /// @brief get a symmetric pair
+        /// @param the index of the symmetric pair
+        const SymPair & symPair(IndexType idx) { return _symPairs.at(idx); }
+        /// @brief add a symmetric pair. The order of two cell indices do not matter
+        /// @param one cell index
+        /// @param one cell index
+        void addSymPair(IndexType cellIdx1, IndexType cellIdx2) { _symPairs.emplace_back(SymPair(cellIdx1, cellIdx2)); }
         /// @brief get the number of cells
         /// @return the number of cells
         IndexType numCells() const { return _cellArray.size(); }
@@ -112,6 +120,7 @@ class Database
         std::vector<Cell> _cellArray; ///< The cells of the placement problem
         std::vector<Net> _netArray; ///< The nets of the placement problem
         std::vector<Pin> _pinArray; ///< The pins of the placement problem
+        std::vector<SymPair> _symPairs; ///< The symmetric pair constraints
         Tech _tech; ///< The tech information
         Parameters _para; ///< The parameters for the placement engine
 };

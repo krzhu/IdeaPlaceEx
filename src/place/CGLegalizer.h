@@ -50,6 +50,8 @@ class Constraints
     public:
         /// @brief default constructor
         explicit Constraints() = default;
+        /// @breif clear the constraint edges
+        void clear() { _edges.clear(); }
         /// @brief get the constraint edges
         /// @return the constraint edges
         const std::vector<ConstraintEdge> & edges() const { return _edges; }
@@ -149,6 +151,22 @@ class CGLegalizer
         /// @param index of cell
         void initIrredundantEdgesInsert(bool isHor , std::vector<IndexType> &orders, 
                 std::vector<IntType> &cand, IndexType cellIdx);
+        /// @brief get necessary edges
+        void getNecessaryEdges();
+        /// @brief perform DFS on the graph
+        /// @param first: dp table
+        /// @param second: the visited vector
+        /// @param third: the node index
+        /// @param fourth: constraint graph
+        /// @param fifth: IndexMap for the boost graph
+        void dfsGraph(Vector2D<IntType>& dpTab, std::vector<IntType> &visited, IndexType nodeIdx, ConstraintGraph &cg,
+                ConstraintGraph::IndexMap &idxMap);
+        /// @brief add edge greedily
+        /// @param first: node index i
+        /// @param second: node index j
+        void addEdgeGreedy(IndexType i, IndexType j);
+        /// @brief reload the constraints from the boost-based constraint graph
+        void readloadConstraints();
     private:
         Database &_db; ///< The database of IdeaPlaceEx
         ConstraintGraph _hCG; ///< The horizontal constraint graph

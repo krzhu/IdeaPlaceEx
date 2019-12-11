@@ -45,7 +45,7 @@ class Vector2D
     public:
         explicit Vector2D() = default;
         explicit Vector2D(IndexType xSize, IndexType ySize) : _vec(xSize * ySize), _xSize(xSize), _ySize(ySize) {}
-        explicit Vector2D(IndexType xSize, IndexType ySize, const T &v) : _vec(xSize, ySize, v), _xSize(xSize), _ySize(ySize) {}
+        explicit Vector2D(IndexType xSize, IndexType ySize, const T &v) : _vec(xSize * ySize, v), _xSize(xSize), _ySize(ySize) {}
         explicit Vector2D(IndexType xSize, IndexType ySize, InitListType t, std::initializer_list<T> l);
 
         void                                      clear()                                                { _vec.clear(); _xSize = _ySize = 0; }
