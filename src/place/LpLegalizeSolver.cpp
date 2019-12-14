@@ -2,6 +2,11 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+RealType LpLegalizeSolver::evaluateObj()
+{
+    return _ilpModel.evaluateObjective();
+}
+
 void LpLegalizeSolver::exportSolution()
 {
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
@@ -237,25 +242,27 @@ void LpLegalizeSolver::addIlpConstraints()
                 auto midLoc = pin.midLoc();
                 if (_isHor)
                 {
+                    RealType loc = static_cast<RealType>(midLoc.x());
                     // wl_l <= _loc + pin_offset for all pins in the net
                     _ilpModel.addConstraint(  AT(_wlL, netIdx)
-                            - AT(_locs, pin.cellIdx() + midLoc.x())
-                            <= 0);
+                            - AT(_locs, pin.cellIdx())
+                            <=  loc);
                     // wl_r >= _loc + pin_offset for all pins in the net
                     _ilpModel.addConstraint(  AT(_wlR, netIdx)
-                            - AT(_locs, pin.cellIdx() + midLoc.x())
-                            >= 0);
+                            - AT(_locs, pin.cellIdx()) 
+                            >=  loc);
                 }
                 else
                 {
+                    RealType loc = static_cast<RealType>(midLoc.y());
                     // wl_l <= _loc + pin_offset for all pins in the net
                     _ilpModel.addConstraint(  AT(_wlL, netIdx)
-                            - AT(_locs, pin.cellIdx() + midLoc.y())
-                            <= 0);
+                            - AT(_locs, pin.cellIdx())
+                            <=  loc);
                     // wl_r >= _loc + pin_offset for all pins in the net
                     _ilpModel.addConstraint(  AT(_wlR, netIdx)
-                            - AT(_locs, pin.cellIdx() + midLoc.y())
-                            >= 0);
+                            - AT(_locs, pin.cellIdx()) 
+                            >=  loc);
                 }
             }
         }

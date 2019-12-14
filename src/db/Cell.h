@@ -104,6 +104,8 @@ class Cell
             {
                 _cellBBox.unionBox(bbox);
             }
+            INF("Enlarge cell boundry for 10 \n");
+            _cellBBox.enlargeBy(10);
         }
         /// @brief get the bounding box of the entire cell
         /// @return the bounding box of the entire cell

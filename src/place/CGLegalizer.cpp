@@ -2,6 +2,14 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+void CGLegalizer::legalize()
+{
+    this->generateConstraints();
+    _wStar = lpLegalization(true);
+    _hStar = lpLegalization(false);
+    lpDetailedPlacement();
+}
+
 /// @brief Find which direction is the least displacement direction to make the two boxes disjoint
 /// @return 1 if moving box2 left
 /// @return 2 if moving box2 right
@@ -752,22 +760,47 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
     orders.erase(it);
 }
 
-void CGLegalizer::lpLegalization(bool isHor)
+RealType CGLegalizer::lpLegalization(bool isHor)
 {
+    RealType obj;
     if (isHor)
     {
         auto solver = LpLegalizeSolver(_db, _hConstraints, isHor);
         solver.solve();
         solver.exportSolution();
+        obj = solver.evaluateObj();
     }
     else
     {
         auto solver = LpLegalizeSolver(_db, _vConstraints, isHor);
         solver.solve();
         solver.exportSolution();
+        obj = solver.evaluateObj();
     }
+#ifdef DEBUG_LEGALIZE
     _db.drawCellBlocks("./debug/after_legalization.gds");
+#endif
 
+    return obj;
+}
+
+void CGLegalizer::lpDetailedPlacement()
+{
+    // Horizontal
+    auto horSolver = LpLegalizeSolver(_db, _hConstraints, true, 1, 0);
+    DBG("float wstar %f \n", _wStar);
+    horSolver.setWStar(_wStar);
+    horSolver.solve();
+    horSolver.exportSolution();
+    // Vertical
+    auto verSolver = LpLegalizeSolver(_db, _vConstraints, false, 1, 0);
+    verSolver.setWStar(_hStar);
+    verSolver.solve();
+    verSolver.exportSolution();
+    
+#ifdef DEBUG_LEGALIZE
+    _db.drawCellBlocks("./debug/after_dp.gds");
+#endif
 }
 
 PROJECT_NAMESPACE_END

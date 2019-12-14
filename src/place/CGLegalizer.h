@@ -89,6 +89,11 @@ class LpLegalizeSolver
         void solve();
         // @brief dump out the solutions to the database
         void exportSolution();
+        /// @brief evaluate the objective function and return the value
+        RealType evaluateObj();
+        /// @brief set the maximum width or height (_wStar)
+        /// @param the maximum width or height in the hpwl optimization problem
+        void setWStar(RealType wStar) { _wStar = wStar; }
     private:
         /// @brief add ILP variables
         void addIlpVars();
@@ -113,7 +118,7 @@ class LpLegalizeSolver
         std::vector<LpModelType::variable_type> _wlL; ///< The left wirelength variables of the ILP model
         std::vector<LpModelType::variable_type> _wlR; ///< The right wirelength variables of the ILP model
         LpModelType::variable_type _dim; ///< The variable for area optimization
-        LocType _wStar = 0; ///< The optimal W found in legalization step
+        RealType _wStar = 0; ///< The optimal W found in legalization step
         std::vector<LpModelType::variable_type> _symLocs; ///< The variable for symmetric group axises
         //SolverType _solver; ///< Solver
         /*  Optimization Results */
@@ -166,12 +171,7 @@ class CGLegalizer
         /// @param The database of IdeaPlaceEx
         explicit CGLegalizer(Database &db) : _db(db) {}
         /// @brief legalize the design
-        void legalize()
-        {
-            this->generateConstraints();
-            lpLegalization(true);
-            lpLegalization(false);
-        }
+        void legalize();
     private:
         /// @brief Generate the constraints (not optimal in number of constraints). Based on sweeping algorithm
         void generateConstraints();
@@ -222,13 +222,18 @@ class CGLegalizer
         void readloadConstraints();
         /// @brief linear programming-based legalization
         /// @param if solving horizontal or vertical
-        void lpLegalization(bool isHor);
+        /// @return the resulting objective function
+        RealType lpLegalization(bool isHor);
+        /// @brief LP-based detailed placement. For optimizing wire length
+        void lpDetailedPlacement();
     private:
         Database &_db; ///< The database of IdeaPlaceEx
         ConstraintGraph _hCG; ///< The horizontal constraint graph
         ConstraintGraph _vCG; ///< The vertical constraint graph
         Constraints _hConstraints; ///< The horizontal constraint edges
         Constraints _vConstraints; ///< The vertical constraint edges
+        RealType _wStar; ///< The width from the objective function of the first LP
+        RealType _hStar; ///< The width from the objective function of the first LP
 };
 
 
