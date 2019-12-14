@@ -10,6 +10,7 @@
 
 #include "ConstraintGraph.h"
 #include "db/Database.h"
+#include <limbo/solvers/api/LPSolveApi.h>
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -71,6 +72,56 @@ class Constraints
         std::vector<ConstraintEdge> _edges; ///< The constraint edges
 };
 
+/// @brief The LP solver for legalization
+class LpLegalizeSolver
+{
+    public:
+        typedef limbo::solvers::LinearModel<RealType, RealType> LpModelType;
+        typedef limbo::solvers::LPSolveLinearApi
+            <LpModelType::coefficient_value_type, 
+            LpModelType::variable_value_type>
+                SolverType;
+        explicit LpLegalizeSolver(Database &db, Constraints &constraints, bool isHor=true,
+                IntType optHpwl=0, IntType optArea=1)
+            : _db(db), _constrains(constraints), _isHor(isHor), _optHpwl(optHpwl), _optArea(optArea)
+        {} //_solver = SolverType(&_ilpModel); }
+        /// @brief solve the problem
+        void solve();
+        // @brief dump out the solutions to the database
+        void exportSolution();
+    private:
+        /// @brief add ILP variables
+        void addIlpVars();
+        /// @brief add constraints
+        void addIlpConstraints();
+        /// @brief set the objective function
+        void configureObjFunc();
+        /// @brief solve the LP
+        void solveLp();
+    private:
+        /* Configurations - Inputs */
+        Database &_db; ///< The database for the Ideaplace
+        Constraints &_constrains; ///< The constraints edges to be honored
+        bool _isHor = true; ///< Whether solving horizontal or vertical
+        IntType _optHpwl = 0; ///< Whether optimizing HPWL in ILP problems
+        IntType _optArea = 1; ///< Whether optimizing area in ILP problems
+        /* Optimization supporting variables */
+        LpModelType _ilpModel; ///< The ILP model
+        LpModelType::expression_type _obj; ///< The objective function of the ILP model
+        IndexType numVars = INDEX_TYPE_MAX; ///< The number of variables in the ILP model
+        std::vector<LpModelType::variable_type> _locs; ///< The location variables of the ILP model
+        std::vector<LpModelType::variable_type> _wlL; ///< The left wirelength variables of the ILP model
+        std::vector<LpModelType::variable_type> _wlR; ///< The right wirelength variables of the ILP model
+        LpModelType::variable_type _dim; ///< The variable for area optimization
+        LocType _wStar = 0; ///< The optimal W found in legalization step
+        std::vector<LpModelType::variable_type> _symLocs; ///< The variable for symmetric group axises
+        //SolverType _solver; ///< Solver
+        /*  Optimization Results */
+        limbo::solvers::SolverProperty _optimStatus; ///< The resulting status
+        limbo::solvers::LPSolveParameters _params;
+
+};
+
 class CGLegalizer
 {
     private:
@@ -118,6 +169,8 @@ class CGLegalizer
         void legalize()
         {
             this->generateConstraints();
+            lpLegalization(true);
+            lpLegalization(false);
         }
     private:
         /// @brief Generate the constraints (not optimal in number of constraints). Based on sweeping algorithm
@@ -167,6 +220,9 @@ class CGLegalizer
         void addEdgeGreedy(IndexType i, IndexType j);
         /// @brief reload the constraints from the boost-based constraint graph
         void readloadConstraints();
+        /// @brief linear programming-based legalization
+        /// @param if solving horizontal or vertical
+        void lpLegalization(bool isHor);
     private:
         Database &_db; ///< The database of IdeaPlaceEx
         ConstraintGraph _hCG; ///< The horizontal constraint graph

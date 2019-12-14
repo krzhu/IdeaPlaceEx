@@ -51,6 +51,7 @@ inline bool ParserTechSimple::read(const std::string &filename)
         // Add to the database
         _db.tech().addGdsLayer(gdsLayer);
     }
+    _db.tech().initRuleDataStructure();
     return true;
 }
 

@@ -92,6 +92,13 @@ bool NlpWnconj::initVars()
         _boundary.set(xLo , yLo , xHi , yHi );
         DBG("Total cell area %f, tolerentArea %f \n", _totalCellArea, tolerentArea);
         INF("NlpWnconj::%s: automatical set boundary to be %s \n", __FUNCTION__, _boundary.toStr().c_str());
+        Box<LocType> bb = Box<LocType>(static_cast<LocType>(_boundary.xLo()),
+                        static_cast<LocType>(_boundary.yLo()),
+                        static_cast<LocType>(_boundary.xHi()),
+                        static_cast<LocType>(_boundary.yHi())
+                        );
+        _db.parameters().setBoundaryConstraint(bb);
+        INF("NlpWnconj::initVars: add boundary constraints as calculated \n");
     }
 
 
@@ -133,8 +140,8 @@ bool NlpWnconj::nlpKernel()
 {
     // Iteratively solve NLP untial total overlap is less than the threshold
     size_t numIter = 0; // Current number of iterations
-    size_t maxIter = 1; // The maximum number of iterations
-    return true;
+    size_t maxIter = 3; // The maximum number of iterations
+    //return true;
 
 #ifdef DEBUG_GR
     double *initial_coord_x0s;

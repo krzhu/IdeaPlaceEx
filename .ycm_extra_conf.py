@@ -43,6 +43,7 @@ limbo = os.environ['LIMBO_DIR'] + "/include"
 pybind11 = os.environ['PYBIND11_DIR'] + "/include"
 gtest =  os.environ['GTEST_DIR'] + '/googletest/include'
 wnlib = os.environ['WNLIB_DIR'] + '/acc/h'
+lpsolve = os.environ['LPSOLVE_DIR']
 flags = [
 '-Wall',
 '-Wextra',
@@ -77,6 +78,7 @@ get_python_inc(),
 '-I', pybind11,
 '-I', gtest,
 '-I', wnlib,
+'-I', lpsolve,
 '-isystem',
 '/home/local/eda09/keren/common/libs/boost_1_67_0/boost'
 ]

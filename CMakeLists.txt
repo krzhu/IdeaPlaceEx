@@ -80,6 +80,23 @@ find_library(WNLIB_LIBRARIES
 message(STATUS "WNLIB_ROOT_DIR = ${WNLIB_ROOT_DIR}")
 message(STATUS "WNLIB_LIBRARIES = ${WNLIB_LIBRARIES}")
 
+
+# Find the directory for LPSOLVE. If cache variable LPSOLVE_DIR is defined, use it as the path to LPSOLVE, otherwise use the system LPSOLVE_DIR
+if (LPSOLVE_DIR)
+    set(LPSOLVE_ROOT_DIR ${LPSOLVE_DIR})
+    message(STATUS "Use LPSOLVE: ${LPSOLVE_ROOT_DIR}")
+else()
+    set(LPSOLVE_ROOT_DIR $ENV{LPSOLVE_DIR})
+    message(STATUS "Use system LPSOLVE ${LPSOLVE_ROOT_DIR}")
+endif()
+unset (LPSOLVE_DIR CACHE)
+find_library(LPSOLVE_LIBRARIES
+    NAMES liblpsolve55.so
+    PATHS ${LPSOLVE_ROOT_DIR}
+    )
+message(STATUS "LPSOLVE_ROOT_DIR = ${LPSOLVE_ROOT_DIR}")
+message(STATUS "LPSOLVE_LIBRARIES = ${LPSOLVE_LIBRARIES}")
+
 # add a target to generate API documentation with Doxygen
 find_package(Doxygen)
 option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" ${DOXYGEN_FOUND})
@@ -174,7 +191,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline ")
 #set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -frename-registers -fprofile-use -fprofile-correction") 
 set(CMAKE_CXX_FLAGS_PROFILE "-Ofast -pg -Winline")
-set(CMAKE_EXE_LINKER_FLAGS "-pthread -static-libgcc -static-libstdc++ -static")
+set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${EXE_SOURCES})
@@ -186,6 +203,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${LIMBO_ROOT_DIR}/include
     ${SPARSEHASH_ROOT_DIR}/include
     ${WNLIB_ROOT_DIR}/acc/h
+    ${LPSOLVE_ROOT_DIR} 
 )
 
 target_link_libraries(${PROJECT_NAME} 
@@ -194,6 +212,7 @@ target_link_libraries(${PROJECT_NAME}
     ${ZLIB_LIBRARIES} 
     ${CAIRO_STATIC_LIBRARIES}
     ${WNLIB_LIBRARIES}
+    ${LPSOLVE_LIBRARIES}
     )
 #
 ## Add modules to pybind

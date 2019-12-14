@@ -49,6 +49,38 @@ class SymPair
         IndexType _secondCell = INDEX_TYPE_MAX; ///< The second cell
 };
 
+/// @brief the data structure for the symmetric group
+class SymGroup
+{
+    public:
+        /// @brief default constructor
+        explicit SymGroup() = default;
+        /// @brief add self symmetric cell
+        /// @param cell index
+        void addSelfSym(IndexType cellIdx) { _selfSyms.emplace_back(cellIdx); }
+        /// @brief get the number of self symmetric cells
+        /// @return the number of self symmetric cells in this group
+        IndexType numSelfSyms() const { return _selfSyms.size(); }
+        /// @brief get one cell index of the self symmetric constraint in this group
+        /// @param the index of self symmetric constraint in this group
+        /// @return a cell index
+        IndexType selfSym(IndexType idx) const { return AT(_selfSyms, idx); }
+        /// @brief add symmetric pair. The parameters order does not matter
+        /// @param one cell index
+        /// @param another cell index
+        void addSymPair(IndexType cellIdx1, IndexType cellIdx2) { _symPairs.emplace_back(SymPair(cellIdx1, cellIdx2)); }
+        /// @brief get the number of symmetric pairs in this group
+        /// @return the number of symmetric pairs in this group
+        IndexType numSymPairs() const { return _symPairs.size(); }
+        /// @brief get a symmetric pair in this group
+        /// @param the index of the pair in this group
+        /// @return a symmetric pair
+        const SymPair & symPair(IndexType idx) const { return AT(_symPairs, idx); }
+    private:
+        std::vector<SymPair> _symPairs; ///< The symmetric pairs
+        std::vector<IndexType> _selfSyms; ///< The self symmetric cells
+};
+
 PROJECT_NAMESPACE_END
 
 #endif //IDEAPLACE_DATABASE_CONSTRAINTS_H_

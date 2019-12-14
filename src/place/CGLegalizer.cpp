@@ -177,33 +177,37 @@ void CGLegalizer::generateConstraints()
     dagTransitiveReduction(_vCG);
 
     // FIXME: remove vertical edges between symmetric pairs and add the corresponding horizontal edges
-    for (IndexType symPairIdx = 0; symPairIdx < _db.numSymGroups(); ++symPairIdx)
+    for (IndexType symGroupIdx = 0; symGroupIdx < _db.numSymGroups(); ++symGroupIdx)
     {
-        const auto & symPair = _db.symPair(symPairIdx);
-        IndexType cellIdx1 = symPair.firstCell();
-        IndexType cellIdx2 = symPair.secondCell();
-        boost::remove_edge(boost::vertex(cellIdx1, _vCG.boostGraph()), boost::vertex(cellIdx2, _vCG.boostGraph()), 
-                _vCG.boostGraph());
-        boost::remove_edge(boost::vertex(cellIdx2, _vCG.boostGraph()), boost::vertex(cellIdx1, _vCG.boostGraph()), 
-                _vCG.boostGraph());
-        auto hEdge1 = boost::edge(boost::vertex(cellIdx1, _hCG.boostGraph()),
-                boost::vertex(cellIdx2, _hCG.boostGraph()), _hCG.boostGraph());
-        auto hEdge2 = boost::edge(boost::vertex(cellIdx2, _hCG.boostGraph()),
-                boost::vertex(cellIdx1, _hCG.boostGraph()), _hCG.boostGraph());
-        bool hasHorEdge = hEdge1.second || hEdge2.second;
-        if (!hasHorEdge)
+        const auto &symGroup = _db.symGroup(symGroupIdx);
+        for (IndexType symPairIdx = 0; symGroup.numSymPairs(); ++symPairIdx)
         {
-            if (_db.cell(cellIdx1).xLoc() <= _db.cell(cellIdx2).xLoc())
+            const auto & symPair = symGroup.symPair(symPairIdx);
+            IndexType cellIdx1 = symPair.firstCell();
+            IndexType cellIdx2 = symPair.secondCell();
+            boost::remove_edge(boost::vertex(cellIdx1, _vCG.boostGraph()), boost::vertex(cellIdx2, _vCG.boostGraph()), 
+                    _vCG.boostGraph());
+            boost::remove_edge(boost::vertex(cellIdx2, _vCG.boostGraph()), boost::vertex(cellIdx1, _vCG.boostGraph()), 
+                    _vCG.boostGraph());
+            auto hEdge1 = boost::edge(boost::vertex(cellIdx1, _hCG.boostGraph()),
+                    boost::vertex(cellIdx2, _hCG.boostGraph()), _hCG.boostGraph());
+            auto hEdge2 = boost::edge(boost::vertex(cellIdx2, _hCG.boostGraph()),
+                    boost::vertex(cellIdx1, _hCG.boostGraph()), _hCG.boostGraph());
+            bool hasHorEdge = hEdge1.second || hEdge2.second;
+            if (!hasHorEdge)
             {
-                boost::add_edge(boost::vertex(cellIdx1, _hCG.boostGraph()),
-                        boost::vertex(cellIdx2, _hCG.boostGraph()),
-                        -_db.cell(cellIdx1).cellBBox().xLen(), _hCG.boostGraph());
-            }
-            else
-            {
-                boost::add_edge(boost::vertex(cellIdx2, _hCG.boostGraph()),
-                        boost::vertex(cellIdx1, _hCG.boostGraph()),
-                        -_db.cell(cellIdx2).cellBBox().xLen(), _hCG.boostGraph());
+                if (_db.cell(cellIdx1).xLoc() <= _db.cell(cellIdx2).xLoc())
+                {
+                    boost::add_edge(boost::vertex(cellIdx1, _hCG.boostGraph()),
+                            boost::vertex(cellIdx2, _hCG.boostGraph()),
+                            -_db.cell(cellIdx1).cellBBox().xLen(), _hCG.boostGraph());
+                }
+                else
+                {
+                    boost::add_edge(boost::vertex(cellIdx2, _hCG.boostGraph()),
+                            boost::vertex(cellIdx1, _hCG.boostGraph()),
+                            -_db.cell(cellIdx2).cellBBox().xLen(), _hCG.boostGraph());
+                }
             }
         }
     } // for (IndexType symPairIdx = 0; symPairIdx < _db.numSymGroups(); ++symPairIdx)
@@ -748,5 +752,22 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
     orders.erase(it);
 }
 
+void CGLegalizer::lpLegalization(bool isHor)
+{
+    if (isHor)
+    {
+        auto solver = LpLegalizeSolver(_db, _hConstraints, isHor);
+        solver.solve();
+        solver.exportSolution();
+    }
+    else
+    {
+        auto solver = LpLegalizeSolver(_db, _vConstraints, isHor);
+        solver.solve();
+        solver.exportSolution();
+    }
+    _db.drawCellBlocks("./debug/after_legalization.gds");
+
+}
 
 PROJECT_NAMESPACE_END

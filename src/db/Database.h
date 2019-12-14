@@ -50,14 +50,16 @@ class Database
         /*------------------------------*/ 
         /// @brief get the number of symmetric groups
         /// @return the number of the symmetric groups
-        IndexType numSymGroups() const { return _symPairs.size(); }
-        /// @brief get a symmetric pair
-        /// @param the index of the symmetric pair
-        const SymPair & symPair(IndexType idx) { return _symPairs.at(idx); }
+        IndexType numSymGroups() const { return _symGroups.size(); }
+        /// @brief get a symmetric group
+        /// @param the index of the symmetric group
+        const SymGroup & symGroup(IndexType idx) { return _symGroups.at(idx); }
+#if 0
         /// @brief add a symmetric pair. The order of two cell indices do not matter
         /// @param one cell index
         /// @param one cell index
         void addSymPair(IndexType cellIdx1, IndexType cellIdx2) { _symPairs.emplace_back(SymPair(cellIdx1, cellIdx2)); }
+#endif
         /// @brief get the number of cells
         /// @return the number of cells
         IndexType numCells() const { return _cellArray.size(); }
@@ -102,6 +104,14 @@ class Database
         /// @return the index of the pin
         IndexType allocatePin() { _pinArray.emplace_back(Pin()); return _pinArray.size() - 1; }
         /*------------------------------*/ 
+        /* Technology-dependent         */
+        /*------------------------------*/ 
+        /// @brief get the spacing requirement between two cells
+        /// @param index for cell 1
+        /// @param index for cell 2
+        /// @return A box object representing the spacing requirements. xyLo for cell 1 is left and bottm. xyHi for ... 2...
+        Box<LocType> cellSpacing(IndexType cellIdx1, IndexType cellIdx2) const;
+        /*------------------------------*/ 
         /* Supporting functions         */
         /*------------------------------*/ 
         /// @brief calcuate the total cell area
@@ -120,7 +130,7 @@ class Database
         std::vector<Cell> _cellArray; ///< The cells of the placement problem
         std::vector<Net> _netArray; ///< The nets of the placement problem
         std::vector<Pin> _pinArray; ///< The pins of the placement problem
-        std::vector<SymPair> _symPairs; ///< The symmetric pair constraints
+        std::vector<SymGroup> _symGroups; ///< The symmetric groups
         Tech _tech; ///< The tech information
         Parameters _para; ///< The parameters for the placement engine
 };
@@ -133,6 +143,51 @@ inline LocType Database::calculateTotalCellArea() const
         area += cell.cellBBox().area();
     }
     return area;
+}
+
+inline Box<LocType> Database::cellSpacing(IndexType cellIdx1, IndexType cellIdx2) const
+{
+    const auto &cell1 = this->cell(cellIdx1);
+    const auto &cell2 = this->cell(cellIdx2);
+    Box<LocType> spacings = Box<LocType>(0, 0, 0, 0);
+    for (IndexType layerIdx = 0; layerIdx < _tech.numLayers(); ++layerIdx)
+    {
+        bool cell1HasLayer = cell1.layerHasShape(layerIdx);
+        bool cell2HasLayer = cell2.layerHasShape(layerIdx);
+        if (! ( cell1HasLayer && cell2HasLayer))
+        {
+            continue;
+        }
+        bool layerHasSpacingRule = _tech.hasSpacingRule(layerIdx);
+        if (!layerHasSpacingRule)
+        {
+            continue;
+        }
+        LocType spacingRule = _tech.spacingRule(layerIdx);
+        // Calculate the layer shape to the cell boundry
+        LocType cell1ToBoundXLo = cell1.bbox(layerIdx).xLo() - cell1.cellBBox().xLo();
+        LocType cell1ToBoundXHi = cell1.cellBBox().xHi() - cell1.bbox(layerIdx).xHi();
+        LocType cell1ToBoundYLo = cell1.bbox(layerIdx).yLo() - cell1.cellBBox().yLo();
+        LocType cell1ToBoundYHi = cell1.cellBBox().yHi() - cell1.bbox(layerIdx).yHi();
+        LocType cell2ToBoundXLo = cell2.bbox(layerIdx).xLo() - cell2.cellBBox().xLo();
+        LocType cell2ToBoundXHi = cell2.cellBBox().xHi() - cell2.bbox(layerIdx).xHi();
+        LocType cell2ToBoundYLo = cell2.bbox(layerIdx).yLo() - cell2.cellBBox().yLo();
+        LocType cell2ToBoundYHi = cell2.cellBBox().yHi() - cell2.bbox(layerIdx).yHi();
+        // cell 1 is left
+        LocType xLo = cell1ToBoundXHi + spacingRule + cell2ToBoundXLo;
+        // cell 1 is lower
+        LocType yLo = cell1ToBoundYHi + spacingRule + cell2ToBoundYLo;
+        // cell 1 is right
+        LocType xHi = cell1ToBoundXLo + spacingRule + cell2ToBoundXHi;
+        // cell 1 is higher
+        LocType yHi = cell1ToBoundYLo + spacingRule + cell2ToBoundYHi;
+        // Update the cell-wise spacing
+        spacings.setXLo(std::max(spacings.xLo(), xLo));
+        spacings.setYLo(std::max(spacings.yLo(), yLo));
+        spacings.setXHi(std::max(spacings.xHi(), xHi));
+        spacings.setYHi(std::max(spacings.yHi(), yHi));
+    }
+    return spacings;
 }
 
 PROJECT_NAMESPACE_END
