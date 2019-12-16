@@ -6,6 +6,7 @@
 #include "parser/ParserConnection.h"
 #include "parser/ParserNetwgt.h"
 #include "parser/ParserGds.h"
+#include "parser/ParserSymFile.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -51,6 +52,12 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
     {
         // If .netwgt is not set, skip
         INF("IdeaPlaceEx::%s no .netwgt file, skip... \n", __FUNCTION__);
+    }
+
+    if (_args.symFileIsSet())
+    {
+        INF("IdeaPlaceEx:%s Read in .sym ... \n", __FUNCTION__);
+        ParserSymFile(_db).read(_args.symFile());
     }
 
     // Init cells before read in the gds

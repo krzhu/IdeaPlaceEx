@@ -194,10 +194,13 @@ void LpLegalizeSolver::addIlpConstraints()
         for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
         {
             const auto &symGrp = _db.symGroup(symGrpIdx);
+
             for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++symPairIdx)
             {
                 const auto &symPair = symGrp.symPair(symPairIdx);
                 // x1 + x2 + width =  2 * symAxis
+                DBG("Add sym constraint. \n symGrp %d, cell %d %d \n width %d \n",
+                        symGrpIdx, symPair.firstCell(), symPair.secondCell(), _db.cell(symPair.firstCell()).cellBBox().xLen());
                 _ilpModel.addConstraint(AT(_locs, symPair.firstCell()) 
                         + AT(_locs, symPair.secondCell()) 
                         - 2*AT(_symLocs, symGrpIdx) 
@@ -208,6 +211,7 @@ void LpLegalizeSolver::addIlpConstraints()
             for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
             {
                 IndexType ssCellIdx = symGrp.selfSym(selfSymIdx);
+                DBG("add self sym %d \n", ssCellIdx);
                 // x1 + width + x2 = 2 * symAxis
                 _ilpModel.addConstraint(2 * AT(_locs, ssCellIdx) - 2 * AT(_symLocs, symGrpIdx)
                         == - _db.cell(ssCellIdx).cellBBox().xLen());

@@ -29,6 +29,7 @@ public:
     std::string netwgtFile = "";
     std::string connectionFile = "";
     std::string techsimpleFile = "";
+    std::string symFile = "";
     std::string log = "";
     std::vector<std::string> gdsFiles;
 
@@ -64,6 +65,12 @@ class ProgArgs
         /// @brief determine whether the .connection file is set
         /// @return whether .connection file is set
         bool connectionFileIsSet() const { return _connectionFile != ""; }
+        /// @brief get the .connection file file name
+        /// @return the .connection file file name
+        const std::string symFile() const { Assert(this->symFileIsSet()); return _symFile; }
+        /// @brief determine whether the .sym file is set
+        /// @return whether .sym file is set
+        bool symFileIsSet() const { return _symFile != ""; }
         /// @brief get the techsimple file file name
         /// @return the techsimple file file name
         const std::string techsimpleFile() const { Assert(this->techsimpleFileIsSet()); return _techsimpleFile; }
@@ -82,6 +89,9 @@ class ProgArgs
         /// @brief set the .pin file
         /// @param the .pin file file name
         void setPinFile(const std::string &pinFile) { _pinFile = pinFile; }
+        /// @brief set the .sym file
+        /// @param the .sym file file name
+        void setSymFile(const std::string &symFile) { _symFile = symFile; }
         /// @brief set the .netwgt file
         /// @param the .netwgt file file name
         void setNetwgtFile(const std::string &netwgtFile) { _netwgtFile = netwgtFile; }
@@ -96,6 +106,7 @@ class ProgArgs
         std::string _netwgtFile = ""; ///< .netwgt file
         std::string _connectionFile = ""; ///< .connection file
         std::string _techsimpleFile = ""; ///< The techfile simple file
+        std::string _symFile = ""; ///< The .sym file
         std::vector<std::string> _gdsFiles; ///< The gds files for read
 };
 

@@ -48,18 +48,18 @@ class Database
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
+        /// @brief allocate a new symmetric group
+        /// @return the index of the symmetric group
+        IndexType allocateSymGrp() { _symGroups.emplace_back(SymGroup()); return _symGroups.size() - 1;}
         /// @brief get the number of symmetric groups
         /// @return the number of the symmetric groups
         IndexType numSymGroups() const { return _symGroups.size(); }
         /// @brief get a symmetric group
         /// @param the index of the symmetric group
-        const SymGroup & symGroup(IndexType idx) { return _symGroups.at(idx); }
-#if 0
-        /// @brief add a symmetric pair. The order of two cell indices do not matter
-        /// @param one cell index
-        /// @param one cell index
-        void addSymPair(IndexType cellIdx1, IndexType cellIdx2) { _symPairs.emplace_back(SymPair(cellIdx1, cellIdx2)); }
-#endif
+        const SymGroup & symGroup(IndexType idx) const { return _symGroups.at(idx); }
+        /// @brief get a symmetric group
+        /// @param the index of the symmetric group
+        SymGroup & symGroup(IndexType idx) { return _symGroups.at(idx); }
         /// @brief get the number of cells
         /// @return the number of cells
         IndexType numCells() const { return _cellArray.size(); }

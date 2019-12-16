@@ -69,16 +69,37 @@ void CGLegalizer::generateConstraints()
             // First detect whether the pair are sym pair or are both self-symmetric
             bool symPairFlag = false;
             bool selfSymFlag = false;
-            if (_db.cell(idx1).hasSymPair() && _db.cell(idx2).hasSymPair())
+            for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
             {
-                if (cell1.symPairCellIdx() == idx2 && cell2.symPairCellIdx() == idx1)
+                const auto &symGrp = _db.symGroup(symGrpIdx);
+                for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++symPairIdx)
                 {
-                    symPairFlag = true;
+                    const auto &symPair = symGrp.symPair(symPairIdx);
+                    if ((idx1 == symPair.firstCell() && idx2 == symPair.secondCell())
+                            || (idx2 == symPair.firstCell() && idx1 == symPair.secondCell()))
+                    {
+                        symPairFlag = true;
+                        break;
+                    }
                 }
-            }
-            if (cell1.hasSelfSym() && cell2.hasSelfSym())
-            {
-                selfSymFlag = true;
+                bool found1 = false;
+                bool found2 = false;
+                for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
+                {
+                    if (symGrp.selfSym(selfSymIdx) == idx1)
+                    {
+                        found1 = true;
+                    }
+                    if (symGrp.selfSym(selfSymIdx) == idx2)
+                    {
+                        found2 = true;
+                    }
+                }
+                if (found1 && found2)
+                {
+                    selfSymFlag = true;
+                    break;
+                }
             }
             // If sym pair add them in the following way
             if (symPairFlag)
@@ -188,7 +209,7 @@ void CGLegalizer::generateConstraints()
     for (IndexType symGroupIdx = 0; symGroupIdx < _db.numSymGroups(); ++symGroupIdx)
     {
         const auto &symGroup = _db.symGroup(symGroupIdx);
-        for (IndexType symPairIdx = 0; symGroup.numSymPairs(); ++symPairIdx)
+        for (IndexType symPairIdx = 0; symPairIdx < symGroup.numSymPairs(); ++symPairIdx)
         {
             const auto & symPair = symGroup.symPair(symPairIdx);
             IndexType cellIdx1 = symPair.firstCell();
@@ -254,6 +275,7 @@ void CGLegalizer::readloadConstraints()
         IndexType targetIdx = idxMapH[boost::target(*ei, _hCG.boostGraph())]; // target node of the edge
         auto weight = boost::get(weightMapH, *ei);
         _hConstraints.addConstraintEdge(sourceIdx, targetIdx, weight);
+        DBG("add hor cg edge %d %d \n", sourceIdx, targetIdx);
     }
     // vertical
     for (boost::tie(ei, eiEnd) = boost::edges(_vCG.boostGraph()); ei != eiEnd; ++ei)
@@ -262,6 +284,7 @@ void CGLegalizer::readloadConstraints()
         IndexType targetIdx = idxMapV[boost::target(*ei, _vCG.boostGraph())]; // target node of the edge
         auto weight = boost::get(weightMapV, *ei);
         _vConstraints.addConstraintEdge(sourceIdx, targetIdx, weight);
+        DBG("add ver cg edge %d %d \n", sourceIdx, targetIdx);
     }
 }
 

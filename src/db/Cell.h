@@ -104,8 +104,8 @@ class Cell
             {
                 _cellBBox.unionBox(bbox);
             }
-            INF("Enlarge cell boundry for 10 \n");
-            _cellBBox.enlargeBy(10);
+            INF("Enlarge cell boundry for 10 for spacing \n");
+            _cellBBox.enlargeBy(70);
         }
         /// @brief get the bounding box of the entire cell
         /// @return the bounding box of the entire cell
@@ -113,15 +113,6 @@ class Cell
         /// @brief calculate the cellBBox offset by the current location
         /// @return the cellBBox offset by the current location
         Box<LocType> cellBBoxOff() const { return _cellBBox.offsetBox(_loc); }
-        /// @brief get if the cell has symmetric pair constraint
-        /// @return if the cell has symmetric pair constraint
-        bool hasSymPair() const { return false; }
-        /// @brief get the index of the other cell of the sym pair
-        /// @return the index of the other cell of the sym pair
-        IndexType symPairCellIdx() const { return INDEX_TYPE_MAX; }
-        /// @brief get if the cell has self symmetric constraint
-        /// @return if the cell has self symmetric constraint
-        bool hasSelfSym() const { return false; }
 
     private:
         std::string _name; ///< The cell name

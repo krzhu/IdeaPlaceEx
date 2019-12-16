@@ -183,6 +183,15 @@ class NlpWnconj
         /// @param first: the pointer to the gradients
         /// @param second: the pointer to the values
         void gradFunc(double *grad, double *values);
+    private:
+        /*------------------------------*/ 
+        /* Update penalty multiplier    */
+        /*------------------------------*/ 
+        /// @brief calculate the step size
+        RealType stepSize();
+        /// @brief update penalty terms
+        void updateMultipliers();
+
         
     private:
         Database &_db; ///< The placement engine database
@@ -204,12 +213,22 @@ class NlpWnconj
         double _oobThreshold = NLP_WN_CONJ_OOB_THRESHOLD; ///< The threshold for wehther increasing the penalty for out of boundry
         double _asymThreshold = NLP_WN_CONJ_ASYM_THRESHOLD; ///< The threshold for whether increasing the penalty for asymmetry
         double _scale = 0.01;
+        RealType _fOverlap = 0;
+        RealType _fOOB = 0;
+        RealType _fHpwl = 0;
+        RealType _fAsym = 0;
+        RealType _epsilon = 2;///< For updating penalty multipliers
+        IndexType _iter = 0; ///< Current iteration
 };
 
 inline double NlpWnconj::objFunc(double *values)
 {
     // Initial the objective to be 0 and add the non-zero to it
     double result = 0;
+    _fOverlap = 0;
+    _fOOB = 0;
+    _fHpwl = 0;
+    _fAsym = 0;
     // log-sum-exp model for overlap penalty
     // Calculate the cell-wise overlapping area penalty
     // TODO: improve the codes below from O(n^2) to O(nlogn)
@@ -237,8 +256,11 @@ inline double NlpWnconj::objFunc(double *values)
             // Add to the objective
             result += _lambda1 * overlapX * overlapY;
             //DBG("Overlap add %f, lambda %f \n", _lambda1 * overlapX * overlapY, _lambda1);
+            _fOverlap += _lambda1 * overlapX * overlapY ;
         }
     }
+
+    //double oobCost = 0;
 
     // Out of boundary penalty
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
@@ -254,19 +276,48 @@ inline double NlpWnconj::objFunc(double *values)
         double obYHi = NlpWnconjDetails::logSumExp0(yHi - _boundary.yLo(), _alpha);
         // Add to the objective
         result += _lambda2 * (obXLo + obXHi + obYLo + obYHi);
+        _fOOB +=  _lambda2 * obXLo + obXHi + obYLo + obYHi;
+        //oobCost += (obXLo + obXHi + obYLo + obYHi);
         //DBG("OOB add %f, lambda %f \n",_lambda2 * (obXLo + obXHi + obYLo + obYHi), _lambda2);
     }
+    //DBG("\n\nOOBCost : %f \n\n", oobCost);
 
+#if 1
     // Wire length penalty
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
         double smoothHPWL = this->logSumExpHPWL(values, netIdx, _alpha);
         result += _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
+        _fHpwl +=  _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
         //DBG("HPWL add %f, lambda %f \n", _lambda3 * _db.net(netIdx).weight() * smoothHPWL, _lambda3);
     }
+#endif
     
     // ASYMMETRY
-    // TODO
+    RealType asymPenalty = 0;
+    for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+    {
+        const auto & symGrp = _db.symGroup(symGrpIdx);
+        for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
+        {
+            const auto & symPair = symGrp.symPair(symPairIdx);
+            IndexType cellIdx1 = symPair.firstCell();
+            IndexType cellIdx2 = symPair.secondCell();
+            RealType cell1Width = _db.cell(cellIdx1).cellBBox().xLen() * _scale;
+            asymPenalty += pow(values[cellIdx1 * 2 +1] - values[2 * cellIdx2 + 1], 2.0); // (y1 -y2) ^ 2
+            asymPenalty += pow(values[2 * cellIdx1] + values[2 * cellIdx2] 
+                    + cell1Width - 2 *values[2 * _db.numCells() + symGrpIdx], 2.0);
+        }
+        for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
+        {
+            IndexType selfSymCellIdx = symGrp.selfSym(selfSymIdx);
+            RealType cell1Width = _db.cell(selfSymCellIdx).cellBBox().xLen() * _scale;
+            asymPenalty += pow(values[2 * selfSymCellIdx] + cell1Width / 2 
+                    - values[2 * _db.numCells() + symGrpIdx], 2.0);
+        }
+    }
+    result += _lambda4 * asymPenalty;
+    _fAsym +=  _lambda4 * asymPenalty ;
     
     return result;
 }
@@ -311,15 +362,16 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         double xLo = values[2 * cellIdx]; double xHi = xLo + bbox.xLen() * _scale;
         double yLo = values[2 * cellIdx + 1]; double yHi = yLo + bbox.yLen() * _scale;
         // max(lower - x/yLo, 0), max (x/yHi - upper, 0)
-        double gradObX = - NlpWnconjDetails::gradLogSumExp0(bbox.xLo() - xLo, _alpha); // the negative is from derivative
-        gradObX += NlpWnconjDetails::gradLogSumExp0(xHi - bbox.xHi(), _alpha);
+        double gradObX = - NlpWnconjDetails::gradLogSumExp0(_boundary.xLo() - xLo, _alpha); // the negative is from derivative
+        gradObX += NlpWnconjDetails::gradLogSumExp0(xHi - _boundary.xHi(), _alpha);
         // Record
         grad[2 * cellIdx] +=  _lambda2 * gradObX;
-        double gradObY = - NlpWnconjDetails::gradLogSumExp0(bbox.yLo() - yLo, _alpha); // the negative is from derivative
-        gradObY += NlpWnconjDetails::gradLogSumExp0(yHi - bbox.yHi(), _alpha);
+        double gradObY = - NlpWnconjDetails::gradLogSumExp0(_boundary.yLo() - yLo, _alpha); // the negative is from derivative
+        gradObY += NlpWnconjDetails::gradLogSumExp0(yHi - _boundary.yHi(), _alpha);
         // Record
         grad[2 * cellIdx + 1] += _lambda2 * gradObY;
     }
+#if 1
     // Wire length penalty
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
@@ -338,9 +390,39 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
             grad[2 * cellIdx + 1] += netWgt * _lambda3 * gradY[pinInNetIdx];
         }
     }
+#endif
     
     // ASYMMETRY
-    // TODO
+    for (IndexType idx = 0; idx < _db.numCells(); ++idx)
+    {
+        grad[idx + 2 * _db.numCells()] = 0; // initialize gradient
+    }
+    for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+    {
+        const auto & symGrp = _db.symGroup(symGrpIdx);
+        for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++symPairIdx)
+        {
+            IndexType cellIdx1 = symGrp.symPair(symPairIdx).firstCell();
+            IndexType cellIdx2 = symGrp.symPair(symPairIdx).secondCell();
+            RealType cell1Width = _db.cell(cellIdx1).cellBBox().xLen() * _scale;
+            RealType gradX = 2.0 * (values[2 * cellIdx1] + values[2 * cellIdx2]
+                    +cell1Width - 2 * values[2 * _db.numCells() + symGrpIdx]);
+            grad[2 * cellIdx1] += _lambda4 * gradX;
+            grad[2 * cellIdx2] +=  _lambda4 * gradX;
+            grad[2 * _db.numCells() + symGrpIdx] += _lambda4 * (- 2.0 * gradX);
+            RealType gradY = 2.0 * (values[2 * cellIdx1 + 1] - values[2 * cellIdx2 + 1]);
+            grad[2 * cellIdx1 + 1] += _lambda4 * gradY;
+            grad[2 * cellIdx2 + 1] += _lambda4 * (- gradY); 
+        }
+        for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
+        {
+            IndexType cellIdx = symGrp.selfSym(selfSymIdx);
+            RealType cellWidth = _db.cell(cellIdx).cellBBox().xLen() * _scale;
+            RealType gradSS = 2.0 * (values[2 * cellIdx] + cellWidth / 2 - values[2 * _db.numCells() + symGrpIdx]);
+            grad[2 * cellIdx] += _lambda4 * gradSS;
+            grad[2 * _db.numCells() + symGrpIdx]  += _lambda4 * (- gradSS);
+        }
+    }
     
 }
 
@@ -370,8 +452,7 @@ inline double NlpWnconj::totalOvlArea(double *values)
             double var2Y = yHiJ - yLoI;
             double overlapY = std::min(var1Y, var2Y);
             overlapY = std::max(overlapY, 0.0);
-            DBG("shape %f %f %f %f vs %f %f %f %f \n", xLoI, yLoI, xHiI, yHiI, xLoJ, yLoJ, xHiJ, yHiJ);
-            DBG("Overlap between cell %d %d, area %f \n", cellIdxI, cellIdxJ, overlapX * overlapY);
+            if (overlapX * overlapY >= 0.000001)
             area +=  overlapX * overlapY;
         }
     }

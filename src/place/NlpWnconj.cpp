@@ -51,6 +51,26 @@ bool NlpWnconj::writeOut()
     return true;
 }
 
+RealType NlpWnconj::stepSize()
+{
+    RealType eps = _epsilon * ( 1/ sqrt(static_cast<RealType>(_iter+ 1)));
+    RealType obj = this->objFunc(_solutionVect); // also calculate fOOB etc.
+    RealType violate = _fOverlap + _fOOB + _fAsym;
+    return eps * ( obj - 0.0) / violate; // 0.0 is better to be replaced by lower bound baseline
+}
+
+void NlpWnconj::updateMultipliers()
+{
+    auto mu = stepSize();
+    RealType violate = _fOverlap  + _fOOB + _fAsym + _fHpwl ;
+    _lambda1 = _lambda1  + mu * _fOverlap  / violate;
+    _lambda2 = _lambda2 + mu * _fOOB  / violate;
+    _lambda4 = _lambda4 + mu *_fAsym  / violate;
+#ifdef DEBUG_GR
+    DBG("\n\niter %d mu %f lambda1 %f lambda2 %f lambda4 %f", _iter, mu,  _lambda1, _lambda2, _lambda4);
+#endif
+}
+
 bool NlpWnconj::initVars()
 {
     // The number of nlp problem variables
@@ -139,9 +159,9 @@ void gradFuncWrapper(double *vec1, double *vec2)
 bool NlpWnconj::nlpKernel()
 {
     // Iteratively solve NLP untial total overlap is less than the threshold
-    size_t numIter = 0; // Current number of iterations
-    size_t maxIter = 3; // The maximum number of iterations
-    //return true;
+    _iter = 0; // Current number of iterations
+    size_t maxIter = 20; // The maximum number of iterations
+
 
 #ifdef DEBUG_GR
     double *initial_coord_x0s;
@@ -153,13 +173,13 @@ bool NlpWnconj::nlpKernel()
 #endif //DEBUG_GR
 
     // Iteratively solving NLP
-    while (numIter < maxIter)
+    while (_iter < maxIter)
     {
         wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
 #ifdef DEBUG_GR
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         double objective = objFunc(_solutionVect);
-        DBG("NlpWnconj::%s: objective %f at iter %d \n", __FUNCTION__, objective, numIter);
+        DBG("NlpWnconj::%s: objective %f at iter %d \n", __FUNCTION__, objective, _iter);
         for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
         {
             DBG("cell %d x %f y %f \n", cellIdx, _solutionVect[cellIdx * 2], _solutionVect[cellIdx *2 + 1]);
@@ -171,6 +191,8 @@ bool NlpWnconj::nlpKernel()
         // Increase penalty for overlapping if the overlapping ratio is larger than the threshold
         DBG("overlap ratio %f \n", _curOvlRatio);
         DBG("OOB ratio %f \n", _curOOBRatio);
+        updateMultipliers();
+#if 0
         if (_curOvlRatio > _overlapThreshold)
         {
             DBG("Overlap check failed \n");
@@ -195,7 +217,8 @@ bool NlpWnconj::nlpKernel()
         {
             break;
         }
-        numIter++;
+#endif
+        _iter++;
     }
     return true;
 }
