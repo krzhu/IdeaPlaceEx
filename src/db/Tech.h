@@ -24,11 +24,13 @@ class Tech
         /*------------------------------*/ 
         /// @brief add a gds layer
         /// @param a gds layer ID
-        void addGdsLayer(IndexType gdsLayer) 
+        /// @return the placement layer index
+        IndexType addGdsLayer(IndexType gdsLayer) 
         {
             IndexType layerIdx = _gdsLayerIdxArray.size();
             _gdsLayerIdxArray.emplace_back(gdsLayer);
             _layerIdxMap[gdsLayer] = layerIdx;
+            return layerIdx;
         }
         /// @brief initialize the rule data structures
         void initRuleDataStructure();

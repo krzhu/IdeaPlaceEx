@@ -801,7 +801,9 @@ RealType CGLegalizer::lpLegalization(bool isHor)
         obj = solver.evaluateObj();
     }
 #ifdef DEBUG_LEGALIZE
+#ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_legalization.gds");
+#endif
 #endif
 
     return obj;
@@ -822,7 +824,9 @@ void CGLegalizer::lpDetailedPlacement()
     verSolver.exportSolution();
     
 #ifdef DEBUG_LEGALIZE
+#ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_dp.gds");
+#endif
 #endif
 }
 
