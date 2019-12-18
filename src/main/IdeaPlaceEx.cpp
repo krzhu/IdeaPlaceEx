@@ -14,6 +14,35 @@ PROJECT_NAMESPACE_BEGIN
 // This is for a trick to overly use static members in the NlpWnconj class
 NlpWnconj *nlpPtr = nullptr;
 
+void IdeaPlaceEx::readTechSimpleFile(const std::string &techsimple)
+{
+    ParserTechSimple(_db).read(techsimple);
+}
+
+void IdeaPlaceEx::readPinFile(const std::string &pinFile)
+{
+    ParserPin(_db).read(pinFile);
+}
+
+void IdeaPlaceEx::readConnectionFile(const std::string &connectionFile)
+{
+    ParserConnection(_db).read(connectionFile);
+}
+
+void IdeaPlaceEx::readNetWgtFile(const std::string &netWgtFile)
+{
+    ParserNetwgt(_db).read(netWgtFile);
+}
+
+void IdeaPlaceEx::readSymFile(const std::string &symFile)
+{
+    ParserSymFile(_db).read(symFile);
+}
+void IdeaPlaceEx::readGdsLayout(const std::string &gdsFile, IndexType cellIdx)
+{
+    ParserCellGds(_db).parseCellGds(gdsFile, cellIdx);
+}
+
 bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
 {
     ProgArgs _args = ProgArgsDetails::parseProgArgsCMD(argc, argv);
@@ -75,6 +104,14 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
 
 bool IdeaPlaceEx::solve()
 {
+    // Start message printer timer
+    MsgPrinter::startTimer();
+    // Solve cleaning up tasks for safe...
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        _db.cell(cellIdx).calculateCellBBox();
+    }
+
     NlpWnconj nlp(_db);
     nlpPtr = &nlp;
     nlp.solve();

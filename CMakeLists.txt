@@ -136,7 +136,7 @@ file(GLOB SOURCES src/global/*.h    src/global/*.cpp
                   src/main/IdeaPlaceEx.h src/main/IdeaPlaceEx.cpp)
 
 file(GLOB EXE_SOURCES src/main/main.cpp)
-file(GLOB PY_API_SOURCES src/api/api.cpp)
+file(GLOB PY_API_SOURCES src/api/*.cpp)
 
 # linking libraries
 file(GLOB STATIC_LIB 
@@ -144,17 +144,17 @@ file(GLOB STATIC_LIB
     ${LIMBO_ROOT_DIR}/lib/libgdsparser.a)
 
 
-##pybind11
-#if (PYBIND11_DIR)
-#    set(PYBIND11_ROOT_DIR ${PYBIND11_DIR})
-#    message(STATUS "Use pybind11: ${PYBIND11_ROOT_DIR}")
-#else()
-#    set(PYBIND11_ROOT_DIR $ENV{PYBIND11_DIR})
-#    message(STATUS "Use system pybind11: ${PYBIND11_ROOT_DIR}")
-#endif()
-#unset(PYBIND11_DIR CACHE)
-#
-#add_subdirectory(${PYBIND11_ROOT_DIR} "./pybind11")
+#pybind11
+if (PYBIND11_DIR)
+    set(PYBIND11_ROOT_DIR ${PYBIND11_DIR})
+    message(STATUS "Use pybind11: ${PYBIND11_ROOT_DIR}")
+else()
+    set(PYBIND11_ROOT_DIR $ENV{PYBIND11_DIR})
+    message(STATUS "Use system pybind11: ${PYBIND11_ROOT_DIR}")
+endif()
+unset(PYBIND11_DIR CACHE)
+add_subdirectory(${PYBIND11_ROOT_DIR} "./pybind11")
+
 #
 ##Google Test
 #if (GTEST_DIR)
@@ -166,8 +166,8 @@ file(GLOB STATIC_LIB
 #endif()
 #unset(GTEST_DIR CACHE)
 #
-## Python
-#find_package(PythonLibs REQUIRED)
+# Python
+find_package(PythonLibs REQUIRED)
 
 #Print out the used build type
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -205,6 +205,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${SPARSEHASH_ROOT_DIR}/include
     ${WNLIB_ROOT_DIR}/acc/h
     ${LPSOLVE_ROOT_DIR} 
+    ${PYTHON_INCLUDE_DIRS}
+    ${PYBIND11_ROOT_DIR}/include
 )
 
 target_link_libraries(${PROJECT_NAME} 
@@ -217,8 +219,11 @@ target_link_libraries(${PROJECT_NAME}
     )
 #
 ## Add modules to pybind
-##pybind11_add_module("arouterex" ${PY_API_SOURCES} ${SOURCES})
-##target_link_libraries("arouterex" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES})
+pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})
+target_link_libraries("IdeaPlaceExPy" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES}
+    ${WNLIB_LIBRARIES}
+    ${LPSOLVE_LIBRARIES}
+)
 #
 ##Install
 #install (TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX_DIR}/bin)

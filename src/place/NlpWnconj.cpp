@@ -185,12 +185,14 @@ bool NlpWnconj::nlpKernel()
             DBG("cell %d x %f y %f \n", cellIdx, _solutionVect[cellIdx * 2], _solutionVect[cellIdx *2 + 1]);
         }
 #endif
+#if 0
         bool breakFlag = true; // Whether all criterials are met
         // Evaluate the current solution, calculate _curOvlRatio, _curOOBratio and _curAsymDist
         this->evaluteSolution();
         // Increase penalty for overlapping if the overlapping ratio is larger than the threshold
         DBG("overlap ratio %f \n", _curOvlRatio);
         DBG("OOB ratio %f \n", _curOOBRatio);
+#endif
         updateMultipliers();
 #if 0
         if (_curOvlRatio > _overlapThreshold)

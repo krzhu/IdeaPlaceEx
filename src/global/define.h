@@ -10,7 +10,7 @@
 
 //#define NODEBUG
 
-#define DEBUG_DRAW
+//#define DEBUG_DRAW
 //#define DEBUG_GR
 //#define DEBUG_LEGALIZE
 
