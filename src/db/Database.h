@@ -30,6 +30,8 @@ class Database
         /// @brief initializing cells. Allocate the correct number of layers
         /// @return if successful
         bool initCells();
+        /// @brief initializing a cell
+        bool initCell(IndexType cellIdx);
         /*------------------------------*/ 
         /* Getters                      */
         /*------------------------------*/ 

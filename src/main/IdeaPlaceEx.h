@@ -78,7 +78,9 @@ class IdeaPlaceEx
         /// @return the index for that cell
         IndexType allocateCell()
         {
-            return _db.allocateCell();
+            IndexType cellIdx =  _db.allocateCell();
+            _db.initCell(cellIdx);
+            return cellIdx;
         }
         /// @brief add a new pin
         /// @param the index of cell this pin belonging to

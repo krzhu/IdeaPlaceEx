@@ -4,14 +4,23 @@ PROJECT_NAMESPACE_BEGIN
 
 bool Database::initCells()
 {
-    IndexType numLayers = this->tech().numLayers();
-    for (auto &cell : _cellArray)
+    for (IndexType cellIdx = 0; cellIdx < this->numCells(); ++cellIdx)
     {
-        cell.allocateLayers(numLayers);
+        if (!this->initCell(cellIdx))
+        {
+            return false;
+        }
     }
     return true;
 }
 
+
+bool Database::initCell(IndexType cellIdx)
+{
+    IndexType numLayers = this->tech().numLayers();
+    AT(_cellArray, cellIdx).allocateLayers(numLayers);
+    return true;
+}
 /*------------------------------*/ 
 /* Debug functions              */
 /*------------------------------*/ 
@@ -39,7 +48,7 @@ void Database::drawCellBlocks(const std::string &filename)
     {
         const auto &cell = this->cell(cellIdx);
         Box<LocType> cellBox = cell.cellBBox();
-        cellBox.enlargeBy(-70);
+        //cellBox.enlargeBy(-70);
         XY<LocType> cellLoc = XY<LocType>(cell.xLoc(), cell.yLoc());
         cellBox.offsetBy(cellLoc);
         wg->writeRectangle(cellBox, cellIdx, 0);

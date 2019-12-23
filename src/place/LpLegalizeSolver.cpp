@@ -12,13 +12,14 @@ void LpLegalizeSolver::exportSolution()
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         auto var = _ilpModel.variableSolution(AT(_locs, cellIdx));
+        // convert to cell original location
         if (_isHor)
         {
-            _db.cell(cellIdx).setXLoc(static_cast<LocType>(var));
+            _db.cell(cellIdx).setXLoc(static_cast<LocType>(var - _db.cell(cellIdx).cellBBox().xLo()));
         }
         else
         {
-            _db.cell(cellIdx).setYLoc(static_cast<LocType>(var));
+            _db.cell(cellIdx).setYLoc(static_cast<LocType>(var - _db.cell(cellIdx).cellBBox().yLo()));
         }
     }
 }
@@ -185,6 +186,9 @@ void LpLegalizeSolver::addIlpConstraints()
         // Add the constraint 
         // x_i + w_i + spacing <= x_j
         _ilpModel.addConstraint(AT(_locs, sourceIdx) - AT(_locs, targetIdx) <= - cellDim - spacing);
+#ifdef DEBUG_LEGALIZE
+        DBG("Add spacing constrain: from %d to %d, <= -celldim %d - spacing %d = %d \n", sourceIdx, targetIdx, cellDim, spacing, -cellDim - spacing);
+#endif
     }
 
     // Add symmetric constraints
@@ -199,8 +203,10 @@ void LpLegalizeSolver::addIlpConstraints()
             {
                 const auto &symPair = symGrp.symPair(symPairIdx);
                 // x1 + x2 + width =  2 * symAxis
+#ifdef DEBUG_LEGALIZE
                 DBG("Add sym constraint. \n symGrp %d, cell %d %d \n width %d \n",
                         symGrpIdx, symPair.firstCell(), symPair.secondCell(), _db.cell(symPair.firstCell()).cellBBox().xLen());
+#endif
                 _ilpModel.addConstraint(AT(_locs, symPair.firstCell()) 
                         + AT(_locs, symPair.secondCell()) 
                         - 2*AT(_symLocs, symGrpIdx) 
@@ -211,7 +217,6 @@ void LpLegalizeSolver::addIlpConstraints()
             for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
             {
                 IndexType ssCellIdx = symGrp.selfSym(selfSymIdx);
-                DBG("add self sym %d \n", ssCellIdx);
                 // x1 + width + x2 = 2 * symAxis
                 _ilpModel.addConstraint(2 * AT(_locs, ssCellIdx) - 2 * AT(_symLocs, symGrpIdx)
                         == - _db.cell(ssCellIdx).cellBBox().xLen());

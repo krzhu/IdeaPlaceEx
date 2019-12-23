@@ -27,6 +27,13 @@ void IdeaPlaceEx::readPinFile(const std::string &pinFile)
 void IdeaPlaceEx::readConnectionFile(const std::string &connectionFile)
 {
     ParserConnection(_db).read(connectionFile);
+
+    // Init cells before read in the gds
+    if(!_db.initCells())
+    {
+        ERR("IdeaPlaceEx::%s initializing the cells failed! \n", __FUNCTION__);
+        Assert(false);
+    }
 }
 
 void IdeaPlaceEx::readNetWgtFile(const std::string &netWgtFile)
@@ -110,6 +117,7 @@ bool IdeaPlaceEx::solve()
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         _db.cell(cellIdx).calculateCellBBox();
+        DBG("cell %d bbox %s \n", cellIdx, _db.cell(cellIdx).cellBBox().toStr().c_str());
     }
 
     NlpWnconj nlp(_db);
