@@ -79,10 +79,11 @@ bool ParserConnection::read(const std::string &filename)
             if (pinIdx == INDEX_TYPE_MAX)
             {
                 // Did not find the pin
-                ERR("ParserConnection::%s: cannot find the pin %s in cell %s \n",
-                        __FUNCTION__, cellName.c_str(), pinName.c_str());
-                Assert(false);
-                return false;
+                continue;
+                // ERR("ParserConnection::%s: cannot find the pin %s in cell %s \n",
+                //         __FUNCTION__, cellName.c_str(), pinName.c_str());
+                // Assert(false);
+                // return false;
             }
             // Add the pin to the net in the database
             _db.net(netIdx).addPin(pinIdx);
