@@ -171,7 +171,7 @@ class IdeaPlaceEx
         {
             return _db.cell(cellIdx).yLoc();
         }
-
+        IndexType cellIdxName(const std::string name);
     protected:
         Database _db; ///< The placement engine database 
 };

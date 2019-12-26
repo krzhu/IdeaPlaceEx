@@ -33,8 +33,7 @@ void initIdeaPlaceExAPI(py::module &m)
         .def("addSymPair", &PROJECT_NAMESPACE::IdeaPlaceEx::addSymPair)
         .def("addSelfSym", &PROJECT_NAMESPACE::IdeaPlaceEx::addSelfSym)
         .def("addCellShape", &PROJECT_NAMESPACE::IdeaPlaceEx::addCellShape)
+        .def("cellIdxName", &PROJECT_NAMESPACE::IdeaPlaceEx::cellIdxName)
         .def("xCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::xCellLoc)
         .def("yCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::yCellLoc);
-
-
 }

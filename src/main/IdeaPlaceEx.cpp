@@ -136,4 +136,18 @@ bool IdeaPlaceEx::outputFileBased(int argc, char **argv)
     return true;
 }
 
+IndexType IdeaPlaceEx::cellIdxName(const std::string name)
+{
+    IndexType cellIdx = INDEX_TYPE_MAX;
+    for (IndexType idx = 0; idx < _db.numCells(); ++idx)
+    {
+        if (_db.cell(idx).name() == name)
+        {
+            cellIdx = idx;
+            break;
+        }
+    }
+    return cellIdx;
+}
+
 PROJECT_NAMESPACE_END
