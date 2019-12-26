@@ -275,7 +275,6 @@ void CGLegalizer::readloadConstraints()
         IndexType targetIdx = idxMapH[boost::target(*ei, _hCG.boostGraph())]; // target node of the edge
         auto weight = boost::get(weightMapH, *ei);
         _hConstraints.addConstraintEdge(sourceIdx, targetIdx, weight);
-        DBG("add hor cg edge %d %d \n", sourceIdx, targetIdx);
     }
     // vertical
     for (boost::tie(ei, eiEnd) = boost::edges(_vCG.boostGraph()); ei != eiEnd; ++ei)
@@ -284,7 +283,6 @@ void CGLegalizer::readloadConstraints()
         IndexType targetIdx = idxMapV[boost::target(*ei, _vCG.boostGraph())]; // target node of the edge
         auto weight = boost::get(weightMapV, *ei);
         _vConstraints.addConstraintEdge(sourceIdx, targetIdx, weight);
-        DBG("add ver cg edge %d %d \n", sourceIdx, targetIdx);
     }
 }
 
@@ -813,7 +811,9 @@ void CGLegalizer::lpDetailedPlacement()
 {
     // Horizontal
     auto horSolver = LpLegalizeSolver(_db, _hConstraints, true, 1, 0);
-    DBG("float wstar %f \n", _wStar);
+#ifdef DEBUG_LEGALIZE
+    DBG("wstar for width %f \n", _wStar);
+#endif
     horSolver.setWStar(_wStar);
     horSolver.solve();
     horSolver.exportSolution();

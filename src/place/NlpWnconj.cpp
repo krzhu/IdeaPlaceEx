@@ -53,13 +53,13 @@ bool NlpWnconj::writeOut()
 
 RealType NlpWnconj::stepSize()
 {
-    RealType eps = _epsilon * ( 1/ sqrt(static_cast<RealType>(_iter+ 1)));
+    RealType eps = _epsilon * ( exp( _iter * _tao));
     RealType obj = this->objFunc(_solutionVect); // also calculate fOOB etc.
     RealType violate = _fOverlap + _fOOB + _fAsym;
     return eps * ( obj - 0.0) / violate; // 0.0 is better to be replaced by lower bound baseline
 }
 
-void NlpWnconj::updateMultipliers()
+bool NlpWnconj::updateMultipliers()
 {
     auto mu = stepSize();
     RealType violate = _fOverlap  + _fOOB + _fAsym + _fHpwl ;
@@ -69,6 +69,7 @@ void NlpWnconj::updateMultipliers()
 #ifdef DEBUG_GR
     DBG("\n\niter %d mu %f lambda1 %f lambda2 %f lambda4 %f", _iter, mu,  _lambda1, _lambda2, _lambda4);
 #endif
+    return false;
 }
 
 bool NlpWnconj::initVars()
@@ -140,6 +141,10 @@ bool NlpWnconj::initVars()
         double value = (static_cast<double>(idx) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
         _solutionVect[idx] = value;
     }
+
+    // Calculate tao
+    // target = exp( tao * max_iter)
+    _tao = log(NLP_WN_CONJ_EXP_DECAY_TARGET) / _maxIter;
     return true;
 }
 
@@ -160,7 +165,6 @@ bool NlpWnconj::nlpKernel()
 {
     // Iteratively solve NLP untial total overlap is less than the threshold
     _iter = 0; // Current number of iterations
-    size_t maxIter = 20; // The maximum number of iterations
 
 
 #ifdef DEBUG_GR
@@ -173,7 +177,7 @@ bool NlpWnconj::nlpKernel()
 #endif //DEBUG_GR
 
     // Iteratively solving NLP
-    while (_iter < maxIter)
+    while (_iter < _maxIter)
     {
         wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
 #ifdef DEBUG_GR

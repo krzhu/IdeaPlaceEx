@@ -190,7 +190,8 @@ class NlpWnconj
         /// @brief calculate the step size
         RealType stepSize();
         /// @brief update penalty terms
-        void updateMultipliers();
+        /// @return true if the global routing should be terminated
+        bool updateMultipliers();
 
         
     private:
@@ -217,8 +218,10 @@ class NlpWnconj
         RealType _fOOB = 0;
         RealType _fHpwl = 0;
         RealType _fAsym = 0;
-        RealType _epsilon = 2;///< For updating penalty multipliers
+        RealType _epsilon = NLP_WN_CONJ_EPISLON;///< For updating penalty multipliers
         IndexType _iter = 0; ///< Current iteration
+        double _tao = 0.5; ///< The exponential decay factor for step size
+        IndexType _maxIter = NLP_WN_CONJ_DEFAULT_MAX_ITER; ///< The maximum iterations
 };
 
 inline double NlpWnconj::objFunc(double *values)
@@ -303,17 +306,22 @@ inline double NlpWnconj::objFunc(double *values)
             const auto & symPair = symGrp.symPair(symPairIdx);
             IndexType cellIdx1 = symPair.firstCell();
             IndexType cellIdx2 = symPair.secondCell();
-            RealType cell1Width = _db.cell(cellIdx1).cellBBox().xLen() * _scale;
+            RealType cell1Lo = _db.cell(cellIdx1).cellBBox().xLo() * _scale + values[2 * cellIdx1];
+            RealType cell1Hi = _db.cell(cellIdx1).cellBBox().xHi() * _scale + values[2 * cellIdx1];
+            RealType cell2Lo = _db.cell(cellIdx2).cellBBox().xLo() * _scale + values[2 * cellIdx2];
+            RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xHi() * _scale + values[2 * cellIdx2];
             asymPenalty += pow(values[cellIdx1 * 2 +1] - values[2 * cellIdx2 + 1], 2.0); // (y1 -y2) ^ 2
-            asymPenalty += pow(values[2 * cellIdx1] + values[2 * cellIdx2] 
-                    + cell1Width - 2 *values[2 * _db.numCells() + symGrpIdx], 2.0);
+            asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
+                    + cell2Lo / 2 + cell2Hi / 2
+                    - 2 *values[2 * _db.numCells() + symGrpIdx], 2.0);
         }
         for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
         {
             IndexType selfSymCellIdx = symGrp.selfSym(selfSymIdx);
-            RealType cell1Width = _db.cell(selfSymCellIdx).cellBBox().xLen() * _scale;
-            asymPenalty += pow(values[2 * selfSymCellIdx] + cell1Width / 2 
-                    - values[2 * _db.numCells() + symGrpIdx], 2.0);
+            RealType cell1Lo = _db.cell(selfSymCellIdx).cellBBox().xLo() * _scale + values[2 * selfSymCellIdx];
+            RealType cell1Hi = _db.cell(selfSymCellIdx).cellBBox().xHi() * _scale + values[2 * selfSymCellIdx];
+            asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
+                    -  values[2 * _db.numCells() + symGrpIdx], 2.0);
         }
     }
     result += _lambda4 * asymPenalty;
@@ -404,12 +412,16 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         {
             IndexType cellIdx1 = symGrp.symPair(symPairIdx).firstCell();
             IndexType cellIdx2 = symGrp.symPair(symPairIdx).secondCell();
-            RealType cell1Width = _db.cell(cellIdx1).cellBBox().xLen() * _scale;
-            RealType gradX = 2.0 * (values[2 * cellIdx1] + values[2 * cellIdx2]
-                    +cell1Width - 2 * values[2 * _db.numCells() + symGrpIdx]);
-            grad[2 * cellIdx1] += _lambda4 * gradX;
-            grad[2 * cellIdx2] +=  _lambda4 * gradX;
-            grad[2 * _db.numCells() + symGrpIdx] += _lambda4 * (- 2.0 * gradX);
+            RealType cell1Lo = _db.cell(cellIdx1).cellBBox().xLo() * _scale + values[2 * cellIdx1];
+            RealType cell1Hi = _db.cell(cellIdx1).cellBBox().xHi() * _scale + values[2 * cellIdx1];
+            RealType cell2Lo = _db.cell(cellIdx2).cellBBox().xLo() * _scale + values[2 * cellIdx2];
+            RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xHi() * _scale + values[2 * cellIdx2];
+            RealType gradX = cell1Lo / 2 + cell1Hi /2 
+                    + cell2Lo / 2 + cell2Hi / 2
+                    - 2 *values[2 * _db.numCells() + symGrpIdx]; // (x1 + x2 + const - 2 xsym)
+            grad[2 * cellIdx1] += _lambda4 * gradX * 2; // for x1. 
+            grad[2 * cellIdx2] +=  _lambda4 * gradX * 2; // for x2
+            grad[2 * _db.numCells() + symGrpIdx] += _lambda4 * (- 2 * gradX); // for xsym
             RealType gradY = 2.0 * (values[2 * cellIdx1 + 1] - values[2 * cellIdx2 + 1]);
             grad[2 * cellIdx1 + 1] += _lambda4 * gradY;
             grad[2 * cellIdx2 + 1] += _lambda4 * (- gradY); 
@@ -417,8 +429,9 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
         {
             IndexType cellIdx = symGrp.selfSym(selfSymIdx);
-            RealType cellWidth = _db.cell(cellIdx).cellBBox().xLen() * _scale;
-            RealType gradSS = 2.0 * (values[2 * cellIdx] + cellWidth / 2 - values[2 * _db.numCells() + symGrpIdx]);
+            RealType cell1Lo = _db.cell(cellIdx).cellBBox().xLo() * _scale + values[2 * cellIdx];
+            RealType cell1Hi = _db.cell(cellIdx).cellBBox().xHi() * _scale + values[2 * cellIdx];
+            RealType gradSS = 2.0 * (cell1Lo / 2 + cell1Hi / 2  - values[2 * _db.numCells() + symGrpIdx]);
             grad[2 * cellIdx] += _lambda4 * gradSS;
             grad[2 * _db.numCells() + symGrpIdx]  += _lambda4 * (- gradSS);
         }

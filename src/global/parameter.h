@@ -21,6 +21,9 @@ constexpr double NLP_WN_CONJ_OVERLAP_THRESHOLD = 0.08; ///< The threshold for wh
 constexpr double NLP_WN_CONJ_OOB_THRESHOLD = 0.05; ///< The threshold for wehther increasing the penalty for out of boundry
 constexpr double NLP_WN_CONJ_ASYM_THRESHOLD = 0.5; ///< The threshodl for whether increase the penalty for asymmetry
 constexpr double NLP_WN_CONJ_ALPHA = 1; ///< "alpha" should be a very small value. Used in objective function
+constexpr double NLP_WN_CONJ_EXP_DECAY_TARGET = 0.01; ///< The exponential decay facor for global placement step size. 
+constexpr IndexType NLP_WN_CONJ_DEFAULT_MAX_ITER = 20; ///< The default maxmimum iterations for the global placement
+constexpr RealType NLP_WN_CONJ_EPISLON = 20;
 PROJECT_NAMESPACE_END
 
 #endif ///IDEAPLACE_PARAMETER_H_
