@@ -8,6 +8,7 @@ void CGLegalizer::legalize()
     _wStar = lpLegalization(true);
     _hStar = lpLegalization(false);
     lpDetailedPlacement();
+    INF("CG Legalizer: legalization finished\n");
 }
 
 /// @brief Find which direction is the least displacement direction to make the two boxes disjoint
@@ -47,6 +48,7 @@ void CGLegalizer::generateConstraints()
     }
     std::sort(hBoxEdges.begin(), hBoxEdges.end());
     std::sort(vBoxEdges.begin(), vBoxEdges.end());
+
 
     // Add edges
     // Also calculate overlapAny. overlapAny[cellIdx] = true if the cell is overlapping with any other
@@ -430,9 +432,16 @@ bool CGLegalizer::dfsRemoveTransitiveEdge(ConstraintGraph &cg, Vector2D<IntType>
     bool hasTransitiveEdge = false;
     visited[node] = true;
     auto neighbors = boost::adjacent_vertices(boost::vertex(node, cg.boostGraph()), cg.boostGraph());
+    IndexType numNodes = boost::num_vertices(cg.boostGraph());
     for (; neighbors.first != neighbors.second; ++neighbors.first)
     {
         IndexType neighborNode = idxMap[*neighbors.first];
+        // FIXME: reimplement this function to avoid dynamically deleting the edges
+        if (neighborNode > numNodes)
+        {
+            ERR("CG legalizer: edge not found in transitive edge reduction \n");
+            break;
+        }
         if (!visited[neighborNode])
         {
             if (dfsRemoveTransitiveEdge(cg, edgeMat, neighborNode, visited, reachable, idxMap))
@@ -440,7 +449,6 @@ bool CGLegalizer::dfsRemoveTransitiveEdge(ConstraintGraph &cg, Vector2D<IntType>
                 hasTransitiveEdge = true;
             }
         }
-        IndexType numNodes = boost::num_vertices(cg.boostGraph());
         for (IndexType i = 0; i < numNodes; ++i)
         {
             if (reachable.at(node, i) == 0 && reachable.at(neighborNode, i) == 1)

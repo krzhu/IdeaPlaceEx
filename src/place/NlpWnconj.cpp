@@ -35,6 +35,7 @@ bool NlpWnconj::solve()
         Assert(false);
         return false;
     }
+    INF("Nlp:: global placement finished \n");
     return true;
 }
 
@@ -43,10 +44,11 @@ bool NlpWnconj::writeOut()
     // Dump the cell locations to database
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
+        auto & cell = _db.cell(cellIdx);
         LocType xLo = ::klib::autoRound<LocType>(_solutionVect[cellIdx * 2] / _scale);
         LocType yLo = ::klib::autoRound<LocType>(_solutionVect[cellIdx * 2 + 1] / _scale);
-        _db.cell(cellIdx).setXLoc(xLo);
-        _db.cell(cellIdx).setYLoc(yLo);
+        _db.cell(cellIdx).setXLoc(xLo + cell.cellBBox().xLo());
+        _db.cell(cellIdx).setYLoc(yLo + cell.cellBBox().yLo());
     }
     return true;
 }
@@ -62,12 +64,21 @@ RealType NlpWnconj::stepSize()
 bool NlpWnconj::updateMultipliers()
 {
     auto mu = stepSize();
+#ifdef DEBUG_GR
+    DBG("\n\niter %d mu %f lambda1 %f lambda2 %f lambda4 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4);
+#endif
     RealType violate = _fOverlap  + _fOOB + _fAsym + _fHpwl ;
     _lambda1 = _lambda1  + mu * _fOverlap  / violate;
     _lambda2 = _lambda2 + mu * _fOOB  / violate;
     _lambda4 = _lambda4 + mu *_fAsym  / violate;
+    if (_lambda1 + _lambda2 + _lambda4 > NLP_WN_MAX_PENALTY)
+    {
+        _lambda1 *= NLP_WN_REDUCE_PENALTY;
+        _lambda2 *= NLP_WN_REDUCE_PENALTY;
+        _lambda4 *= NLP_WN_REDUCE_PENALTY;
+    }
 #ifdef DEBUG_GR
-    DBG("\n\niter %d mu %f lambda1 %f lambda2 %f lambda4 %f", _iter, mu,  _lambda1, _lambda2, _lambda4);
+    DBG("\n\niter %d after mu %f lambda1 %f lambda2 %f lambda4 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4);
 #endif
     return false;
 }
@@ -89,7 +100,10 @@ bool NlpWnconj::initVars()
     _alpha = NLP_WN_CONJ_ALPHA;
 
     // Total cell area
-    _totalCellArea = static_cast<double>(_db.calculateTotalCellArea()) * _scale * _scale;
+    RealType totalCellArea = static_cast<double>(_db.calculateTotalCellArea());
+    _scale = sqrt(100 / totalCellArea);
+    //_totalCellArea = static_cast<double>(_db.calculateTotalCellArea()) * _scale * _scale;
+    _totalCellArea = 100;
 
     // Placement Boundary
     if (_db.parameters().isBoundaryConstraintSet())
@@ -105,13 +119,11 @@ bool NlpWnconj::initVars()
     {
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
         double aspectRatio = 1;
-        double maxWhiteSpace = 0.2;
         double xLo = 0; double yLo = 0; 
-        double tolerentArea = _totalCellArea * (1 + maxWhiteSpace);
+        double tolerentArea = _totalCellArea * (1 + NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE);
         double xHi = std::sqrt(tolerentArea * aspectRatio);
         double yHi = tolerentArea / xHi;
         _boundary.set(xLo , yLo , xHi , yHi );
-        DBG("Total cell area %f, tolerentArea %f \n", _totalCellArea, tolerentArea);
         INF("NlpWnconj::%s: automatical set boundary to be %s \n", __FUNCTION__, _boundary.toStr().c_str());
         Box<LocType> bb = Box<LocType>(static_cast<LocType>(_boundary.xLo()),
                         static_cast<LocType>(_boundary.yLo()),
@@ -121,6 +133,9 @@ bool NlpWnconj::initVars()
         _db.parameters().setBoundaryConstraint(bb);
         INF("NlpWnconj::initVars: add boundary constraints as calculated \n");
     }
+
+    // Default sym axis is at the middle
+    _defaultSymAxis = (_boundary.xLo() + _boundary.xHi()) / 2;
 
 
     /*
@@ -141,6 +156,29 @@ bool NlpWnconj::initVars()
         double value = (static_cast<double>(idx) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
         _solutionVect[idx] = value;
     }
+#if 1
+    for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+    {
+        const auto &symGrp = _db.symGroup(symGrpIdx);
+        for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
+        {
+            const auto &symPair = symGrp.symPair(symPairIdx);
+            IndexType cell1 = symPair.firstCell();
+            IndexType cell2 = symPair.secondCell();
+            RealType xLo1 = _solutionVect[2 * cell1];
+            RealType yLo1 = _solutionVect[2 * cell1 + 1];
+            RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
+            RealType xLo2 = _defaultSymAxis -xHi1;
+            _solutionVect[2 * cell2] = xLo2;
+            _solutionVect[2 * cell2 + 1] = yLo1;
+        }
+        for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
+        {
+            const auto selfSym = symGrp.selfSym(selfSymIdx);
+            _solutionVect[2 * selfSym] =  _defaultSymAxis / 2;
+        }
+    }
+#endif
 
     // Calculate tao
     // target = exp( tao * max_iter)
@@ -167,14 +205,12 @@ bool NlpWnconj::nlpKernel()
     _iter = 0; // Current number of iterations
 
 
-#ifdef DEBUG_GR
     double *initial_coord_x0s;
     initial_coord_x0s = (double*)malloc(sizeof(double) * _len);
     for (int i = 0; i < _len; ++i)
     {
         initial_coord_x0s[i] = 1.0;
     }
-#endif //DEBUG_GR
 
     // Iteratively solving NLP
     while (_iter < _maxIter)
@@ -189,15 +225,11 @@ bool NlpWnconj::nlpKernel()
             DBG("cell %d x %f y %f \n", cellIdx, _solutionVect[cellIdx * 2], _solutionVect[cellIdx *2 + 1]);
         }
 #endif
-#if 0
-        bool breakFlag = true; // Whether all criterials are met
-        // Evaluate the current solution, calculate _curOvlRatio, _curOOBratio and _curAsymDist
-        this->evaluteSolution();
-        // Increase penalty for overlapping if the overlapping ratio is larger than the threshold
-        DBG("overlap ratio %f \n", _curOvlRatio);
-        DBG("OOB ratio %f \n", _curOOBRatio);
-#endif
-        updateMultipliers();
+        if (updateMultipliers())
+        {
+            INF("Global placement terminates \n");
+            break;
+        }
 #if 0
         if (_curOvlRatio > _overlapThreshold)
         {
@@ -231,7 +263,7 @@ bool NlpWnconj::nlpKernel()
 
 bool NlpWnconj::cleanup()
 {
-    free(_solutionVect);
+    delete(_solutionVect);
     _solutionVect = nullptr;
     return true;
 }

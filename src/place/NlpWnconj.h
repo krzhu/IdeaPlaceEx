@@ -27,6 +27,7 @@ namespace NlpWnconjDetails
     /// @return the smoothed result
     inline double logSumExp0(double var, double alpha)
     {
+        return alpha * log(exp(var / alpha) + 1);
         // modify it to handle overflow issue
         // avg > 709.8 => overflow; avg < -709.8 => underflow
         if (var / alpha < 709.8)
@@ -108,10 +109,19 @@ class NlpWnconj
                 IndexType pinIdx = net.pinIdx(idx);
                 const auto &pin = _db.pin(pinIdx);
                 IndexType cellIdx = pin.cellIdx();
+                const auto &cell = _db.cell(cellIdx);
                 // Get the cell location from the input arguments
                 XY<double> cellLoc = XY<double>(values[cellIdx * 2], values[cellIdx * 2 + 1]);
                 XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-                XY<double> pinLoc = cellLoc + midLoc;
+                XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+                XY<double> pinLoc = cellLoc + midLoc - cellLoLoc;
+                /*
+                DBG("cell loc %s mid loc %s cellloloc %s pinloc %s \n", 
+                        cellLoc.toStr().c_str(),
+                        midLoc.toStr().c_str(),
+                        cellLoLoc.toStr().c_str(),
+                        pinLoc.toStr().c_str());
+                        */
                 xmax += exp(pinLoc.x() / alpha);
                 xmin += exp(-pinLoc.x() / alpha);
                 ymax += exp(pinLoc.y() / alpha);
@@ -140,10 +150,12 @@ class NlpWnconj
                 IndexType pinIdx = net.pinIdx(idx);
                 const auto &pin = _db.pin(pinIdx);
                 IndexType cellIdxTemp = pin.cellIdx();
+                const auto &cell = _db.cell(cellIdxTemp);
                 // Get the cell location from the input arguments
                 XY<double> cellLoc = XY<double>(values[cellIdxTemp * 2], values[cellIdxTemp * 2 + 1]);
                 XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-                XY<double> pinLoc = cellLoc + midLoc;
+                XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+                XY<double> pinLoc = cellLoc + midLoc - cellLoLoc;
                 xmax += exp(pinLoc.x() / alpha);
                 xmin += exp(- pinLoc.x() / alpha);
                 ymax += exp(pinLoc.y() / alpha);
@@ -222,10 +234,13 @@ class NlpWnconj
         IndexType _iter = 0; ///< Current iteration
         double _tao = 0.5; ///< The exponential decay factor for step size
         IndexType _maxIter = NLP_WN_CONJ_DEFAULT_MAX_ITER; ///< The maximum iterations
+        RealType _defaultSymAxis = 0;
 };
 
 inline double NlpWnconj::objFunc(double *values)
 {
+    //values[2 * _db.numCells()] = 0;
+    //values[2 * _db.numCells() + 1] = 0;
     // Initial the objective to be 0 and add the non-zero to it
     double result = 0;
     _fOverlap = 0;
@@ -279,7 +294,7 @@ inline double NlpWnconj::objFunc(double *values)
         double obYHi = NlpWnconjDetails::logSumExp0(yHi - _boundary.yLo(), _alpha);
         // Add to the objective
         result += _lambda2 * (obXLo + obXHi + obYLo + obYHi);
-        _fOOB +=  _lambda2 * obXLo + obXHi + obYLo + obYHi;
+        _fOOB +=  _lambda2 * (obXLo + obXHi + obYLo + obYHi);
         //oobCost += (obXLo + obXHi + obYLo + obYHi);
         //DBG("OOB add %f, lambda %f \n",_lambda2 * (obXLo + obXHi + obYLo + obYHi), _lambda2);
     }
@@ -306,32 +321,44 @@ inline double NlpWnconj::objFunc(double *values)
             const auto & symPair = symGrp.symPair(symPairIdx);
             IndexType cellIdx1 = symPair.firstCell();
             IndexType cellIdx2 = symPair.secondCell();
-            RealType cell1Lo = _db.cell(cellIdx1).cellBBox().xLo() * _scale + values[2 * cellIdx1];
-            RealType cell1Hi = _db.cell(cellIdx1).cellBBox().xHi() * _scale + values[2 * cellIdx1];
-            RealType cell2Lo = _db.cell(cellIdx2).cellBBox().xLo() * _scale + values[2 * cellIdx2];
-            RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xHi() * _scale + values[2 * cellIdx2];
+            RealType cell1Lo = values[2 * cellIdx1];
+            RealType cell1Hi = _db.cell(cellIdx1).cellBBox().xLen() * _scale + values[2 * cellIdx1];
+            RealType cell2Lo = values[2 * cellIdx2];
+            RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xLen() * _scale + values[2 * cellIdx2];
             asymPenalty += pow(values[cellIdx1 * 2 +1] - values[2 * cellIdx2 + 1], 2.0); // (y1 -y2) ^ 2
+            /*
             asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
                     + cell2Lo / 2 + cell2Hi / 2
                     - 2 *values[2 * _db.numCells() + symGrpIdx], 2.0);
+                    */
+            asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
+                    + cell2Lo / 2 + cell2Hi / 2
+                    - 2 * _defaultSymAxis, 2.0);
         }
         for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
         {
             IndexType selfSymCellIdx = symGrp.selfSym(selfSymIdx);
-            RealType cell1Lo = _db.cell(selfSymCellIdx).cellBBox().xLo() * _scale + values[2 * selfSymCellIdx];
-            RealType cell1Hi = _db.cell(selfSymCellIdx).cellBBox().xHi() * _scale + values[2 * selfSymCellIdx];
+            RealType cell1Lo = values[2 * selfSymCellIdx];
+            RealType cell1Hi = _db.cell(selfSymCellIdx).cellBBox().xLen() * _scale + values[2 * selfSymCellIdx];
+            /*
             asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
                     -  values[2 * _db.numCells() + symGrpIdx], 2.0);
+                    */
+            asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
+                    -  _defaultSymAxis, 2.0);
         }
     }
     result += _lambda4 * asymPenalty;
     _fAsym +=  _lambda4 * asymPenalty ;
+    //DBG("foverlap %f, foob %f fhpwl %f fasym %f \n", _fOverlap, _fOOB, _fHpwl, _fAsym);
     
     return result;
 }
 
 inline void NlpWnconj::gradFunc(double *grad, double *values)
 {
+    //values[2 * _db.numCells()] = 0;
+    //values[2 * _db.numCells() + 1] = 0;
     // log-sum-exp model for overlap penalty
     for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
     {
@@ -367,7 +394,7 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         const auto &bbox = _db.cell(cellIdx).cellBBox();
-        double xLo = values[2 * cellIdx]; double xHi = xLo + bbox.xLen() * _scale;
+        double xLo = values[2 * cellIdx] ; double xHi = xLo + bbox.xLen() * _scale;
         double yLo = values[2 * cellIdx + 1]; double yHi = yLo + bbox.yLen() * _scale;
         // max(lower - x/yLo, 0), max (x/yHi - upper, 0)
         double gradObX = - NlpWnconjDetails::gradLogSumExp0(_boundary.xLo() - xLo, _alpha); // the negative is from derivative
@@ -412,16 +439,21 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         {
             IndexType cellIdx1 = symGrp.symPair(symPairIdx).firstCell();
             IndexType cellIdx2 = symGrp.symPair(symPairIdx).secondCell();
-            RealType cell1Lo = _db.cell(cellIdx1).cellBBox().xLo() * _scale + values[2 * cellIdx1];
-            RealType cell1Hi = _db.cell(cellIdx1).cellBBox().xHi() * _scale + values[2 * cellIdx1];
-            RealType cell2Lo = _db.cell(cellIdx2).cellBBox().xLo() * _scale + values[2 * cellIdx2];
-            RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xHi() * _scale + values[2 * cellIdx2];
+            RealType cell1Lo =  values[2 * cellIdx1];
+            RealType cell1Hi = _db.cell(cellIdx1).cellBBox().xLen() * _scale + values[2 * cellIdx1];
+            RealType cell2Lo =  values[2 * cellIdx2];
+            RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xLen() * _scale + values[2 * cellIdx2];
+            /*
             RealType gradX = cell1Lo / 2 + cell1Hi /2 
                     + cell2Lo / 2 + cell2Hi / 2
                     - 2 *values[2 * _db.numCells() + symGrpIdx]; // (x1 + x2 + const - 2 xsym)
+                    */
+            RealType gradX = cell1Lo / 2 + cell1Hi /2 
+                    + cell2Lo / 2 + cell2Hi / 2
+                    - 2 * _defaultSymAxis; // (x1 + x2 + const - 2 xsym)
             grad[2 * cellIdx1] += _lambda4 * gradX * 2; // for x1. 
             grad[2 * cellIdx2] +=  _lambda4 * gradX * 2; // for x2
-            grad[2 * _db.numCells() + symGrpIdx] += _lambda4 * (- 2 * gradX); // for xsym
+            //grad[2 * _db.numCells() + symGrpIdx] += _lambda4 * (- 2 * gradX); // for xsym
             RealType gradY = 2.0 * (values[2 * cellIdx1 + 1] - values[2 * cellIdx2 + 1]);
             grad[2 * cellIdx1 + 1] += _lambda4 * gradY;
             grad[2 * cellIdx2 + 1] += _lambda4 * (- gradY); 
@@ -429,11 +461,12 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
         {
             IndexType cellIdx = symGrp.selfSym(selfSymIdx);
-            RealType cell1Lo = _db.cell(cellIdx).cellBBox().xLo() * _scale + values[2 * cellIdx];
-            RealType cell1Hi = _db.cell(cellIdx).cellBBox().xHi() * _scale + values[2 * cellIdx];
-            RealType gradSS = 2.0 * (cell1Lo / 2 + cell1Hi / 2  - values[2 * _db.numCells() + symGrpIdx]);
+            RealType cell1Lo =  values[2 * cellIdx];
+            RealType cell1Hi = _db.cell(cellIdx).cellBBox().xLen() * _scale + cell1Lo;
+            //RealType gradSS = 2.0 * (cell1Lo / 2 + cell1Hi / 2  - values[2 * _db.numCells() + symGrpIdx]);
+            RealType gradSS = 2.0 * (cell1Lo / 2 + cell1Hi / 2  - _defaultSymAxis);
             grad[2 * cellIdx] += _lambda4 * gradSS;
-            grad[2 * _db.numCells() + symGrpIdx]  += _lambda4 * (- gradSS);
+            //grad[2 * _db.numCells() + symGrpIdx]  += _lambda4 * (- gradSS);
         }
     }
     
@@ -504,7 +537,6 @@ inline void NlpWnconj::evaluteSolution()
     }
     _curOOBRatio = totalOOBarea / ( _totalCellArea);
     // Asymmetry
-    // TODO
 }
 PROJECT_NAMESPACE_END
 
