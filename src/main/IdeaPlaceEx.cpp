@@ -117,15 +117,19 @@ bool IdeaPlaceEx::solve()
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         _db.cell(cellIdx).calculateCellBBox();
-        DBG("cell %d bbox %s \n", cellIdx, _db.cell(cellIdx).cellBBox().toStr().c_str());
+#ifdef DEBUG_GR
+        DBG("cell %d %s bbox %s \n", cellIdx, _db.cell(cellIdx).name().c_str(), _db.cell(cellIdx).cellBBox().toStr().c_str());
+#endif
     }
 
     NlpWnconj nlp(_db);
     nlpPtr = &nlp;
     nlp.solve();
+#ifdef DEBUG_GR
 #ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_gr.gds");
 #endif //DEBUG_DRAW
+#endif
     CGLegalizer legalizer(_db);
     legalizer.legalize();
     return true;
