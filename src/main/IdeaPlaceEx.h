@@ -89,6 +89,7 @@ class IdeaPlaceEx
         {
             auto pinIdx =  _db.allocatePin();
             _db.pin(pinIdx).setCellIdx(cellIdx);
+            _db.cell(cellIdx).addPin(pinIdx);
             return pinIdx;
         }
         /// @brief add pin shape for a pin
@@ -171,7 +172,20 @@ class IdeaPlaceEx
         {
             return _db.cell(cellIdx).yLoc();
         }
+        /// @brief get the index of the cell based on name
+        /// @param cell name  
+        /// @return the cellIdx
         IndexType cellIdxName(const std::string name);
+        /// @brief get the index pin 
+        /// @param cell index
+        /// @param the pin index of the cell
+        /// @return the pinIdx in database
+        IndexType pinIdx(IndexType cellIdx, IndexType pinCellIdx) 
+        { 
+            if (pinCellIdx >= _db.cell(cellIdx).numPinIdx())
+                return INDEX_TYPE_MAX;
+            return _db.cell(cellIdx).pinIdx(pinCellIdx); 
+        }
     protected:
         Database _db; ///< The placement engine database 
 };
