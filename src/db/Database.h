@@ -76,6 +76,10 @@ class Database
         /// @brief allocate a new cell in the array
         /// @return the index of the new cell
         IndexType allocateCell() { _cellArray.emplace_back(Cell()); return _cellArray.size() - 1; }
+        /// @brief set name of cell
+        /// @param first: cellIdx
+        /// @param second: cellName
+        void setCellName(IndexType cellIdx, const std::string name) { AT(_cellArray, cellIdx).setName(name); }
         /// @brief get the number of nets
         /// @param the index of the nets
         /// @return the net of the index

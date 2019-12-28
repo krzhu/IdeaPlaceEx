@@ -1,4 +1,5 @@
 #include "ParserPin.h"
+#include <iostream>
 
 PROJECT_NAMESPACE_BEGIN
 

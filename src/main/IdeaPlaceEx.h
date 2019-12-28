@@ -176,6 +176,15 @@ class IdeaPlaceEx
         /// @param cell name  
         /// @return the cellIdx
         IndexType cellIdxName(const std::string name);
+        /// @brief set cell name
+        /// @param first cellIdx
+        /// @param second cell name
+        void setCellName(IndexType cellIdx, const std::string name) { _db.setCellName(cellIdx, name); }
+        /// @brief return cell name
+        /// @param first cellIdx
+        /// @return cell name
+        std::string cellName(IndexType cellIdx) { return _db.cell(cellIdx).name(); }
+
         /// @brief get the index pin 
         /// @param cell index
         /// @param the pin index of the cell
