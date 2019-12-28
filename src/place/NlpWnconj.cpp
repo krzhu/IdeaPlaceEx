@@ -123,8 +123,8 @@ bool NlpWnconj::initVars()
         INF("NLP global placement: trying hard mode \n");
         _lambda1 = 1;
         _lambda2 = 0;
-        _lambda3 = 0;
-        _lambda4 = 4;
+        _lambda3 = 20;
+        _lambda4 = 64;
         _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
         _maxWhiteSpace = 50;
         _maxIter = 32;
@@ -152,7 +152,7 @@ bool NlpWnconj::initVars()
     else
     {
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
-        double aspectRatio = 0.75;
+        double aspectRatio = 0.8;
         double xLo = 0; double yLo = 0; 
         double tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
         double xHi = std::sqrt(tolerentArea * aspectRatio);
@@ -185,14 +185,16 @@ bool NlpWnconj::initVars()
     */
     
     // My alternative intialization, just give the variables fixed linear value
+    srand(0); //just a arbitary number
     for (IntType idx = 0; idx < _len; ++idx)
     {
-        double value = (static_cast<double>(idx) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
+        double value = (static_cast<double>(idx ) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
+        //double value = rand() % 20;
         _solutionVect[idx] = value;
-        //_solutionVect[idx] = _defaultSymAxis;
+        //_solutionVect[idx] = (value - _defaultSymAxis) /2 + _defaultSymAxis;
     }
 #if 1
-    if (1)
+    if (!_toughModel)
     {
         for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
         {
@@ -214,6 +216,7 @@ bool NlpWnconj::initVars()
                 const auto selfSym = symGrp.selfSym(selfSymIdx);
                 _solutionVect[2 * selfSym] =  _defaultSymAxis / 2;
             }
+            _solutionVect[2 * _db.numCells() + symGrpIdx] = _defaultSymAxis;
         }
     }
 #endif
@@ -259,6 +262,11 @@ bool NlpWnconj::nlpKernel()
             for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
             {
                 const auto &symGrp = _db.symGroup(symGrpIdx);
+#ifdef MULTI_SYM_GROUP
+                RealType symAxis = _solutionVect[2 * _db.numCells() + symGrpIdx];
+#else
+                RealType symAxis = _defaultSymAxis;
+#endif
                 for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
                 {
                     const auto &symPair = symGrp.symPair(symPairIdx);
@@ -267,14 +275,38 @@ bool NlpWnconj::nlpKernel()
                     RealType xLo1 = _solutionVect[2 * cell1];
                     RealType yLo1 = _solutionVect[2 * cell1 + 1];
                     RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
-                    RealType xLo2 = _defaultSymAxis * 2 -xHi1;
+                    RealType xLo2 = _solutionVect[2 * cell2];
+                    RealType yLo2 = _solutionVect[2 * cell2 + 1];
+                    RealType y;
+                    if ((yLo1 < _boundary.yLo() || yLo1 > _boundary.yHi())
+                            && 
+                            (yLo2 >= _boundary.yLo() && yLo2  <=_boundary.yHi())
+                       )
+                    {
+                        y = yLo2;
+                    }
+                    else
+                    {
+                        y = yLo1;
+                    }
+                    if (std::abs(xHi1 - symAxis) < std::abs(xLo2 - symAxis))
+                    {
+                        xLo2 = 2 * symAxis - xHi1;
+                    }
+                    else
+                    {
+                        xLo1 = 2 * symAxis - xLo2 -  _db.cell(cell1).cellBBox().xLen() * _scale;
+                    }
+
+                    _solutionVect[2 * cell1] = xLo1;
                     _solutionVect[2 * cell2] = xLo2;
-                    _solutionVect[2 * cell2 + 1] = yLo1;
+                    _solutionVect[2 * cell2 + 1] = y;
+                    _solutionVect[2 * cell1 + 1] = y;
                 }
                 for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
                 {
                     const auto selfSym = symGrp.selfSym(selfSymIdx);
-                    _solutionVect[2 * selfSym] =  _defaultSymAxis / 2;
+                    _solutionVect[2 * selfSym] =  symAxis / 2;
                 }
             }
         }

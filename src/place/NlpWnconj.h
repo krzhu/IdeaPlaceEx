@@ -357,7 +357,7 @@ inline double NlpWnconj::objFunc(double *values)
     }
     //DBG("\n\nOOBCost : %f \n\n", oobCost);
 
-#if 1
+#ifdef MULTI_SYM_GROUP
     // Wire length penalty
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
@@ -383,26 +383,28 @@ inline double NlpWnconj::objFunc(double *values)
             RealType cell2Lo = values[2 * cellIdx2];
             RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xLen() * _scale + values[2 * cellIdx2];
             asymPenalty += pow(values[cellIdx1 * 2 +1] - values[2 * cellIdx2 + 1], 2.0); // (y1 -y2) ^ 2
-            /*
+#ifdef MULTI_SYM_GROUP
             asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
                     + cell2Lo / 2 + cell2Hi / 2
                     - 2 *values[2 * _db.numCells() + symGrpIdx], 2.0);
-                    */
+#else
             asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
                     + cell2Lo / 2 + cell2Hi / 2
                     - 2 * _defaultSymAxis, 2.0);
+#endif
         }
         for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
         {
             IndexType selfSymCellIdx = symGrp.selfSym(selfSymIdx);
             RealType cell1Lo = values[2 * selfSymCellIdx];
             RealType cell1Hi = _db.cell(selfSymCellIdx).cellBBox().xLen() * _scale + values[2 * selfSymCellIdx];
-            /*
+#ifdef MULTI_SYM_GROUP
             asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
                     -  values[2 * _db.numCells() + symGrpIdx], 2.0);
-                    */
+#else
             asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
                     -  _defaultSymAxis, 2.0);
+#endif
         }
     }
     result += _lambda4 * asymPenalty;
@@ -489,12 +491,25 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
                 //cellAreaMaxOverlap = areaI;
             }
             
-            if (_toughModel)
+            if (1)
             {
-                if (overlapArea / areaI > 0.5)
+                RealType lambda;
+                if (_toughModel)
                 {
-                    grad[2 * cellIdxI] += _lambdaMaxOverlap * gradX ;
-                    grad[2 * cellIdxI + 1] += _lambdaMaxOverlap * gradY ;
+                    lambda = _lambdaMaxOverlap ;
+                }
+                else
+                {
+                    lambda = _lambda1 ;
+                }
+                if (overlapArea / areaI > 0.7)
+                {
+                    RealType ratio = overlapArea / areaI;
+                    ratio /= 0.7;
+                    ratio *= ratio;
+                    ratio *= ratio;
+                    grad[2 * cellIdxI] += lambda * gradX * ratio;
+                    grad[2 * cellIdxI + 1] += lambda * gradY  * ratio;
                 }
             }
             
@@ -519,7 +534,6 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         // Record
         grad[2 * cellIdx + 1] += _lambda2 * gradObY;
     }
-#if 1
     // Wire length penalty
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
@@ -538,7 +552,6 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
             grad[2 * cellIdx + 1] += netWgt * _lambda3 * gradY[pinInNetIdx];
         }
     }
-#endif
     
     // ASYMMETRY
     for (IndexType idx = 0; idx < _db.numCells(); ++idx)
@@ -556,17 +569,20 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
             RealType cell1Hi = _db.cell(cellIdx1).cellBBox().xLen() * _scale + values[2 * cellIdx1];
             RealType cell2Lo =  values[2 * cellIdx2];
             RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xLen() * _scale + values[2 * cellIdx2];
-            /*
+#ifdef MULTI_SYM_GROUP
             RealType gradX = cell1Lo / 2 + cell1Hi /2 
                     + cell2Lo / 2 + cell2Hi / 2
                     - 2 *values[2 * _db.numCells() + symGrpIdx]; // (x1 + x2 + const - 2 xsym)
-                    */
+#else
             RealType gradX = cell1Lo / 2 + cell1Hi /2 
                     + cell2Lo / 2 + cell2Hi / 2
                     - 2 * _defaultSymAxis; // (x1 + x2 + const - 2 xsym)
+#endif
             grad[2 * cellIdx1] += _lambda4 * gradX * 2; // for x1. 
             grad[2 * cellIdx2] +=  _lambda4 * gradX * 2; // for x2
-            //grad[2 * _db.numCells() + symGrpIdx] += _lambda4 * (- 2 * gradX); // for xsym
+#ifdef MULTI_SYM_GROUP
+            grad[2 * _db.numCells() + symGrpIdx] += _lambda4 * (- 2 * gradX) / symGrp.numConstraints(); // for xsym
+#endif
             RealType gradY = 2.0 * (values[2 * cellIdx1 + 1] - values[2 * cellIdx2 + 1]);
             grad[2 * cellIdx1 + 1] += _lambda4 * gradY;
             grad[2 * cellIdx2 + 1] += _lambda4 * (- gradY); 
@@ -576,10 +592,15 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
             IndexType cellIdx = symGrp.selfSym(selfSymIdx);
             RealType cell1Lo =  values[2 * cellIdx];
             RealType cell1Hi = _db.cell(cellIdx).cellBBox().xLen() * _scale + cell1Lo;
-            //RealType gradSS = 2.0 * (cell1Lo / 2 + cell1Hi / 2  - values[2 * _db.numCells() + symGrpIdx]);
+#ifdef MULTI_SYM_GROUP
+            RealType gradSS = 2.0 * (cell1Lo / 2 + cell1Hi / 2  - values[2 * _db.numCells() + symGrpIdx]);
+#else
             RealType gradSS = 2.0 * (cell1Lo / 2 + cell1Hi / 2  - _defaultSymAxis);
+#endif
             grad[2 * cellIdx] += _lambda4 * gradSS;
-            //grad[2 * _db.numCells() + symGrpIdx]  += _lambda4 * (- gradSS);
+#ifdef MULTI_SYM_GROUP
+            grad[2 * _db.numCells() + symGrpIdx]  += _lambda4 * (- gradSS) / symGrp.numConstraints(); // for xsym
+#endif
         }
     }
     

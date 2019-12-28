@@ -31,8 +31,8 @@ bool CGLegalizer::legalize()
         yMin = std::min(yMin, cellBox.yLo());
         yMax = std::max(yMax, cellBox.yHi());
     }
-    _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin));
-    _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin));
+    _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin)) + 100;
+    _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin)) + 100;
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
@@ -133,6 +133,10 @@ IntType minOverlappingDirection(const Box<LocType> &box1, const Box<LocType> &bo
 
 void CGLegalizer::generateConstraints()
 {
+    _hCG.clear();
+    _vCG.clear();
+    _hConstraints.clear();
+    _vConstraints.clear();
     // Init the irredundant constraint edges
     
     // Sort the edges of cells

@@ -53,6 +53,10 @@ class ConstraintGraph
         {
             boost::add_edge(sourceVex, targetVex, weight, _cg);
         }
+        void clear()
+        {
+            _cg.clear();
+        }
 
     private:
         graph_t _cg; ///< The boost graph
