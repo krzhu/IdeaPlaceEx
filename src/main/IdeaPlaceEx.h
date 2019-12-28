@@ -184,7 +184,9 @@ class IdeaPlaceEx
         /// @param first cellIdx
         /// @return cell name
         std::string cellName(IndexType cellIdx) { return _db.cell(cellIdx).name(); }
-
+        /// @brief return number of cells
+        /// @return number of cells
+        IndexType numCells() { return _db.numCells(); }
         /// @brief get the index pin 
         /// @param cell index
         /// @param the pin index of the cell
