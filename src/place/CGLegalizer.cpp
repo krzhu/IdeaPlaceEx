@@ -10,14 +10,33 @@ bool CGLegalizer::legalize()
     {
         return false;
     }
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+    }
     _hStar = lpLegalization(false);
     if (_hStar < 0)
     {
         return false;
     }
+
+    LocType xMin = LOC_TYPE_MAX;
+    LocType xMax = LOC_TYPE_MIN;
+    LocType yMin = LOC_TYPE_MAX;
+    LocType yMax = LOC_TYPE_MIN;
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        auto cellBox = _db.cell(cellIdx).cellBBoxOff();
+        xMin = std::min(xMin, cellBox.xLo());
+        xMax = std::max(xMax, cellBox.xHi());
+        yMin = std::min(yMin, cellBox.yLo());
+        yMax = std::max(yMax, cellBox.yHi());
+    }
+    _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin));
+    _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin));
     if (!lpDetailedPlacement())
     {
-        return false;
+        INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
+        return true;
     }
     INF("CG Legalizer: legalization finished\n");
     return true;
