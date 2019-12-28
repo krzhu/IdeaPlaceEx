@@ -41,12 +41,26 @@ bool NlpWnconj::solve()
 
 bool NlpWnconj::writeOut()
 {
+    // find the min value
+    RealType minX =1e10; 
+    RealType minY = 1e10;
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        if (_solutionVect[cellIdx *2] < minX)
+        {
+            minX = _solutionVect[cellIdx * 2];
+        }
+        if (_solutionVect[cellIdx *2 + 1] < minY)
+        {
+            minY = _solutionVect[cellIdx *2 + 1];
+        }
+    }
     // Dump the cell locations to database
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         auto & cell = _db.cell(cellIdx);
-        LocType xLo = ::klib::autoRound<LocType>(_solutionVect[cellIdx * 2] / _scale);
-        LocType yLo = ::klib::autoRound<LocType>(_solutionVect[cellIdx * 2 + 1] / _scale);
+        LocType xLo = ::klib::autoRound<LocType>((_solutionVect[cellIdx * 2] - minX) / _scale);
+        LocType yLo = ::klib::autoRound<LocType>((_solutionVect[cellIdx * 2 + 1] - minY) / _scale);
         _db.cell(cellIdx).setXLoc(xLo + cell.cellBBox().xLo());
         _db.cell(cellIdx).setYLoc(yLo + cell.cellBBox().yLo());
     }
@@ -80,6 +94,10 @@ bool NlpWnconj::updateMultipliers()
 #ifdef DEBUG_GR
     DBG("\n\niter %d after mu %f lambda1 %f lambda2 %f lambda4 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4);
 #endif
+    if (_toughModel)
+    {
+        _lambdaMaxOverlap += mu ;
+    }
     return false;
 }
 
@@ -95,13 +113,29 @@ bool NlpWnconj::initVars()
     _lambda2 = LAMBDA_2Init;
     _lambda3 = LAMBDA_3Init;
     _lambda4 = LAMBDA_4Init;
+    _lambdaMaxOverlap = 0;
+
+    // max white space
+    _maxWhiteSpace = NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE;
+
+    if (_toughModel)
+    {
+        INF("NLP global placement: trying hard mode \n");
+        _lambda1 = 1;
+        _lambda2 = 0;
+        _lambda3 = 0;
+        _lambda4 = 4;
+        _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
+        _maxWhiteSpace = 50;
+        _maxIter = 32;
+    }
 
     // Other static variables
     _alpha = NLP_WN_CONJ_ALPHA;
 
     // Total cell area
     RealType totalCellArea = static_cast<double>(_db.calculateTotalCellArea());
-    _scale = sqrt(100 / totalCellArea);
+    _scale = sqrt(100 / (totalCellArea));
     //_totalCellArea = static_cast<double>(_db.calculateTotalCellArea()) * _scale * _scale;
     _totalCellArea = 100;
 
@@ -120,7 +154,7 @@ bool NlpWnconj::initVars()
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
         double aspectRatio = 1;
         double xLo = 0; double yLo = 0; 
-        double tolerentArea = _totalCellArea * (1 + NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE);
+        double tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
         double xHi = std::sqrt(tolerentArea * aspectRatio);
         double yHi = tolerentArea / xHi;
         _boundary.set(xLo , yLo , xHi , yHi );
@@ -155,27 +189,31 @@ bool NlpWnconj::initVars()
     {
         double value = (static_cast<double>(idx) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
         _solutionVect[idx] = value;
+        //_solutionVect[idx] = _defaultSymAxis;
     }
 #if 1
-    for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+    if (1)
     {
-        const auto &symGrp = _db.symGroup(symGrpIdx);
-        for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
+        for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
         {
-            const auto &symPair = symGrp.symPair(symPairIdx);
-            IndexType cell1 = symPair.firstCell();
-            IndexType cell2 = symPair.secondCell();
-            RealType xLo1 = _solutionVect[2 * cell1];
-            RealType yLo1 = _solutionVect[2 * cell1 + 1];
-            RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
-            RealType xLo2 = _defaultSymAxis -xHi1;
-            _solutionVect[2 * cell2] = xLo2;
-            _solutionVect[2 * cell2 + 1] = yLo1;
-        }
-        for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
-        {
-            const auto selfSym = symGrp.selfSym(selfSymIdx);
-            _solutionVect[2 * selfSym] =  _defaultSymAxis / 2;
+            const auto &symGrp = _db.symGroup(symGrpIdx);
+            for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
+            {
+                const auto &symPair = symGrp.symPair(symPairIdx);
+                IndexType cell1 = symPair.firstCell();
+                IndexType cell2 = symPair.secondCell();
+                RealType xLo1 = _solutionVect[2 * cell1];
+                RealType yLo1 = _solutionVect[2 * cell1 + 1];
+                RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
+                RealType xLo2 = _defaultSymAxis * 2 -xHi1;
+                _solutionVect[2 * cell2] = xLo2;
+                _solutionVect[2 * cell2 + 1] = yLo1;
+            }
+            for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
+            {
+                const auto selfSym = symGrp.selfSym(selfSymIdx);
+                _solutionVect[2 * selfSym] =  _defaultSymAxis / 2;
+            }
         }
     }
 #endif
@@ -216,6 +254,30 @@ bool NlpWnconj::nlpKernel()
     while (_iter < _maxIter)
     {
         wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
+        if (_toughModel)
+        {
+            for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+            {
+                const auto &symGrp = _db.symGroup(symGrpIdx);
+                for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
+                {
+                    const auto &symPair = symGrp.symPair(symPairIdx);
+                    IndexType cell1 = symPair.firstCell();
+                    IndexType cell2 = symPair.secondCell();
+                    RealType xLo1 = _solutionVect[2 * cell1];
+                    RealType yLo1 = _solutionVect[2 * cell1 + 1];
+                    RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
+                    RealType xLo2 = _defaultSymAxis * 2 -xHi1;
+                    _solutionVect[2 * cell2] = xLo2;
+                    _solutionVect[2 * cell2 + 1] = yLo1;
+                }
+                for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
+                {
+                    const auto selfSym = symGrp.selfSym(selfSymIdx);
+                    _solutionVect[2 * selfSym] =  _defaultSymAxis / 2;
+                }
+            }
+        }
 #ifdef DEBUG_GR
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         double objective = objFunc(_solutionVect);

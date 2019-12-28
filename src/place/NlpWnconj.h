@@ -65,6 +65,8 @@ class NlpWnconj
         /// @brief run the NLP placer
         /// @return if successful
         bool solve();
+        /// @brief set tough model
+        void setToughMode(bool set) { _toughModel = set; }
     private:
         /*------------------------------*/ 
         /* Flow                         */
@@ -220,6 +222,8 @@ class NlpWnconj
         double _lambda2; ///< The cofficient for out of boundry penalty
         double _lambda3; ///< The coefficient for wire length penalty
         double _lambda4; ///< The coefficient for asymmetry penalty
+        RealType _maxWhiteSpace;
+        RealType _lambdaMaxOverlap;
         double _alpha; ///< Used in objective function
         Box<double> _boundary; ///< The boundary constraint for the placement
         double _overlapThreshold = NLP_WN_CONJ_OVERLAP_THRESHOLD; ///< Threshold for whether increase penalty for overlapping penalty
@@ -230,15 +234,41 @@ class NlpWnconj
         RealType _fOOB = 0;
         RealType _fHpwl = 0;
         RealType _fAsym = 0;
+        RealType _fMaxOver = 0;
         RealType _epsilon = NLP_WN_CONJ_EPISLON;///< For updating penalty multipliers
         IndexType _iter = 0; ///< Current iteration
         double _tao = 0.5; ///< The exponential decay factor for step size
         IndexType _maxIter = NLP_WN_CONJ_DEFAULT_MAX_ITER; ///< The maximum iterations
         RealType _defaultSymAxis = 0;
+        bool _toughModel = false; ///< Whether try hard to be feasible
 };
 
 inline double NlpWnconj::objFunc(double *values)
 {
+    if (0)
+    {
+        for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+        {
+            const auto &symGrp = _db.symGroup(symGrpIdx);
+            for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
+            {
+                const auto &symPair = symGrp.symPair(symPairIdx);
+                IndexType cell1 = symPair.firstCell();
+                IndexType cell2 = symPair.secondCell();
+                RealType xLo1 = values[2 * cell1];
+                RealType yLo1 = values[2 * cell1 + 1];
+                RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
+                RealType xLo2 = _defaultSymAxis * 2 -xHi1;
+                values[2 * cell2] = xLo2;
+                values[2 * cell2 + 1] = yLo1;
+            }
+            for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
+            {
+                const auto selfSym = symGrp.selfSym(selfSymIdx);
+                values[2 * selfSym] =  _defaultSymAxis / 2;
+            }
+        }
+    }
     //values[2 * _db.numCells()] = 0;
     //values[2 * _db.numCells() + 1] = 0;
     // Initial the objective to be 0 and add the non-zero to it
@@ -247,6 +277,7 @@ inline double NlpWnconj::objFunc(double *values)
     _fOOB = 0;
     _fHpwl = 0;
     _fAsym = 0;
+    _fMaxOver = 0;
     // log-sum-exp model for overlap penalty
     // Calculate the cell-wise overlapping area penalty
     // TODO: improve the codes below from O(n^2) to O(nlogn)
@@ -271,12 +302,38 @@ inline double NlpWnconj::objFunc(double *values)
             double var2Y = yHiJ - yLoI;
             double overlapY = NlpWnconjDetails::logSumExp(var1Y, var2Y, -_alpha);
             overlapY = NlpWnconjDetails::logSumExp0(overlapY, _alpha);
+            // find the max overlap
+            RealType overlapArea = overlapX * overlapY;
+            RealType areaI = (xHiI - xLoI) * (yHiI - yLoI);
+            RealType areaJ = (xHiJ - xLoJ) * (yHiJ - yLoJ);
+            RealType minArea = overlapArea / std::min(areaI, areaJ);
+            if (_fMaxOver < minArea)
+            {
+                _fMaxOver = minArea;
+            }
+            
+            if (0)
+            {
+                if (overlapArea / areaI > 1.0)
+                {
+                    result += _lambdaMaxOverlap * overlapX *overlapY ;
+                    DBG("1:  %f \n" ,_lambdaMaxOverlap * overlapX *overlapY  );
+                }
+                if (overlapArea / areaJ > 1.0)
+                {
+                    result += _lambdaMaxOverlap * overlapX *overlapY ;
+                }
+            }
+            
             // Add to the objective
             result += _lambda1 * overlapX * overlapY;
             //DBG("Overlap add %f, lambda %f \n", _lambda1 * overlapX * overlapY, _lambda1);
             _fOverlap += _lambda1 * overlapX * overlapY ;
         }
     }
+
+    // record max overlap penalty
+    result += _lambdaMaxOverlap * _fMaxOver;
 
     //double oobCost = 0;
 
@@ -357,8 +414,35 @@ inline double NlpWnconj::objFunc(double *values)
 
 inline void NlpWnconj::gradFunc(double *grad, double *values)
 {
-    //values[2 * _db.numCells()] = 0;
-    //values[2 * _db.numCells() + 1] = 0;
+    if (0)
+    {
+        for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+        {
+            const auto &symGrp = _db.symGroup(symGrpIdx);
+            for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
+            {
+                const auto &symPair = symGrp.symPair(symPairIdx);
+                IndexType cell1 = symPair.firstCell();
+                IndexType cell2 = symPair.secondCell();
+                RealType xLo1 = values[2 * cell1];
+                RealType yLo1 = values[2 * cell1 + 1];
+                RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
+                RealType xLo2 = _defaultSymAxis * 2 -xHi1;
+                values[2 * cell2] = xLo2;
+                values[2 * cell2 + 1] = yLo1;
+            }
+            for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
+            {
+                const auto selfSym = symGrp.selfSym(selfSymIdx);
+                values[2 * selfSym] =  _defaultSymAxis / 2;
+            }
+        }
+    }
+    RealType maxOverlapRatio = 0;
+    IndexType maxOverLapIndex = 0;
+    RealType maxOverLapGradX = 0;
+    RealType maxOverLapGradY = 0;
+    //RealType cellAreaMaxOverlap = 0;
     // log-sum-exp model for overlap penalty
     for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
     {
@@ -367,6 +451,10 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         const auto &bboxI = _db.cell(cellIdxI).cellBBox();
         for (IndexType cellIdxJ = 0; cellIdxJ < _db.numCells(); ++cellIdxJ)
         {
+            if (cellIdxI == cellIdxJ)
+            {
+                continue;
+            }
             const auto &bboxJ = _db.cell(cellIdxJ).cellBBox();
             // Values arrangement x0, y0, x1, y1...
             double xLoI = values[2 * cellIdxI]; double xHiI = xLoI + bboxI.xLen() * _scale;
@@ -383,13 +471,38 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
             double var2y = yHiJ - yLoI;
             double oy = NlpWnconjDetails::logSumExp(var1y, var2y, -_alpha); // smoothed min
             oy = NlpWnconjDetails::logSumExp0(oy, _alpha); // smoothed max with 0
+            RealType gradX = oy * gradOx * NlpWnconjDetails::gradLogSumExp(var1x, var2x, -_alpha);
             // Record gradOy
-            grad[2 * cellIdxI] += _lambda1 * oy * gradOx * NlpWnconjDetails::gradLogSumExp(var1x, var2x, -_alpha);
+            grad[2 * cellIdxI] += _lambda1 * gradX;
             double gradOy = NlpWnconjDetails::gradLogSumExp0(oy, _alpha);
+            RealType gradY = ox * gradOy * NlpWnconjDetails::gradLogSumExp(var1y, var2y, -_alpha);
             // Record gradOy
-            grad[2 * cellIdxI + 1] += _lambda1 * ox * gradOy * NlpWnconjDetails::gradLogSumExp(var1y, var2y, -_alpha);
+            grad[2 * cellIdxI + 1] += _lambda1 * gradY;
+            // maxoverlap parts
+            RealType overlapArea= ox * oy;
+            RealType areaI = (xHiI - xLoI) * (yHiI - yLoI);
+            if (maxOverlapRatio < overlapArea / areaI)
+            {
+                maxOverLapIndex = cellIdxI;
+                maxOverLapGradX = gradX;
+                maxOverLapGradY = gradY;
+                //cellAreaMaxOverlap = areaI;
+            }
+            
+            if (_toughModel)
+            {
+                if (overlapArea / areaI > 0.5)
+                {
+                    grad[2 * cellIdxI] += _lambdaMaxOverlap * gradX ;
+                    grad[2 * cellIdxI + 1] += _lambdaMaxOverlap * gradY ;
+                }
+            }
+            
         }
     }
+    // Update the max overlap
+    grad[2 * maxOverLapIndex] += _lambdaMaxOverlap * maxOverLapGradX ;
+    grad[2 * maxOverLapIndex + 1] += _lambdaMaxOverlap * maxOverLapGradY ;
     // out of boundary penalty
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {

@@ -2,13 +2,25 @@
 
 PROJECT_NAMESPACE_BEGIN
 
-void CGLegalizer::legalize()
+bool CGLegalizer::legalize()
 {
     this->generateConstraints();
     _wStar = lpLegalization(true);
+    if (_wStar < 0)
+    {
+        return false;
+    }
     _hStar = lpLegalization(false);
-    lpDetailedPlacement();
+    if (_hStar < 0)
+    {
+        return false;
+    }
+    if (!lpDetailedPlacement())
+    {
+        return false;
+    }
     INF("CG Legalizer: legalization finished\n");
+    return true;
 }
 
 /// @brief Find which direction is the least displacement direction to make the two boxes disjoint
@@ -18,16 +30,84 @@ void CGLegalizer::legalize()
 /// @return 4 if moving box2 up
 IntType minOverlappingDirection(const Box<LocType> &box1, const Box<LocType> &box2)
 {
+    bool box1IsLower = true;
+    bool box1IsLefter = true;
+    if (box1.xLo() < box2.xLo())
+    {
+        box1IsLefter = true;
+    }
+    if (box1.yLo() < box2.yLo())
+    {
+        box1IsLower = true;
+    }
+
     //Assert(box1.overlap(box2));
     LocType dispL = box2.xHi() - box1.xLo();
     LocType dispR = box1.xHi() - box2.xLo();
     LocType dispB = box2.yHi() - box1.yLo();
     LocType dispT = box1.yHi() - box2.yLo();
+    
     LocType minDisp = std::min(std::min(dispL, dispR), std::min(dispB, dispT));
-    if (minDisp == dispL) { return 1; }
-    if (minDisp == dispR) { return 2; }
-    if (minDisp == dispB) { return 3; }
-    if (minDisp == dispT) { return 4; }
+    
+    if (minDisp == dispL) {  return 1; }
+    if (minDisp == dispR) {  return 2; }
+    if (minDisp == dispB) {  return 3; }
+    if (minDisp == dispT) {  return 4; }
+    
+    if (box1IsLower == true && box1IsLefter == true)
+    {
+        if (dispR < dispT)
+        {
+            return 2;
+        }
+        else
+        {
+            return 4;
+        }
+    }
+    else if (box1IsLower == false && box1IsLefter == true)
+    {
+        if (dispR < dispB)
+        {
+            return 2;
+        }
+        else
+        {
+            return 3;
+        }
+    }
+    else if (box1IsLower == false && box1IsLefter == false)
+    {
+        if (dispL < dispB)
+        {
+            return 1;
+        }
+        else
+        {
+            return 3;
+        }
+    }
+    else
+    {
+        // true false
+        if (dispL < dispT)
+        {
+            return 1;
+        }
+        else
+        {
+            return 4;
+        }
+    }
+
+    /*
+    LocType minDisp = std::min(std::min(dispL, dispR), std::min(dispB, dispT));
+    
+    if (minDisp == dispL) {  return 1; }
+    if (minDisp == dispR) {  return 2; }
+    if (minDisp == dispB) {  return 3; }
+    if (minDisp == dispT) {  return 4; }
+    */
     return 0;
 }
 
@@ -66,6 +146,11 @@ void CGLegalizer::generateConstraints()
             {
                 AT(overlapAny, idx1) = true;
                 AT(overlapAny, idx2) = true;
+            }
+            else
+            {
+                // FIXME: figure out whether we should add continue here
+                //continue;
             }
             // Add edge part
             // First detect whether the pair are sym pair or are both self-symmetric
@@ -124,9 +209,9 @@ void CGLegalizer::generateConstraints()
             {
                 // Only add vertical edges
                 // Add edges based on the displacement distance of moving one over another
-                LocType dispB = cell2.yHi() - cell1.yLoc();
-                LocType dispT = cell1.yHi() - cell2.yLoc();
-                if (dispB < dispT)
+                //LocType dispB = cell2.yHi() - cell1.yLoc();
+                //LocType dispT = cell1.yHi() - cell2.yLoc();
+                if (cell1.yLoc() < cell2.yLoc())
                 {
                     _vConstraints.addConstraintEdge(idx1, idx2, - cell1.cellBBox().yLen());
                 }
@@ -185,15 +270,13 @@ void CGLegalizer::generateConstraints()
     }
 #ifdef DEBUG_LEGALIZE
     DBG("Print the generated constraints... \n\n");
-    for (IndexType i = 0; i < _hConstraints.edges().size(); ++i)
+    for (const auto &edge : _hConstraints.edges())
     {
-        const auto &edge = _hConstraints.edges()[i];
-        DBG("horizontal i %d %s \n", i, edge.toStr().c_str());
+        DBG("horizontal i %s \n",  edge.toStr().c_str());
     }
-    for (IndexType i = 0; i < _vConstraints.edges().size(); ++i)
+    for (const auto &edge : _vConstraints.edges())
     {
-        const auto &edge = _vConstraints.edges()[i];
-        DBG("vertical i %d %s \n", i, edge.toStr().c_str());
+        DBG("vertical i  %s \n",  edge.toStr().c_str());
     }
 #endif
     // Construct the boost constraint graphs
@@ -245,19 +328,6 @@ void CGLegalizer::generateConstraints()
 
     // reload the constraints from the boost graph and prepare for the LP solving
     readloadConstraints();
-#ifdef DEBUG_LEGALIZE
-    DBG("Print the generated constraints... \n\n");
-    for (IndexType i = 0; i < _hConstraints.edges().size(); ++i)
-    {
-        const auto &edge = _hConstraints.edges()[i];
-        DBG("horizontal i %d %s \n", i, edge.toStr().c_str());
-    }
-    for (IndexType i = 0; i < _vConstraints.edges().size(); ++i)
-    {
-        const auto &edge = _vConstraints.edges()[i];
-        DBG("vertical i %d %s \n", i, edge.toStr().c_str());
-    }
-#endif
 }
 
 void CGLegalizer::readloadConstraints()
@@ -794,16 +864,33 @@ RealType CGLegalizer::lpLegalization(bool isHor)
     RealType obj;
     if (isHor)
     {
+        INF("CG legalizer: legalize horizontal LP...\n");
         auto solver = LpLegalizeSolver(_db, _hConstraints, isHor);
-        solver.solve();
-        solver.exportSolution();
+        bool optimal = solver.solve();
+        if (optimal)
+        {
+            solver.exportSolution();
+        }
+        else
+        {
+            return -1;
+        }
         obj = solver.evaluateObj();
+        //_db.drawCellBlocks("./debug/after_legalization_hor.gds");
     }
     else
     {
+        INF("CG legalizer: legalize vertical LP...\n");
         auto solver = LpLegalizeSolver(_db, _vConstraints, isHor);
-        solver.solve();
-        solver.exportSolution();
+        bool optimal = solver.solve();
+        if (optimal)
+        {
+            solver.exportSolution();
+        }
+        else
+        {
+            return -1;
+        }
         obj = solver.evaluateObj();
     }
 #ifdef DEBUG_LEGALIZE
@@ -815,27 +902,45 @@ RealType CGLegalizer::lpLegalization(bool isHor)
     return obj;
 }
 
-void CGLegalizer::lpDetailedPlacement()
+bool CGLegalizer::lpDetailedPlacement()
 {
     // Horizontal
+    INF("CG legalizer: detailed placement horizontal LP...\n");
     auto horSolver = LpLegalizeSolver(_db, _hConstraints, true, 1, 0);
 #ifdef DEBUG_LEGALIZE
     DBG("wstar for width %f \n", _wStar);
 #endif
     horSolver.setWStar(_wStar);
-    horSolver.solve();
-    horSolver.exportSolution();
+    bool horpass = horSolver.solve();
+    if (horpass)
+    {
+        horSolver.exportSolution();
+    }
+    else
+    {
+        return false;
+    }
+    //_db.drawCellBlocks("./debug/after_dp_hor.gds");
     // Vertical
+    INF("CG legalizer: detailed placement vertical LP...\n");
     auto verSolver = LpLegalizeSolver(_db, _vConstraints, false, 1, 0);
     verSolver.setWStar(_hStar);
-    verSolver.solve();
-    verSolver.exportSolution();
+    bool verpass =verSolver.solve();
+    if (verpass)
+    {
+        verSolver.exportSolution();
+    }
+    else
+    {
+        return false;
+    }
     
 #ifdef DEBUG_LEGALIZE
 #ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_dp.gds");
 #endif
 #endif
+    return true;
 }
 
 PROJECT_NAMESPACE_END

@@ -24,7 +24,7 @@ void LpLegalizeSolver::exportSolution()
     }
 }
 
-void LpLegalizeSolver::solve()
+bool LpLegalizeSolver::solve()
 {
     // Add variables
     addIlpVars();
@@ -33,10 +33,10 @@ void LpLegalizeSolver::solve()
     // Configure the objective function
     configureObjFunc();
     // Solve the LP problem
-    solveLp();
+    return solveLp();
 }
 
-void LpLegalizeSolver::solveLp()
+bool LpLegalizeSolver::solveLp()
 {
     _ilpModel.setObjective(_obj);
     _ilpModel.setOptimizeType(limbo::solvers::MIN);
@@ -46,18 +46,22 @@ void LpLegalizeSolver::solveLp()
     if (_optimStatus == limbo::solvers::UNBOUNDED)
     {
         ERR("LP legalization solver: LP unbounded \n");
+        return false;
     }
     else if (_optimStatus == limbo::solvers::OPTIMAL)
     {
         INF("LP legalization solver: LP optimal \n");
+        return true;
     }
     else if (_optimStatus == limbo::solvers::INFEASIBLE)
     {
         ERR("LP legalization solver: LP infeasible \n");
+        return false;
     }
     else
     {
         ERR("LP legalization solver: Unknown LP status %d \n", _optimStatus);
+        return false;
     }
 }
 

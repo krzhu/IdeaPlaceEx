@@ -48,7 +48,7 @@ void Database::drawCellBlocks(const std::string &filename)
     {
         const auto &cell = this->cell(cellIdx);
         Box<LocType> cellBox = cell.cellBBox();
-        //cellBox.enlargeBy(-70);
+        cellBox.enlargeBy(-10);
         XY<LocType> cellLoc = XY<LocType>(cell.xLoc(), cell.yLoc());
         cellBox.offsetBy(cellLoc);
         wg->writeRectangle(cellBox, cellIdx, 0);

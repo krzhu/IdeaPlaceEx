@@ -123,6 +123,7 @@ bool IdeaPlaceEx::solve()
     }
 
     NlpWnconj nlp(_db);
+    nlp.setToughMode(false);
     nlpPtr = &nlp;
     nlp.solve();
 #ifdef DEBUG_GR
@@ -131,7 +132,22 @@ bool IdeaPlaceEx::solve()
 #endif //DEBUG_DRAW
 #endif
     CGLegalizer legalizer(_db);
-    legalizer.legalize();
+    bool legalizeResult = legalizer.legalize();
+    if (!legalizeResult)
+    {
+        INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
+        NlpWnconj tryagain(_db);
+        tryagain.setToughMode(true);
+        nlpPtr = &tryagain;
+        tryagain.solve();
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
+    _db.drawCellBlocks("./debug/after_gr.gds");
+#endif //DEBUG_DRAW
+#endif
+        CGLegalizer legalizer2(_db);
+        legalizer2.legalize();
+    }
     return true;
 }
 

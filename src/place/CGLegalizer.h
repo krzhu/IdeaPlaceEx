@@ -37,6 +37,18 @@ class ConstraintEdge
             ss << "source "<< _source <<" target "<< _target << " weight "<< _weight;
             return ss.str();
         }
+        bool operator<(const ConstraintEdge &rhs) const
+        {
+            if (_source == rhs.source())
+            {
+                if (_target == rhs.target())
+                {
+                    return _weight < rhs.weight();
+                }
+                return _target < rhs.target();
+            }
+            return _source < rhs.source();
+        }
     private:
         IndexType _source;  ///< The index of source vertex
         IndexType _target; ///< The index of target vertex
@@ -55,21 +67,21 @@ class Constraints
         void clear() { _edges.clear(); }
         /// @brief get the constraint edges
         /// @return the constraint edges
-        const std::vector<ConstraintEdge> & edges() const { return _edges; }
+        const std::set<ConstraintEdge> & edges() const { return _edges; }
         /// @brief get the constraint edges
         /// @return the constraint edges
-        std::vector<ConstraintEdge> & edges() { return _edges; }
+        std::set<ConstraintEdge> & edges() { return _edges; }
         /// @brief add a constraint edge
         /// @param the source cell index
         /// @param the target cell index
         /// @param the weight of the edge
         void addConstraintEdge(IndexType sourceIdx, IndexType targetIdx, IntType weight)
         {
-            _edges.emplace_back(ConstraintEdge(sourceIdx, targetIdx, weight));
+            _edges.insert(ConstraintEdge(sourceIdx, targetIdx, weight));
         }
         
     private:
-        std::vector<ConstraintEdge> _edges; ///< The constraint edges
+        std::set<ConstraintEdge> _edges; ///< The constraint edges
 };
 
 /// @brief The LP solver for legalization
@@ -86,7 +98,7 @@ class LpLegalizeSolver
             : _db(db), _constrains(constraints), _isHor(isHor), _optHpwl(optHpwl), _optArea(optArea)
         {} //_solver = SolverType(&_ilpModel); }
         /// @brief solve the problem
-        void solve();
+        bool solve();
         // @brief dump out the solutions to the database
         void exportSolution();
         /// @brief evaluate the objective function and return the value
@@ -102,7 +114,7 @@ class LpLegalizeSolver
         /// @brief set the objective function
         void configureObjFunc();
         /// @brief solve the LP
-        void solveLp();
+        bool solveLp();
     private:
         /* Configurations - Inputs */
         Database &_db; ///< The database for the Ideaplace
@@ -171,7 +183,7 @@ class CGLegalizer
         /// @param The database of IdeaPlaceEx
         explicit CGLegalizer(Database &db) : _db(db) {}
         /// @brief legalize the design
-        void legalize();
+        bool legalize();
     private:
         /// @brief Generate the constraints (not optimal in number of constraints). Based on sweeping algorithm
         void generateConstraints();
@@ -222,10 +234,10 @@ class CGLegalizer
         void readloadConstraints();
         /// @brief linear programming-based legalization
         /// @param if solving horizontal or vertical
-        /// @return the resulting objective function
+        /// @return the resulting objective function. if negative, failed
         RealType lpLegalization(bool isHor);
         /// @brief LP-based detailed placement. For optimizing wire length
-        void lpDetailedPlacement();
+        bool lpDetailedPlacement();
     private:
         Database &_db; ///< The database of IdeaPlaceEx
         ConstraintGraph _hCG; ///< The horizontal constraint graph
