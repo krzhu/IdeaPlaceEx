@@ -41,13 +41,13 @@ class ConstraintEdge
         {
             if (_source == rhs.source())
             {
-                if (_target == rhs.target())
-                {
-                    return _weight < rhs.weight();
-                }
                 return _target < rhs.target();
             }
             return _source < rhs.source();
+        }
+        bool operator==(const ConstraintEdge &rhs) const 
+        {
+            return _source == rhs.source() && _target == rhs.target();
         }
     private:
         IndexType _source;  ///< The index of source vertex
@@ -171,6 +171,12 @@ class CGLegalizer
                     {
                         return this->coord < rhs.coord;
                     }
+                }
+                std::string toStr() const
+                {
+                    std::stringstream ss;
+                    ss << "LocType "<< coord <<" cellIdx "<< cellIdx << " isTop "<< isTop;
+                    return ss.str();
                 }
             public:
                 LocType coord; ///< Coordinate of the edge

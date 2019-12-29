@@ -193,7 +193,7 @@ bool NlpWnconj::initVars()
         _solutionVect[idx] = value;
         //_solutionVect[idx] = (value - _defaultSymAxis) /2 + _defaultSymAxis;
     }
-#if 1
+#if 0
     if (!_toughModel)
     {
         for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)

@@ -491,7 +491,7 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
                 //cellAreaMaxOverlap = areaI;
             }
             
-            if (1)
+            if (_toughModel)
             {
                 RealType lambda;
                 if (_toughModel)

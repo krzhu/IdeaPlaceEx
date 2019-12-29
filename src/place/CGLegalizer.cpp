@@ -33,6 +33,7 @@ bool CGLegalizer::legalize()
     }
     _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin)) + 100;
     _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin)) + 100;
+    //this->generateConstraints();
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
@@ -144,9 +145,9 @@ void CGLegalizer::generateConstraints()
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         const auto &cell = _db.cell(cellIdx);
-        hBoxEdges.emplace_back(BoxEdge(cell.yLoc(), cellIdx, false));
+        hBoxEdges.emplace_back(BoxEdge(cell.yLo(), cellIdx, false));
         hBoxEdges.emplace_back(BoxEdge(cell.yHi(), cellIdx, true));
-        vBoxEdges.emplace_back(BoxEdge(cell.xLoc(), cellIdx, false));
+        vBoxEdges.emplace_back(BoxEdge(cell.xLo(), cellIdx, false));
         vBoxEdges.emplace_back(BoxEdge(cell.xHi(), cellIdx, true));
     }
     std::sort(hBoxEdges.begin(), hBoxEdges.end());
@@ -216,7 +217,7 @@ void CGLegalizer::generateConstraints()
             {
                 // Only add horizontal edges
                 // Assume all horizontally symmetric
-                if (cell1.xLoc() <  cell2.xLoc())
+                if (cell1.xLo() <  cell2.xLo())
                 {
                     _hConstraints.addConstraintEdge(idx1, idx2, - cell1.cellBBox().xLen());
                 }
@@ -282,6 +283,7 @@ void CGLegalizer::generateConstraints()
     }
     for (const auto &ev : vBoxEdges)
     {
+        
         if (ev.isTop)
         {
             initIrredundantEdgesDelete(false, vOrders, vCand, ev.cellIdx, overlapAny);
@@ -292,7 +294,7 @@ void CGLegalizer::generateConstraints()
         }
     }
 #ifdef DEBUG_LEGALIZE
-    DBG("Print the generated constraints... \n\n");
+    DBG("Before reload: Print the generated constraints... \n\n");
     for (const auto &edge : _hConstraints.edges())
     {
         DBG("horizontal i %s \n",  edge.toStr().c_str());
@@ -333,7 +335,7 @@ void CGLegalizer::generateConstraints()
             bool hasHorEdge = hEdge1.second || hEdge2.second;
             if (!hasHorEdge)
             {
-                if (_db.cell(cellIdx1).xLoc() <= _db.cell(cellIdx2).xLoc())
+                if (_db.cell(cellIdx1).xLo() <= _db.cell(cellIdx2).xLo())
                 {
                     boost::add_edge(boost::vertex(cellIdx1, _hCG.boostGraph()),
                             boost::vertex(cellIdx2, _hCG.boostGraph()),
@@ -351,6 +353,17 @@ void CGLegalizer::generateConstraints()
 
     // reload the constraints from the boost graph and prepare for the LP solving
     readloadConstraints();
+#ifdef DEBUG_LEGALIZE
+    DBG("After reload. Print the generated constraints... \n\n");
+    for (const auto &edge : _hConstraints.edges())
+    {
+        DBG("horizontal i %s \n",  edge.toStr().c_str());
+    }
+    for (const auto &edge : _vConstraints.edges())
+    {
+        DBG("vertical i  %s \n",  edge.toStr().c_str());
+    }
+#endif
 }
 
 void CGLegalizer::readloadConstraints()
@@ -394,12 +407,13 @@ void CGLegalizer::getNecessaryEdges()
     IndexType sourceIdx = _db.numCells();
     ConstraintGraph::IndexMap idxMap = boost::get(boost::vertex_index, _hCG.boostGraph());
 
+    // DFS to find the mutal constrainted cells
     dfsGraph(dpTabH, visitedH, sourceIdx, _hCG, idxMap);
     dfsGraph(dpTabV, visitedV, sourceIdx, _vCG, idxMap);
 
     for (IndexType i = 0; i < numNodes; ++i)
     {
-        for (IndexType j = 0; j < numNodes; ++j)
+        for (IndexType j = i+1; j < numNodes; ++j)
         {
             bool dp = dpTabH.at(i, j) == 1 || dpTabH.at(j, i) == 1
                 || dpTabV.at(i, j) == 1 || dpTabV.at(j, i) == 1;
@@ -505,13 +519,13 @@ void CGLegalizer::dagTransitiveReduction(ConstraintGraph &cg)
     // DFS-based transitive reduction N(N+M)
     IndexType numNodes = boost::num_vertices(cg.boostGraph());
     // Build edge matrix
-    Vector2D<IntType> edgeMat(numNodes, numNodes), reachable(numNodes, numNodes);
+    Vector2D<IntType> edgeMat(numNodes, numNodes, 0), reachable(numNodes, numNodes, 0);
     auto edges = boost::edges(cg.boostGraph());
     for (auto it = edges.first; it != edges.second; ++it)
     {
-        IntType sourceNode = boost::source(*it, cg.boostGraph());
-        IntType targetNode = boost::target(*it, cg.boostGraph());
-        edgeMat.at(sourceNode, targetNode) = true;
+        IntType sourceNode = boost::source(*it, _hCG.boostGraph());
+        IntType targetNode = boost::target(*it, _hCG.boostGraph());
+        edgeMat.at(sourceNode, targetNode) = 1;
     }
     // DFS remove edge
     std::vector<bool> visited(numNodes, false);
@@ -532,6 +546,7 @@ bool CGLegalizer::dfsRemoveTransitiveEdge(ConstraintGraph &cg, Vector2D<IntType>
         // FIXME: reimplement this function to avoid dynamically deleting the edges
         if (neighborNode > numNodes)
         {
+            assert(0);
             ERR("CG legalizer: edge not found in transitive edge reduction \n");
             break;
         }
@@ -606,7 +621,7 @@ void CGLegalizer::initIrredundantEdgesInsert(bool isHor , std::vector<IndexType>
     {
         auto compLeft = [&] (const IndexType lhs, const IndexType rhs)
         {
-            return _db.cell(lhs).xLoc() < _db.cell(rhs).xLoc();
+            return _db.cell(lhs).xLo() < _db.cell(rhs).xLo();
         };
         std::sort(orders.begin(), orders.end(), compLeft);
     }

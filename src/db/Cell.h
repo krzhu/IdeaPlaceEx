@@ -29,12 +29,18 @@ class Cell
         /// @brief get the y coordinate of the cell
         /// @return the y coordinate of the cell
         LocType yLoc() const { return _loc.y(); }
+        /// @brief get the x coordinate of the cell
+        /// @return the x coordinate of the cell
+        LocType xLo() const { return _loc.x() + _cellBBox.xLo(); }
+        /// @brief get the y coordinate of the cell
+        /// @return the y coordinate of the cell
+        LocType yLo() const { return _loc.y() + _cellBBox.yLo(); }
         /// @brief get the xHi of the cell
         /// @return xHi of the cell
-        LocType xHi() const { return _loc.x() + _cellBBox.xLen(); }
+        LocType xHi() const { return _loc.x() + _cellBBox.xHi(); }
         /// @brief get the yHi of the cell
         /// @return yHi of the cell
-        LocType yHi() const { return _loc.y() + _cellBBox.yLen(); }
+        LocType yHi() const { return _loc.y() + _cellBBox.yHi(); }
         /// @brief get the name of the cell
         /// @return the name of the cell
         const std::string & name() const { return _name; }

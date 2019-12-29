@@ -142,10 +142,16 @@ void LpLegalizeSolver::addIlpConstraints()
             if (_isHor)
             {
                 // 0 <= x_i <= W* - w_i
+#ifdef DEBUG_LEGALIZE
+                DBG("Add boundary constraint: x_%d <= %f - %d \n", i, _wStar, _db.cell(i).cellBBox().xLen());
+#endif
                 _ilpModel.addConstraint(AT(_locs, i) <= _wStar - _db.cell(i).cellBBox().xLen());
             }
             else
             {
+#ifdef DEBUG_LEGALIZE
+                DBG("Add boundary constraint: y_%d <= %f - %d \n", i, _wStar, _db.cell(i).cellBBox().yLen());
+#endif
                 _ilpModel.addConstraint(AT(_locs, i) <= _wStar - _db.cell(i).cellBBox().yLen());
             }
         }
@@ -168,6 +174,10 @@ void LpLegalizeSolver::addIlpConstraints()
     {
         IndexType sourceIdx = edge.source();
         IndexType targetIdx = edge.target();
+        if (sourceIdx == targetIdx)
+        {
+            continue;
+        }
         if (sourceIdx == _db.numCells() || targetIdx == _db.numCells() + 1)
         {
             // the s, t constraints
