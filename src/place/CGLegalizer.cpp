@@ -31,8 +31,8 @@ bool CGLegalizer::legalize()
         yMin = std::min(yMin, cellBox.yLo());
         yMax = std::max(yMax, cellBox.yHi());
     }
-    _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin)) + 100;
-    _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin)) + 100;
+    _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin)) + 1000;
+    _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin)) + 1000;
     //this->generateConstraints();
     if (!lpDetailedPlacement())
     {
@@ -174,7 +174,7 @@ void CGLegalizer::generateConstraints()
             else
             {
                 // FIXME: figure out whether we should add continue here
-                //continue;
+                continue;
             }
             // Add edge part
             // First detect whether the pair are sym pair or are both self-symmetric

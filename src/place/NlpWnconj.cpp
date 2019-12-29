@@ -123,7 +123,7 @@ bool NlpWnconj::initVars()
         INF("NLP global placement: trying hard mode \n");
         _lambda1 = 1;
         _lambda2 = 0;
-        _lambda3 = 20;
+        _lambda3 = 12;
         _lambda4 = 64;
         _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
         _maxWhiteSpace = 50;
@@ -152,7 +152,7 @@ bool NlpWnconj::initVars()
     else
     {
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
-        double aspectRatio = 0.8;
+        double aspectRatio = 1;
         double xLo = 0; double yLo = 0; 
         double tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
         double xHi = std::sqrt(tolerentArea * aspectRatio);
