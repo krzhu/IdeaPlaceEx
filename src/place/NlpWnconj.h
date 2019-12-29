@@ -206,6 +206,7 @@ class NlpWnconj
         /// @brief update penalty terms
         /// @return true if the global routing should be terminated
         bool updateMultipliers();
+        bool updateMultipliers2();
 
         
     private:
@@ -669,10 +670,36 @@ inline void NlpWnconj::evaluteSolution()
         varY += std::max(_boundary.yLo() - yLo, 0.0);
         varY += std::max(yHi - _boundary.yHi(), 0.0);
         totalOOBarea +=  (varX - _boundary.xLen()) * (varY - _boundary.yLen());
-        DBG("total oob area %f \n", totalOOBarea);
+        //DBG("total oob area %f \n", totalOOBarea);
     }
     _curOOBRatio = totalOOBarea / ( _totalCellArea);
     // Asymmetry
+    _curAsymDist = 0;
+    for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+    {
+        const auto &symGrp = _db.symGroup(symGrpIdx);
+#ifdef MULTI_SYM_GROUP
+        RealType symAxis = _solutionVect[2 * _db.numCells() + symGrpIdx];
+#else
+        RealType symAxis = _defaultSymAxis;
+#endif
+        for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++symPairIdx)
+        {
+            const auto &symPair = symGrp.symPair(symPairIdx);
+            IndexType cell1 = symPair.firstCell();
+            IndexType cell2 = symPair.secondCell();
+            RealType cellWidth = _db.cell(cell1).cellBBox().xLen() * _scale;
+            _curAsymDist += std::abs(_solutionVect[2 * cell1 + 1] - _solutionVect[2 * cell2 + 1]);
+            _curAsymDist += std::abs(_solutionVect[2 * cell1] + _solutionVect[2 * cell2] + cellWidth
+                    - 2 * symAxis);
+        }
+        for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
+        {
+            IndexType cellIdx = symGrp.selfSym(selfSymIdx);
+            RealType cellWidth = _db.cell(cellIdx).cellBBox().xLen() * _scale;
+            _curAsymDist += std::abs(_solutionVect[2 * cellIdx] +  cellWidth / 2 - symAxis);
+        }
+    }
 }
 PROJECT_NAMESPACE_END
 

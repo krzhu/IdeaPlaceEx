@@ -72,7 +72,7 @@ RealType NlpWnconj::stepSize()
     RealType eps = _epsilon * ( exp( _iter * _tao));
     RealType obj = this->objFunc(_solutionVect); // also calculate fOOB etc.
     RealType violate = _fOverlap + _fOOB + _fAsym + _fMaxOver;
-    //return eps;
+    return eps;
     return eps * ( obj - 0.0) / violate; // 0.0 is better to be replaced by lower bound baseline
 }
 
@@ -102,6 +102,53 @@ bool NlpWnconj::updateMultipliers()
     return false;
 }
 
+
+bool NlpWnconj::updateMultipliers2()
+{
+    evaluteSolution();
+    auto mu = stepSize();
+    bool breakFlag = true;
+    RealType violate = 0;
+    if (_curOvlRatio > _overlapThreshold)
+    {
+        breakFlag = false;
+        violate += _fOverlap;
+    }
+    if (_curOOBRatio > _oobThreshold)
+    {
+        breakFlag = false;
+        violate += _fOOB;
+    }
+    if (_curAsymDist > _asymThreshold)
+    {
+        breakFlag = false;
+        violate += _fAsym;
+    }
+    if (_curOvlRatio > _overlapThreshold)
+    {
+        _lambda1 += mu * _fOverlap / violate;
+    }
+    if (_curOOBRatio > _oobThreshold)
+    {
+        _lambda2 += mu * _fOOB / violate; // Double
+    }
+    if (_curAsymDist > _asymThreshold)
+    {
+        _lambda4 +=  mu * _fAsym / violate; // Double
+    }
+    if (_curOvlRatio > _overlapThreshold && _toughModel)
+    {
+        _lambdaMaxOverlap += mu ;
+    }
+
+    // Break if all criterials are met
+    if (_code == 0 && breakFlag)
+    {
+        return true;
+    }
+    return false;
+}
+
 bool NlpWnconj::initVars()
 {
     // The number of nlp problem variables
@@ -122,7 +169,7 @@ bool NlpWnconj::initVars()
     if (_toughModel)
     {
         INF("NLP global placement: trying hard mode \n");
-        _lambda1 = 0;
+        _lambda1 = 1;
         _lambda2 = 1;
         _lambda3 = 4;
         _lambda4 = 64;
@@ -192,7 +239,7 @@ bool NlpWnconj::initVars()
     for (IntType idx = 0; idx < _len; ++idx)
     {
         double value = (static_cast<double>(idx ) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
-        //double value = rand() % static_cast<LocType>(_boundary.xHi());
+        //double value = (rand() % _db.numCells() ) / (_boundary.xHi());
         _solutionVect[idx] = value;
         //_solutionVect[idx] = (value - _defaultSymAxis) /2 + _defaultSymAxis;
     }
@@ -277,8 +324,6 @@ bool NlpWnconj::nlpKernel()
                     IndexType cell2 = symPair.secondCell();
                     RealType xLo1 = _solutionVect[2 * cell1];
                     RealType yLo1 = _solutionVect[2 * cell1 + 1];
-                    RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
-                    RealType xLo2 = _solutionVect[2 * cell2];
                     RealType yLo2 = _solutionVect[2 * cell2 + 1];
                     RealType y;
                     if ((yLo1 < _boundary.yLo() || yLo1 > _boundary.yHi())
@@ -292,67 +337,34 @@ bool NlpWnconj::nlpKernel()
                     {
                         y = yLo1;
                     }
-                    if (std::abs(xHi1 - symAxis) < std::abs(xLo2 - symAxis))
-                    {
-                        xLo2 = 2 * symAxis - xHi1;
-                    }
-                    else
-                    {
-                        xLo1 = 2 * symAxis - xLo2 -  _db.cell(cell1).cellBBox().xLen() * _scale;
-                    }
+                    RealType xLo2 = 2 * symAxis - xLo1 -  _db.cell(cell1).cellBBox().xLen() * _scale;
 
-                    _solutionVect[2 * cell1] = xLo1;
                     _solutionVect[2 * cell2] = xLo2;
                     _solutionVect[2 * cell2 + 1] = y;
                     _solutionVect[2 * cell1 + 1] = y;
-                }
+                    }
                 for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
                 {
                     const auto selfSym = symGrp.selfSym(selfSymIdx);
-                    _solutionVect[2 * selfSym] =  symAxis / 2;
+                    RealType cellWidth = _db.cell(selfSym).cellBBox().xLen() * _scale;
+                    _solutionVect[2 * selfSym] =  symAxis  - cellWidth / 2;
                 }
             }
         }
 #ifdef DEBUG_GR
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
-        double objective = objFunc(_solutionVect);
-        DBG("NlpWnconj::%s: objective %f at iter %d \n", __FUNCTION__, objective, _iter);
         for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
         {
             DBG("cell %d x %f y %f \n", cellIdx, _solutionVect[cellIdx * 2], _solutionVect[cellIdx *2 + 1]);
         }
 #endif
-        if (updateMultipliers())
+        if (updateMultipliers2())
         {
             INF("Global placement terminates \n");
             break;
         }
-#if 0
-        if (_curOvlRatio > _overlapThreshold)
-        {
-            DBG("Overlap check failed \n");
-            _lambda1 = _lambda1 * 2; // Double
-            breakFlag = false;
-        }
-        if (_curOOBRatio > _oobThreshold)
-        {
-            DBG("OOB check failed \n");
-            _lambda2 = _lambda2 * 2; // Double
-            breakFlag = false;
-        }
-        if (0)
-        //if (_curAsymDist > _asymThreshold)
-        {
-            DBG("asym check failed \n");
-            _lambda4 = _lambda4 * 2; // Double
-            breakFlag = false;
-        }
-        // Break if all criterials are met
-        if (_code == 0 && breakFlag)
-        {
-            break;
-        }
-#endif
+        double objective = objFunc(_solutionVect);
+        DBG("NlpWnconj::%s: objective %f at iter %d \n", __FUNCTION__, objective, _iter);
         _iter++;
     }
     return true;
