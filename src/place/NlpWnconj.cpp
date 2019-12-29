@@ -71,7 +71,8 @@ RealType NlpWnconj::stepSize()
 {
     RealType eps = _epsilon * ( exp( _iter * _tao));
     RealType obj = this->objFunc(_solutionVect); // also calculate fOOB etc.
-    RealType violate = _fOverlap + _fOOB + _fAsym;
+    RealType violate = _fOverlap + _fOOB + _fAsym + _fMaxOver;
+    //return eps;
     return eps * ( obj - 0.0) / violate; // 0.0 is better to be replaced by lower bound baseline
 }
 
@@ -121,12 +122,12 @@ bool NlpWnconj::initVars()
     if (_toughModel)
     {
         INF("NLP global placement: trying hard mode \n");
-        _lambda1 = 1;
-        _lambda2 = 0;
-        _lambda3 = 12;
+        _lambda1 = 0;
+        _lambda2 = 1;
+        _lambda3 = 4;
         _lambda4 = 64;
         _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
-        _maxWhiteSpace = 50;
+        _maxWhiteSpace = 16;
         _maxIter = 32;
     }
 
@@ -159,13 +160,15 @@ bool NlpWnconj::initVars()
         double yHi = tolerentArea / xHi;
         _boundary.set(xLo , yLo , xHi , yHi );
         INF("NlpWnconj::%s: automatical set boundary to be %s \n", __FUNCTION__, _boundary.toStr().c_str());
+        /*
         Box<LocType> bb = Box<LocType>(static_cast<LocType>(_boundary.xLo()),
                         static_cast<LocType>(_boundary.yLo()),
                         static_cast<LocType>(_boundary.xHi()),
                         static_cast<LocType>(_boundary.yHi())
                         );
         _db.parameters().setBoundaryConstraint(bb);
-        INF("NlpWnconj::initVars: add boundary constraints as calculated \n");
+        */
+        //INF("NlpWnconj::initVars: add boundary constraints as calculated \n");
     }
 
     // Default sym axis is at the middle
@@ -189,7 +192,7 @@ bool NlpWnconj::initVars()
     for (IntType idx = 0; idx < _len; ++idx)
     {
         double value = (static_cast<double>(idx ) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
-        //double value = rand() % 20;
+        //double value = rand() % static_cast<LocType>(_boundary.xHi());
         _solutionVect[idx] = value;
         //_solutionVect[idx] = (value - _defaultSymAxis) /2 + _defaultSymAxis;
     }

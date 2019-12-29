@@ -494,15 +494,17 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
             if (1)
             {
                 RealType lambda;
+                RealType threshold = 0.7;
                 if (_toughModel)
                 {
                     lambda = _lambdaMaxOverlap ;
+                    threshold = 0.3;
                 }
                 else
                 {
                     lambda = _lambda1 ;
                 }
-                if (overlapArea / areaI > 0.7)
+                if (overlapArea / areaI > threshold)
                 {
                     RealType ratio = overlapArea / areaI;
                     ratio /= 0.7;
