@@ -79,6 +79,20 @@ class Constraints
         {
             _edges.insert(ConstraintEdge(sourceIdx, targetIdx));
         }
+        bool hasEdgeNoDirection(IndexType sourceIdx, IndexType targetIdx)
+        {
+            auto it = _edges.find(ConstraintEdge(sourceIdx, targetIdx));
+            if (it != _edges.end())
+            {
+                return true;
+            }
+            it = _edges.find(ConstraintEdge(targetIdx, sourceIdx));
+            if (it != _edges.end())
+            {
+                return true;
+            }
+            return false;
+        }
         void removeConstraintEdge(IndexType sourceIdx, IndexType targetIdx)
         {
             auto it = _edges.find(ConstraintEdge(sourceIdx, targetIdx));
@@ -86,6 +100,12 @@ class Constraints
             {
                 _edges.erase(it);
             }
+            it = _edges.find(ConstraintEdge(targetIdx, sourceIdx));
+            if (it != _edges.end())
+            {
+                _edges.erase(it);
+            }
+
         }
         
     private:

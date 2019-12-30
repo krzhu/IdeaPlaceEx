@@ -140,6 +140,12 @@ bool NlpWnconj::updateMultipliers2()
     {
         _lambdaMaxOverlap += mu ;
     }
+    if (_lambda1 + _lambda2 + _lambda4 > NLP_WN_MAX_PENALTY)
+    {
+        _lambda1 *= NLP_WN_REDUCE_PENALTY;
+        _lambda2 *= NLP_WN_REDUCE_PENALTY;
+        _lambda4 *= NLP_WN_REDUCE_PENALTY;
+    }
 
     // Break if all criterials are met
     if (_code == 0 && breakFlag)
@@ -174,8 +180,8 @@ bool NlpWnconj::initVars()
         _lambda3 = 4;
         _lambda4 = 64;
         _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
-        _maxWhiteSpace = 16;
-        _maxIter = 32;
+        _maxWhiteSpace = 4;
+        _maxIter = 12;
     }
 
     // Other static variables

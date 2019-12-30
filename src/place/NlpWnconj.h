@@ -475,7 +475,7 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
                 if (_toughModel)
                 {
                     lambda = _lambdaMaxOverlap ;
-                    threshold = 0.3;
+                    threshold = 0.5;
                 }
                 else
                 {
@@ -495,8 +495,8 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         }
     }
     // Update the max overlap
-    grad[2 * maxOverLapIndex] += _lambdaMaxOverlap * maxOverLapGradX ;
-    grad[2 * maxOverLapIndex + 1] += _lambdaMaxOverlap * maxOverLapGradY ;
+    //grad[2 * maxOverLapIndex] += _lambdaMaxOverlap * maxOverLapGradX ;
+    //grad[2 * maxOverLapIndex + 1] += _lambdaMaxOverlap * maxOverLapGradY ;
     // out of boundary penalty
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {

@@ -33,7 +33,41 @@ bool CGLegalizer::legalize()
     }
     _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin)) + 1000;
     _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin)) + 1000;
-    //this->generateConstraints();
+    this->generateConstraints();
+    if (!lpDetailedPlacement())
+    {
+        INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
+        return true;
+    }
+    _wStar = lpLegalization(true);
+    if (_wStar < 0)
+    {
+        return false;
+    }
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+    }
+    _hStar = lpLegalization(false);
+    if (_hStar < 0)
+    {
+        return false;
+    }
+
+    xMin = LOC_TYPE_MAX;
+    xMax = LOC_TYPE_MIN;
+    yMin = LOC_TYPE_MAX;
+    yMax = LOC_TYPE_MIN;
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        auto cellBox = _db.cell(cellIdx).cellBBoxOff();
+        xMin = std::min(xMin, cellBox.xLo());
+        xMax = std::max(xMax, cellBox.xHi());
+        yMin = std::min(yMin, cellBox.yLo());
+        yMax = std::max(yMax, cellBox.yHi());
+    }
+    _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin)) + 1000;
+    _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin)) + 1000;
+    this->generateConstraints();
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
@@ -355,7 +389,47 @@ void CGLegalizer::generateConstraints()
     readloadConstraints();
     for (const auto &edge : _hConstraints.edges())
     {
-        _vConstraints.removeConstraintEdge(edge.source(), edge.target());
+        if (edge.source() >= _db.numCells() || edge.target() >= _db.numCells())
+        {
+            continue;
+        }
+        bool hasDuplicate = _vConstraints.hasEdgeNoDirection(edge.source(), edge.target());
+        assert(!hasDuplicate);
+        if (hasDuplicate)
+        {
+            IndexType i = edge.source();
+            IndexType j = edge.target();
+            auto cellBox1 = _db.cell(i).cellBBoxOff();
+            auto cellBox2 = _db.cell(j).cellBBoxOff();
+            LocType spaceH = std::max(cellBox1.xLo() - cellBox2.xHi(), cellBox2.xLo() - cellBox1.xHi());
+            LocType spaceV = std::max(cellBox1.yLo() - cellBox2.yHi(), cellBox2.yLo() - cellBox1.yHi());
+            _hConstraints.removeConstraintEdge(i, j);
+            _vConstraints.removeConstraintEdge(i, j);
+            if (spaceH >= spaceV)
+            {
+                // Add edge to horizontal constraint graph
+                if (cellBox1.xLo() < cellBox2.xLo())
+                {
+                    _hConstraints.addConstraintEdge(i, j, 0);
+                }
+                else
+                {
+                    _hConstraints.addConstraintEdge(j, i, 0);
+                }
+            }
+            else
+            {
+                // Add edge to vertical constraint graph
+                if (cellBox1.yLo() < cellBox2.yLo())
+                {
+                    _vConstraints.addConstraintEdge(i, j, 0);
+                }
+                else
+                {
+                    _vConstraints.addConstraintEdge(j, i, 0);
+                }
+            }
+        }
     }
 #ifdef DEBUG_LEGALIZE
     DBG("After reload. Print the generated constraints... \n\n");
