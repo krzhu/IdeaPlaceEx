@@ -18,8 +18,8 @@ PROJECT_NAMESPACE_BEGIN
 class ConstraintEdge
 {
     public:
-        explicit ConstraintEdge(IndexType source, IndexType target, IntType weight):
-            _source(source), _target(target), _weight(weight)
+        explicit ConstraintEdge(IndexType source, IndexType target):
+            _source(source), _target(target)
     {}
         /// @brief Get the index of source vertex
         /// @return the index of source vertex
@@ -29,12 +29,12 @@ class ConstraintEdge
         IndexType target() const { return _target; }
         /// @brief Get the weight of this edge
         /// @return the weight of this edge
-        IntType weight() const { return _weight; }
+        IntType weight() const { return 1; }
         /// @brief to string for debuging
         std::string toStr() const 
         {
             std::stringstream ss;
-            ss << "source "<< _source <<" target "<< _target << " weight "<< _weight;
+            ss << "source "<< _source <<" target "<< _target ;
             return ss.str();
         }
         bool operator<(const ConstraintEdge &rhs) const
@@ -52,7 +52,7 @@ class ConstraintEdge
     private:
         IndexType _source;  ///< The index of source vertex
         IndexType _target; ///< The index of target vertex
-        IntType _weight;  ///< The weight of this edge
+        //IntType _weight;  ///< The weight of this edge
 };
 
 
@@ -77,7 +77,15 @@ class Constraints
         /// @param the weight of the edge
         void addConstraintEdge(IndexType sourceIdx, IndexType targetIdx, IntType weight)
         {
-            _edges.insert(ConstraintEdge(sourceIdx, targetIdx, weight));
+            _edges.insert(ConstraintEdge(sourceIdx, targetIdx));
+        }
+        void removeConstraintEdge(IndexType sourceIdx, IndexType targetIdx)
+        {
+            auto it = _edges.find(ConstraintEdge(sourceIdx, targetIdx));
+            if (it != _edges.end())
+            {
+                _edges.erase(it);
+            }
         }
         
     private:

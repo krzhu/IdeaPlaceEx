@@ -353,6 +353,10 @@ void CGLegalizer::generateConstraints()
 
     // reload the constraints from the boost graph and prepare for the LP solving
     readloadConstraints();
+    for (const auto &edge : _hConstraints.edges())
+    {
+        _vConstraints.removeConstraintEdge(edge.source(), edge.target());
+    }
 #ifdef DEBUG_LEGALIZE
     DBG("After reload. Print the generated constraints... \n\n");
     for (const auto &edge : _hConstraints.edges())
