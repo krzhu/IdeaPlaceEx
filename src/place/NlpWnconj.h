@@ -417,30 +417,6 @@ inline double NlpWnconj::objFunc(double *values)
 
 inline void NlpWnconj::gradFunc(double *grad, double *values)
 {
-    if (0)
-    {
-        for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
-        {
-            const auto &symGrp = _db.symGroup(symGrpIdx);
-            for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
-            {
-                const auto &symPair = symGrp.symPair(symPairIdx);
-                IndexType cell1 = symPair.firstCell();
-                IndexType cell2 = symPair.secondCell();
-                RealType xLo1 = values[2 * cell1];
-                RealType yLo1 = values[2 * cell1 + 1];
-                RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
-                RealType xLo2 = _defaultSymAxis * 2 -xHi1;
-                values[2 * cell2] = xLo2;
-                values[2 * cell2 + 1] = yLo1;
-            }
-            for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
-            {
-                const auto selfSym = symGrp.selfSym(selfSymIdx);
-                values[2 * selfSym] =  _defaultSymAxis / 2;
-            }
-        }
-    }
     RealType maxOverlapRatio = 0;
     IndexType maxOverLapIndex = 0;
     RealType maxOverLapGradX = 0;
@@ -492,7 +468,7 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
                 //cellAreaMaxOverlap = areaI;
             }
             
-            if (1)
+            if (_toughModel)
             {
                 RealType lambda;
                 RealType threshold = 0.7;

@@ -236,12 +236,23 @@ bool NlpWnconj::initVars()
     
     // My alternative intialization, just give the variables fixed linear value
     srand(0); //just a arbitary number
-    for (IntType idx = 0; idx < _len; ++idx)
+    if (1)
     {
-        double value = (static_cast<double>(idx ) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
-        //double value = (rand() % _db.numCells() ) / (_boundary.xHi());
-        _solutionVect[idx] = value;
-        //_solutionVect[idx] = (value - _defaultSymAxis) /2 + _defaultSymAxis;
+        for (IntType idx = 0; idx < _len; ++idx)
+        {
+            //double value = (static_cast<double>(idx ) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
+            double value = (rand() % _db.numCells() ) / (_boundary.xHi());
+            _solutionVect[idx] = value;
+            //_solutionVect[idx] = (value - _defaultSymAxis) /2 + _defaultSymAxis;
+        }
+    }
+    else
+    {
+        for (IntType idx = 0; idx < _len; ++idx)
+        {
+            RealType ratio = sqrt(_maxWhiteSpace / NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE);
+            _solutionVect[idx] *= ratio;
+        }
     }
 #if 0
     if (!_toughModel)
