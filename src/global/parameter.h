@@ -26,7 +26,7 @@ constexpr double NLP_WN_CONJ_EXP_DECAY_TARGET = 0.05; ///< The exponential decay
 constexpr IndexType NLP_WN_CONJ_DEFAULT_MAX_ITER = 20; ///< The default maxmimum iterations for the global placement
 constexpr RealType NLP_WN_CONJ_EPISLON = 200 / NLP_WN_CONJ_DEFAULT_MAX_ITER ;
 constexpr RealType NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE = 0.2; ///< The default extra white space for setting the boundry
-constexpr RealType NLP_WN_MAX_PENALTY = 50;
+constexpr RealType NLP_WN_MAX_PENALTY = 500;
 constexpr RealType NLP_WN_REDUCE_PENALTY = 30 / NLP_WN_MAX_PENALTY ;
 
 PROJECT_NAMESPACE_END

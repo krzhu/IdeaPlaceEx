@@ -44,7 +44,7 @@ bool ParserCellGds::parseCellGds(const std::string &filename, IndexType cellIdx)
                 break;
             }
         }
-        AssertMsg(cellIdx != INDEX_TYPE_MAX, "ParserCellGds::%s cannot locate the cell in database \n", __FUNCTION__);
+        AssertMsg(cellIdx != INDEX_TYPE_MAX, "ParserCellGds::%s cannot locate the cell %s in database \n", __FUNCTION__, topCellName.c_str());
     }
 
     // Write the read shapes into the database

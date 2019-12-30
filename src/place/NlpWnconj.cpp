@@ -146,6 +146,9 @@ bool NlpWnconj::updateMultipliers2()
         _lambda2 *= NLP_WN_REDUCE_PENALTY;
         _lambda4 *= NLP_WN_REDUCE_PENALTY;
     }
+#ifdef DEBUG_GR
+    DBG("\n\niter %d after mu %f lambda1 %f lambda2 %f lambda4 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4);
+#endif
 
     // Break if all criterials are met
     if (_code == 0 && breakFlag)
@@ -175,12 +178,12 @@ bool NlpWnconj::initVars()
     if (_toughModel)
     {
         INF("NLP global placement: trying hard mode \n");
-        _lambda1 = 1;
+        _lambda1 = 4;
         _lambda2 = 1;
         _lambda3 = 4;
         _lambda4 = 64;
         _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
-        _maxWhiteSpace = 4;
+        _maxWhiteSpace = 9;
         _maxIter = 12;
     }
 
@@ -206,7 +209,7 @@ bool NlpWnconj::initVars()
     else
     {
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
-        double aspectRatio = 1;
+        double aspectRatio = 0.9;
         double xLo = 0; double yLo = 0; 
         double tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
         double xHi = std::sqrt(tolerentArea * aspectRatio);
@@ -247,7 +250,16 @@ bool NlpWnconj::initVars()
         for (IntType idx = 0; idx < _len; ++idx)
         {
             //double value = (static_cast<double>(idx ) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
-            double value = (rand() % _db.numCells() ) / (_boundary.xHi());
+            double ratio;
+            if (idx %2 == 0)
+            {
+                ratio = _boundary.xHi() / _db.numCells();
+            }
+            else
+            {
+                ratio = _boundary.yHi() / _db.numCells();
+            }
+            double value = (rand() % _db.numCells() ) * ratio;
             _solutionVect[idx] = value;
             //_solutionVect[idx] = (value - _defaultSymAxis) /2 + _defaultSymAxis;
         }
