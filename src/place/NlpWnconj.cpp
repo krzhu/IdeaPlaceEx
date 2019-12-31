@@ -61,8 +61,8 @@ bool NlpWnconj::writeOut()
         auto & cell = _db.cell(cellIdx);
         LocType xLo = ::klib::autoRound<LocType>((_solutionVect[cellIdx * 2] - minX) / _scale);
         LocType yLo = ::klib::autoRound<LocType>((_solutionVect[cellIdx * 2 + 1] - minY) / _scale);
-        _db.cell(cellIdx).setXLoc(xLo + cell.cellBBox().xLo());
-        _db.cell(cellIdx).setYLoc(yLo + cell.cellBBox().yLo());
+        _db.cell(cellIdx).setXLoc(xLo - cell.cellBBox().xLo());
+        _db.cell(cellIdx).setYLoc(yLo - cell.cellBBox().yLo());
     }
     return true;
 }
@@ -126,15 +126,18 @@ bool NlpWnconj::updateMultipliers2()
     }
     if (_curOvlRatio > _overlapThreshold)
     {
-        _lambda1 += mu * _fOverlap / violate;
+        _lambda1 *= 2;
+        //_lambda1 += mu * _fOverlap / violate;
     }
     if (_curOOBRatio > _oobThreshold)
     {
-        _lambda2 += mu * _fOOB / violate; // Double
+        _lambda2 *= 2;
+        //_lambda2 += mu * _fOOB / violate; // Double
     }
     if (_curAsymDist > _asymThreshold)
     {
-        _lambda4 +=  mu * _fAsym / violate; // Double
+        _lambda4 *= 2;
+        //_lambda4 +=  mu * _fAsym / violate; // Double
     }
     if (_curOvlRatio > _overlapThreshold && _toughModel)
     {
@@ -183,7 +186,7 @@ bool NlpWnconj::initVars()
         _lambda3 = 4;
         _lambda4 = 32;
         _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
-        _maxWhiteSpace = 6;
+        _maxWhiteSpace = 4;
         _maxIter = 48;
     }
 
