@@ -105,6 +105,10 @@ class NlpWnconj
         {
             double xmax = 0, xmin = 0, ymax = 0, ymin = 0;
             const auto &net = _db.net(netIdx);
+            if (net.numPinIdx() <= 1)
+            {
+                return 0;
+            }
             for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
             {
                 // Get the pin location referenced to the cell
@@ -146,6 +150,14 @@ class NlpWnconj
             double xmax = 0, xmin = 0;
             double ymax = 0, ymin = 0;
             const auto &net = _db.net(netIdx);
+            if (net.numPinIdx() <= 1)
+            {
+                for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
+                {
+                    gradX.emplace_back(0);
+                    gradY.emplace_back(0);
+                }
+            }
             for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
             {
                 // Get the pin location referenced to the cell
@@ -248,30 +260,6 @@ class NlpWnconj
 
 inline double NlpWnconj::objFunc(double *values)
 {
-    if (0)
-    {
-        for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
-        {
-            const auto &symGrp = _db.symGroup(symGrpIdx);
-            for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
-            {
-                const auto &symPair = symGrp.symPair(symPairIdx);
-                IndexType cell1 = symPair.firstCell();
-                IndexType cell2 = symPair.secondCell();
-                RealType xLo1 = values[2 * cell1];
-                RealType yLo1 = values[2 * cell1 + 1];
-                RealType xHi1 = xLo1 + _db.cell(cell1).cellBBox().xLen() * _scale;
-                RealType xLo2 = _defaultSymAxis * 2 -xHi1;
-                values[2 * cell2] = xLo2;
-                values[2 * cell2 + 1] = yLo1;
-            }
-            for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
-            {
-                const auto selfSym = symGrp.selfSym(selfSymIdx);
-                values[2 * selfSym] =  _defaultSymAxis / 2;
-            }
-        }
-    }
     //values[2 * _db.numCells()] = 0;
     //values[2 * _db.numCells() + 1] = 0;
     // Initial the objective to be 0 and add the non-zero to it
@@ -335,6 +323,7 @@ inline double NlpWnconj::objFunc(double *values)
         }
     }
 
+
     // record max overlap penalty
     result += _lambdaMaxOverlap * _fMaxOver;
 
@@ -358,9 +347,6 @@ inline double NlpWnconj::objFunc(double *values)
         //oobCost += (obXLo + obXHi + obYLo + obYHi);
         //DBG("OOB add %f, lambda %f \n",_lambda2 * (obXLo + obXHi + obYLo + obYHi), _lambda2);
     }
-    //DBG("\n\nOOBCost : %f \n\n", oobCost);
-
-#ifdef MULTI_SYM_GROUP
     // Wire length penalty
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
@@ -369,7 +355,6 @@ inline double NlpWnconj::objFunc(double *values)
         _fHpwl +=  _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
         //DBG("HPWL add %f, lambda %f \n", _lambda3 * _db.net(netIdx).weight() * smoothHPWL, _lambda3);
     }
-#endif
     
     // ASYMMETRY
     RealType asymPenalty = 0;
