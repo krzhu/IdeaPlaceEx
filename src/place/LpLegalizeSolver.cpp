@@ -226,7 +226,7 @@ void LpLegalizeSolver::addIlpConstraints()
                         - 2*AT(_symLocs, symGrpIdx) 
                         == 
                         -_db.cell(symPair.firstCell()).cellBBox().xLen()); // Two cells are equal in width <- assumption
-                Assert(_db.cell(symPair.firstCell()).cellBBox().xLen() == _db.cell(symPair.secondCell()).cellBBox().xLen());
+                AssertMsg(_db.cell(symPair.firstCell()).cellBBox().xLen() == _db.cell(symPair.secondCell()).cellBBox().xLen(), "cell %s and cell %s \n", _db.cell(symPair.firstCell()).name().c_str(),  _db.cell(symPair.secondCell()).name().c_str());
             }
             for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
             {

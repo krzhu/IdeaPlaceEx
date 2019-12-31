@@ -208,6 +208,8 @@ class NlpWnconj
         bool updateMultipliers();
         bool updateMultipliers2();
 
+        void alignSym();
+
         
     private:
         Database &_db; ///< The placement engine database
@@ -468,7 +470,7 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
                 //cellAreaMaxOverlap = areaI;
             }
             
-            if (_toughModel)
+            if (0)
             {
                 RealType lambda;
                 RealType threshold = 0.7;
