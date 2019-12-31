@@ -484,9 +484,9 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
                 if (overlapArea / areaI > threshold)
                 {
                     RealType ratio = overlapArea / areaI;
-                    ratio /= 0.7;
+                    ratio /= threshold;
                     ratio *= ratio;
-                    //ratio *= ratio;
+                    ratio *= ratio;
                     grad[2 * cellIdxI] += lambda * gradX * ratio;
                     grad[2 * cellIdxI + 1] += lambda * gradY  * ratio;
                 }

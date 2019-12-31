@@ -28,9 +28,9 @@ bool CGLegalizer::legalize()
         yMin = std::min(yMin, cellBox.yLo());
         yMax = std::max(yMax, cellBox.yHi());
     }
-    _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin)) + 500;
-    _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin)) + 500;
-    //this->generateConstraints();
+    _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 500;
+    _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 500;
+    this->generateConstraints();
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
@@ -61,8 +61,8 @@ bool CGLegalizer::legalize()
         yMin = std::min(yMin, cellBox.yLo());
         yMax = std::max(yMax, cellBox.yHi());
     }
-    _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin)) + 500;
-    _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin)) + 500;
+    _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 500;
+    _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 500;
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
@@ -70,37 +70,6 @@ bool CGLegalizer::legalize()
     }
 
 
-    this->generateConstraints();
-    _wStar = lpLegalization(true);
-    if (_wStar < 0)
-    {
-        return false;
-    }
-    _hStar = lpLegalization(false);
-    if (_hStar < 0)
-    {
-        return false;
-    }
-
-    xMin = LOC_TYPE_MAX;
-    xMax = LOC_TYPE_MIN;
-    yMin = LOC_TYPE_MAX;
-    yMax = LOC_TYPE_MIN;
-    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
-    {
-        auto cellBox = _db.cell(cellIdx).cellBBoxOff();
-        xMin = std::min(xMin, cellBox.xLo());
-        xMax = std::max(xMax, cellBox.xHi());
-        yMin = std::min(yMin, cellBox.yLo());
-        yMax = std::max(yMax, cellBox.yHi());
-    }
-    _wStar = std::max(_wStar, static_cast<RealType>(xMax - xMin)) + 500;
-    _hStar = std::max(_hStar, static_cast<RealType>(yMax - yMin)) + 500;
-    if (!lpDetailedPlacement())
-    {
-        INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
-        return true;
-    }
 
     INF("CG Legalizer: legalization finished\n");
     return true;

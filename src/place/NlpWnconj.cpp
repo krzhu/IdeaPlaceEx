@@ -181,10 +181,10 @@ bool NlpWnconj::initVars()
         _lambda1 = 4;
         _lambda2 = 1;
         _lambda3 = 4;
-        _lambda4 = 64;
+        _lambda4 = 32;
         _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
-        _maxWhiteSpace = 9;
-        _maxIter = 12;
+        _maxWhiteSpace = 6;
+        _maxIter = 48;
     }
 
     // Other static variables
@@ -209,7 +209,7 @@ bool NlpWnconj::initVars()
     else
     {
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
-        double aspectRatio = 0.9;
+        double aspectRatio = 1;
         double xLo = 0; double yLo = 0; 
         double tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
         double xHi = std::sqrt(tolerentArea * aspectRatio);
@@ -247,7 +247,7 @@ bool NlpWnconj::initVars()
     srand(0); //just a arbitary number
     if (1)
     {
-        for (IntType idx = 0; idx < _len; ++idx)
+        for (IndexType idx = 0; idx < _db.numCells() * 2; ++idx)
         {
             //double value = (static_cast<double>(idx ) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
             double ratio;
@@ -271,6 +271,10 @@ bool NlpWnconj::initVars()
             RealType ratio = sqrt(_maxWhiteSpace / NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE);
             _solutionVect[idx] *= ratio;
         }
+    }
+    for (IndexType idx = _db.numCells() * 2; idx < static_cast<IndexType>(_len); ++idx)
+    {
+        _solutionVect[idx] = _defaultSymAxis;
     }
 #if 0
     if (!_toughModel)
@@ -336,7 +340,7 @@ bool NlpWnconj::nlpKernel()
     while (_iter < _maxIter)
     {
         wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
-        if (_toughModel)
+        if (_toughModel && _iter >= _maxIter / 2)
         {
             for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
             {
@@ -387,13 +391,26 @@ bool NlpWnconj::nlpKernel()
             DBG("cell %d x %f y %f \n", cellIdx, _solutionVect[cellIdx * 2], _solutionVect[cellIdx *2 + 1]);
         }
 #endif
-        if (updateMultipliers2())
+        if (_toughModel)
         {
-            INF("Global placement terminates \n");
-            break;
+            if (updateMultipliers())
+            {
+                INF("Global placement terminates \n");
+                break;
+            }
+        }
+        else
+        {
+            if (updateMultipliers2())
+            {
+                INF("Global placement terminates \n");
+                break;
+            }
         }
         double objective = objFunc(_solutionVect);
+#ifdef DEBUG_GR
         DBG("NlpWnconj::%s: objective %f at iter %d \n", __FUNCTION__, objective, _iter);
+#endif
         _iter++;
     }
     return true;
