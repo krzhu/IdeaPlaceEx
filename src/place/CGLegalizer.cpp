@@ -392,9 +392,9 @@ void CGLegalizer::generateConstraints()
             continue;
         }
         bool hasDuplicate = _vConstraints.hasEdgeNoDirection(edge.source(), edge.target());
-        assert(!hasDuplicate);
         if (hasDuplicate)
         {
+            WRN("CG Legalizer: has duplicate edges \n");
             IndexType i = edge.source();
             IndexType j = edge.target();
             auto cellBox1 = _db.cell(i).cellBBoxOff();
