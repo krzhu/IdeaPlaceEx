@@ -197,6 +197,7 @@ void LpLegalizeSolver::addIlpConstraints()
             cellDim = _db.cell(sourceIdx).cellBBox().yLen();
             spacing = spacingBox.yLo();
         }
+        spacing += 340;
         // Add the constraint 
         // x_i + w_i + spacing <= x_j
         _ilpModel.addConstraint(AT(_locs, sourceIdx) - AT(_locs, targetIdx) <= - cellDim - spacing);
