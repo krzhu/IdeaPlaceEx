@@ -117,23 +117,57 @@ bool IdeaPlaceEx::solve()
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         _db.cell(cellIdx).calculateCellBBox();
-        DBG("cell %d bbox %s \n", cellIdx, _db.cell(cellIdx).cellBBox().toStr().c_str());
+#ifdef DEBUG_GR
+        DBG("cell %d %s bbox %s \n", cellIdx, _db.cell(cellIdx).name().c_str(), _db.cell(cellIdx).cellBBox().toStr().c_str());
+#endif
     }
 
     NlpWnconj nlp(_db);
+    nlp.setToughMode(false);
     nlpPtr = &nlp;
     nlp.solve();
+#ifdef DEBUG_GR
 #ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_gr.gds");
 #endif //DEBUG_DRAW
+#endif
     CGLegalizer legalizer(_db);
-    legalizer.legalize();
+    bool legalizeResult = legalizer.legalize();
+    if (!legalizeResult)
+    {
+        INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
+        NlpWnconj tryagain(_db);
+        tryagain.setToughMode(true);
+        nlpPtr = &tryagain;
+        tryagain.solve();
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
+    _db.drawCellBlocks("./debug/after_gr.gds");
+#endif //DEBUG_DRAW
+#endif
+        CGLegalizer legalizer2(_db);
+        legalizer2.legalize();
+    }
     return true;
 }
 
 bool IdeaPlaceEx::outputFileBased(int argc, char **argv)
 {
     return true;
+}
+
+IndexType IdeaPlaceEx::cellIdxName(const std::string name)
+{
+    IndexType cellIdx = INDEX_TYPE_MAX;
+    for (IndexType idx = 0; idx < _db.numCells(); ++idx)
+    {
+        if (_db.cell(idx).name() == name)
+        {
+            cellIdx = idx;
+            break;
+        }
+    }
+    return cellIdx;
 }
 
 PROJECT_NAMESPACE_END

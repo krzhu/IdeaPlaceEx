@@ -24,7 +24,7 @@ void LpLegalizeSolver::exportSolution()
     }
 }
 
-void LpLegalizeSolver::solve()
+bool LpLegalizeSolver::solve()
 {
     // Add variables
     addIlpVars();
@@ -33,10 +33,10 @@ void LpLegalizeSolver::solve()
     // Configure the objective function
     configureObjFunc();
     // Solve the LP problem
-    solveLp();
+    return solveLp();
 }
 
-void LpLegalizeSolver::solveLp()
+bool LpLegalizeSolver::solveLp()
 {
     _ilpModel.setObjective(_obj);
     _ilpModel.setOptimizeType(limbo::solvers::MIN);
@@ -46,18 +46,22 @@ void LpLegalizeSolver::solveLp()
     if (_optimStatus == limbo::solvers::UNBOUNDED)
     {
         ERR("LP legalization solver: LP unbounded \n");
+        return false;
     }
     else if (_optimStatus == limbo::solvers::OPTIMAL)
     {
         INF("LP legalization solver: LP optimal \n");
+        return true;
     }
     else if (_optimStatus == limbo::solvers::INFEASIBLE)
     {
         ERR("LP legalization solver: LP infeasible \n");
+        return false;
     }
     else
     {
         ERR("LP legalization solver: Unknown LP status %d \n", _optimStatus);
+        return false;
     }
 }
 
@@ -138,10 +142,16 @@ void LpLegalizeSolver::addIlpConstraints()
             if (_isHor)
             {
                 // 0 <= x_i <= W* - w_i
+#ifdef DEBUG_LEGALIZE
+                DBG("Add boundary constraint: x_%d <= %f - %d \n", i, _wStar, _db.cell(i).cellBBox().xLen());
+#endif
                 _ilpModel.addConstraint(AT(_locs, i) <= _wStar - _db.cell(i).cellBBox().xLen());
             }
             else
             {
+#ifdef DEBUG_LEGALIZE
+                DBG("Add boundary constraint: y_%d <= %f - %d \n", i, _wStar, _db.cell(i).cellBBox().yLen());
+#endif
                 _ilpModel.addConstraint(AT(_locs, i) <= _wStar - _db.cell(i).cellBBox().yLen());
             }
         }
@@ -164,6 +174,10 @@ void LpLegalizeSolver::addIlpConstraints()
     {
         IndexType sourceIdx = edge.source();
         IndexType targetIdx = edge.target();
+        if (sourceIdx == targetIdx)
+        {
+            continue;
+        }
         if (sourceIdx == _db.numCells() || targetIdx == _db.numCells() + 1)
         {
             // the s, t constraints
@@ -212,7 +226,7 @@ void LpLegalizeSolver::addIlpConstraints()
                         - 2*AT(_symLocs, symGrpIdx) 
                         == 
                         -_db.cell(symPair.firstCell()).cellBBox().xLen()); // Two cells are equal in width <- assumption
-                Assert(_db.cell(symPair.firstCell()).cellBBox().xLen() == _db.cell(symPair.secondCell()).cellBBox().xLen());
+                AssertMsg(_db.cell(symPair.firstCell()).cellBBox().xLen() == _db.cell(symPair.secondCell()).cellBBox().xLen(), "cell %s and cell %s \n", _db.cell(symPair.firstCell()).name().c_str(),  _db.cell(symPair.secondCell()).name().c_str());
             }
             for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
             {

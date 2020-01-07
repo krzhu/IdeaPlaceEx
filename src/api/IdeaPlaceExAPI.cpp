@@ -24,6 +24,7 @@ void initIdeaPlaceExAPI(py::module &m)
         .def("addGdsLayer", &PROJECT_NAMESPACE::IdeaPlaceEx::addGdsLayer, py::arg("cellIdx") = PROJECT_NAMESPACE::INDEX_TYPE_MAX)
         .def("finishAddingGdsLayer", &PROJECT_NAMESPACE::IdeaPlaceEx::finishAddingGdsLayer)
         .def("allocateCell", &PROJECT_NAMESPACE::IdeaPlaceEx::allocateCell)
+        .def("setCellName", &PROJECT_NAMESPACE::IdeaPlaceEx::setCellName)
         .def("allocatePin", &PROJECT_NAMESPACE::IdeaPlaceEx::allocatePin)
         .def("addPinShape", &PROJECT_NAMESPACE::IdeaPlaceEx::addPinShape)
         .def("allocateNet", &PROJECT_NAMESPACE::IdeaPlaceEx::allocateNet)
@@ -33,8 +34,10 @@ void initIdeaPlaceExAPI(py::module &m)
         .def("addSymPair", &PROJECT_NAMESPACE::IdeaPlaceEx::addSymPair)
         .def("addSelfSym", &PROJECT_NAMESPACE::IdeaPlaceEx::addSelfSym)
         .def("addCellShape", &PROJECT_NAMESPACE::IdeaPlaceEx::addCellShape)
+        .def("numCells", &PROJECT_NAMESPACE::IdeaPlaceEx::numCells)
+        .def("cellIdxName", &PROJECT_NAMESPACE::IdeaPlaceEx::cellIdxName)
+        .def("cellName", &PROJECT_NAMESPACE::IdeaPlaceEx::cellName)
+        .def("pinIdx", &PROJECT_NAMESPACE::IdeaPlaceEx::pinIdx)
         .def("xCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::xCellLoc)
         .def("yCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::yCellLoc);
-
-
 }

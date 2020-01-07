@@ -34,7 +34,7 @@ class ConstraintGraph
         {
             _cg.clear();
         }
-        typedef boost::adjacency_list < boost::hash_setS, boost::vecS, boost::bidirectionalS, boost::no_property, boost::property < boost::edge_weight_t, IntType > > graph_t;
+        typedef boost::adjacency_list < boost::setS, boost::vecS, boost::bidirectionalS, boost::no_property, boost::property < boost::edge_weight_t, IntType > > graph_t;
         typedef boost::graph_traits < graph_t >::vertex_descriptor vertex_descriptor;
         typedef boost::graph_traits < graph_t >::edge_descriptor edge_descriptor;
         typedef boost::graph_traits < graph_t >::edge_iterator edge_iterator;
@@ -52,6 +52,10 @@ class ConstraintGraph
         void addEdge(IndexType sourceVex, IndexType targetVex, IntType weight)
         {
             boost::add_edge(sourceVex, targetVex, weight, _cg);
+        }
+        void clear()
+        {
+            _cg.clear();
         }
 
     private:
