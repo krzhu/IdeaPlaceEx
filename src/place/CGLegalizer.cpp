@@ -378,6 +378,7 @@ void CGLegalizer::generateConstraints()
         }
     } // for (IndexType symPairIdx = 0; symPairIdx < _db.numSymGroups(); ++symPairIdx)
 
+    dagfyConstraintGraphs();
     // reload the constraints from the boost graph and prepare for the LP solving
     readloadConstraints();
     for (const auto &edge : _hConstraints.edges())
@@ -440,26 +441,32 @@ void CGLegalizer::generateConstraints()
 bool CGLegalizer::dagfyConstraintGraphs()
 {
     bool bothAreDAGs = true;
+#ifdef DEBUG_LEGALIZE
+    DBG("CHeck horizontal DAG \n");
+#endif
     if (dagfyOneConstraintGraph(_hCG))
     {
         WRN("CG Legalizer:: the horizontal constraint graph is not a DAG. Force it to be acyclic...\n");
         bothAreDAGs = false;
-        Assert(false);
+        //Assert(false);
     }
+#ifdef DEBUG_LEGALIZE
+    DBG("CHeck vertical DAG \n");
+#endif
     if (dagfyOneConstraintGraph(_vCG))
     {
         WRN("CG Legalizer:: the vertical constraint graph is not a DAG. Force it to be acyclic...\n");
         bothAreDAGs = false;
-        Assert(false);
+        //Assert(false);
     }
     return bothAreDAGs;
 }
 
 // a utility function to be called recurrsively to update visited
-bool dagfyUtil(IndexType nodeIdx, std::vector<bool> visited, std::vector<bool> recStack, ConstraintGraph::IndexMap idxMap, ConstraintGraph &cg)
+bool dagfyUtil(IndexType nodeIdx, std::vector<char>  &visited, std::vector<char> &recStack, ConstraintGraph::IndexMap &idxMap, ConstraintGraph &cg)
 {
     bool hasCycle = false;
-    if (!visited.at(nodeIdx))
+    if (visited.at(nodeIdx))
     {
         // Has visited
         recStack.at(nodeIdx) = false;
@@ -480,6 +487,7 @@ bool dagfyUtil(IndexType nodeIdx, std::vector<bool> visited, std::vector<bool> r
             // Find a back edge -> cycle
             hasCycle = true;
             cg.removeEdge(nodeIdx, neighborNode);
+            DBG("Remove edge %d %d \n", nodeIdx, neighborNode);
         }
     }
     recStack.at(nodeIdx) = false; // Remove the vertex from recursion 
@@ -490,12 +498,21 @@ bool CGLegalizer::dagfyOneConstraintGraph(ConstraintGraph &cg)
     // Since the CG should also be a network, ie. it has source and target. Don't need a standard topological sort, :
     IndexType numNodes = cg.numNodes();
     IndexType sourceIdx = cg.sourceNodeIdx();
-    std::vector<bool> visited(numNodes, false);
-    std::vector<bool> recStack(numNodes, false);
+    std::vector<char> visited(numNodes, false);
+    std::vector<char> recStack(numNodes, false);
     ConstraintGraph::IndexMap idxMap = boost::get(boost::vertex_index, cg.boostGraph());
 
     // Don't need a loop over all vertices because we know we just need to search from source
-    return dagfyUtil(sourceIdx, visited, recStack, idxMap, cg);
+    bool hasCyle =  dagfyUtil(sourceIdx, visited, recStack, idxMap, cg);
+    for (IndexType idx = 0; idx < numNodes; ++idx)
+    {
+        //AssertMsg(visited[idx], "node %d \n", idx);
+    }
+    for (IndexType idx = 0; idx < numNodes; ++idx)
+    {
+        dagfyUtil(idx, visited, recStack, idxMap, cg);
+    }
+    return hasCyle;
 }
 
 void CGLegalizer::readloadConstraints()
@@ -568,13 +585,11 @@ void CGLegalizer::addEdgeGreedy(IndexType i, IndexType j)
         // Add edge to horizontal constraint graph
         if (cellBox1.xLo() < cellBox2.xLo())
         {
-            boost::add_edge(boost::vertex(i, _hCG.boostGraph()), boost::vertex(j, _hCG.boostGraph()), 
-                    -cellBox1.xLen(), _hCG.boostGraph());
+            _hCG.addEdge(i, j, - cellBox1.xLen());
         }
         else
         {
-            boost::add_edge(boost::vertex(j, _hCG.boostGraph()), boost::vertex(i, _hCG.boostGraph()), 
-                    -cellBox2.xLen(), _hCG.boostGraph());
+            _hCG.addEdge(j, i, - cellBox2.xLen());
         }
     }
     else
@@ -582,13 +597,11 @@ void CGLegalizer::addEdgeGreedy(IndexType i, IndexType j)
         // Add edge to vertical constraint graph
         if (cellBox1.yLo() < cellBox2.yLo())
         {
-            boost::add_edge(boost::vertex(i, _vCG.boostGraph()), boost::vertex(j, _vCG.boostGraph()), 
-                    -cellBox1.yLen(), _vCG.boostGraph());
+            _vCG.addEdge(i, j, -cellBox1.yLen());
         }
         else
         {
-            boost::add_edge(boost::vertex(j, _vCG.boostGraph()), boost::vertex(i, _vCG.boostGraph()), 
-                    -cellBox2.yLen(), _vCG.boostGraph());
+            _vCG.addEdge(j, i, -cellBox2.yLen());
         }
     }
 }

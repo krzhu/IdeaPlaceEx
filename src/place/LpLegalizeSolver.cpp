@@ -70,14 +70,21 @@ void LpLegalizeSolver::configureObjFunc()
     // Wirelength
     if (_optHpwl)
     {
+        bool hasAtLeastOneNet = false;
         for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
         {
             if (_db.net(netIdx).numPinIdx() <= 1)
             {
                 continue;
             }
+            hasAtLeastOneNet = true;
             auto weight = _db.net(netIdx).weight();
             _obj += weight * (AT(_wlR, netIdx) - AT(_wlL, netIdx));
+        }
+        if (!hasAtLeastOneNet)
+        {
+            ERR("LP Legalizer:: No valid net \n");
+            Assert(false);
         }
     }
     // Area
@@ -115,7 +122,7 @@ void LpLegalizeSolver::addIlpVars()
                                                 "wll_" + std::to_string(i));
             AT(_wlR, i) = _ilpModel.addVariable(0, std::numeric_limits<RealType>::max(),
                                                 limbo::solvers::CONTINUOUS,
-                                                "wll_" + std::to_string(i));
+                                                "wlr_" + std::to_string(i));
         }
     }
     if (_optArea == 1)
