@@ -123,6 +123,9 @@ class Database
         /// @brief calcuate the total cell area
         /// @return the total cell area
         LocType calculateTotalCellArea() const;
+        /// @brief calculate and return the HPWL
+        /// @return HPWL
+        LocType hpwl() const;
         /*------------------------------*/ 
         /* Debug functions              */
         /*------------------------------*/ 

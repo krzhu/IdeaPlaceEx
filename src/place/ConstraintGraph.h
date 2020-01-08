@@ -45,14 +45,6 @@ class ConstraintGraph
         /// @brief construct the graph with number of vertices
         /// @param the number of vertices
         void allocateVertices(IndexType numVex) { _cg.clear(); _cg = graph_t(numVex);}
-        /// @brief add edge 
-        /// @param the source vertex
-        /// @param the target vertex
-        /// @param the weight of the edge
-        void addEdge(IndexType sourceVex, IndexType targetVex, IntType weight)
-        {
-            boost::add_edge(sourceVex, targetVex, weight, _cg);
-        }
         /// @brief get the number of nodes
         /// @return the number of nodes
         IndexType numNodes() const { return boost::num_vertices(_cg); }
@@ -65,6 +57,35 @@ class ConstraintGraph
         /// @brief get the number of cells 
         /// @return the number of cell nodes in the graph
         IndexType numCellNodes() const { return numNodes() - 2; }
+        /// @brief add edge to the graph
+        /// @param the source node index
+        /// @param the target node index
+        void addEdge(IndexType sourceIdx, IndexType targetIdx, IntType weight=1)
+        {
+            boost::add_edge(boost::vertex(sourceIdx, _cg),
+                    boost::vertex(targetIdx, _cg),
+                    weight, _cg);
+        }
+        /// @brief remove a edge from the graph
+        /// @param the source index
+        /// @param the target index
+        void removeEdge(IndexType sourceIdx, IndexType targetIdx)
+        {
+            boost::remove_edge(boost::vertex(sourceIdx, _cg), 
+                    boost::vertex(targetIdx, _cg), 
+                    _cg);
+        }
+        /// @brief determine whether the graph has one specific edge
+        /// @param the source index of the edge
+        /// @param the target index of the edge
+        /// @return true if has edge. false if not
+        bool hasEdge(IndexType sourceIdx, IndexType targetIdx)
+        {
+            auto edge = boost::edge(boost::vertex(sourceIdx, _cg),
+                    boost::vertex(targetIdx, _cg), _cg);
+            return edge.second;
+        }
+        
         void clear()
         {
             _cg.clear();

@@ -72,6 +72,10 @@ void LpLegalizeSolver::configureObjFunc()
     {
         for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
         {
+            if (_db.net(netIdx).numPinIdx() <= 1)
+            {
+                continue;
+            }
             auto weight = _db.net(netIdx).weight();
             _obj += weight * (AT(_wlR, netIdx) - AT(_wlL, netIdx));
         }

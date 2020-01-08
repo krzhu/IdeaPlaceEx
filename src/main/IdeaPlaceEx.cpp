@@ -133,6 +133,7 @@ bool IdeaPlaceEx::solve()
 #endif
     CGLegalizer legalizer(_db);
     bool legalizeResult = legalizer.legalize();
+    INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
     if (!legalizeResult)
     {
         exit(0);

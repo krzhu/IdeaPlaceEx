@@ -28,8 +28,8 @@ bool CGLegalizer::legalize()
         yMin = std::min(yMin, cellBox.yLo());
         yMax = std::max(yMax, cellBox.yHi());
     }
-    _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 500;
-    _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 500;
+    _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
+    _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
     this->generateConstraints();
     if (!lpDetailedPlacement())
     {
@@ -61,11 +61,12 @@ bool CGLegalizer::legalize()
         yMin = std::min(yMin, cellBox.yLo());
         yMax = std::max(yMax, cellBox.yHi());
     }
-    _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 500;
-    _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 500;
+    _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
+    _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
+    this->generateConstraints();
     if (!lpDetailedPlacement())
     {
-        INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
+        INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output.  \n");
         return true;
     }
 
@@ -358,28 +359,20 @@ void CGLegalizer::generateConstraints()
             const auto & symPair = symGroup.symPair(symPairIdx);
             IndexType cellIdx1 = symPair.firstCell();
             IndexType cellIdx2 = symPair.secondCell();
-            boost::remove_edge(boost::vertex(cellIdx1, _vCG.boostGraph()), boost::vertex(cellIdx2, _vCG.boostGraph()), 
-                    _vCG.boostGraph());
-            boost::remove_edge(boost::vertex(cellIdx2, _vCG.boostGraph()), boost::vertex(cellIdx1, _vCG.boostGraph()), 
-                    _vCG.boostGraph());
-            auto hEdge1 = boost::edge(boost::vertex(cellIdx1, _hCG.boostGraph()),
-                    boost::vertex(cellIdx2, _hCG.boostGraph()), _hCG.boostGraph());
-            auto hEdge2 = boost::edge(boost::vertex(cellIdx2, _hCG.boostGraph()),
-                    boost::vertex(cellIdx1, _hCG.boostGraph()), _hCG.boostGraph());
-            bool hasHorEdge = hEdge1.second || hEdge2.second;
+            _vCG.removeEdge(cellIdx1, cellIdx2);
+            _vCG.removeEdge(cellIdx2, cellIdx1);
+            bool hEdge1 = _hCG.hasEdge(cellIdx1, cellIdx2);
+            bool hEdge2 = _hCG.hasEdge(cellIdx2, cellIdx1);
+            bool hasHorEdge = hEdge1 || hEdge2;
             if (!hasHorEdge)
             {
                 if (_db.cell(cellIdx1).xLo() <= _db.cell(cellIdx2).xLo())
                 {
-                    boost::add_edge(boost::vertex(cellIdx1, _hCG.boostGraph()),
-                            boost::vertex(cellIdx2, _hCG.boostGraph()),
-                            -_db.cell(cellIdx1).cellBBox().xLen(), _hCG.boostGraph());
+                    _hCG.addEdge(cellIdx1, cellIdx2, - _db.cell(cellIdx1).cellBBox().xLen());
                 }
                 else
                 {
-                    boost::add_edge(boost::vertex(cellIdx2, _hCG.boostGraph()),
-                            boost::vertex(cellIdx1, _hCG.boostGraph()),
-                            -_db.cell(cellIdx2).cellBBox().xLen(), _hCG.boostGraph());
+                    _hCG.addEdge(cellIdx2, cellIdx1, - _db.cell(cellIdx2).cellBBox().xLen());
                 }
             }
         }
@@ -447,24 +440,62 @@ void CGLegalizer::generateConstraints()
 bool CGLegalizer::dagfyConstraintGraphs()
 {
     bool bothAreDAGs = true;
-    if (!dagfyOneConstraintGraph(_hCG))
+    if (dagfyOneConstraintGraph(_hCG))
     {
         WRN("CG Legalizer:: the horizontal constraint graph is not a DAG. Force it to be acyclic...\n");
         bothAreDAGs = false;
+        Assert(false);
     }
-    if (!dagfyOneConstraintGraph(_vCG))
+    if (dagfyOneConstraintGraph(_vCG))
     {
         WRN("CG Legalizer:: the vertical constraint graph is not a DAG. Force it to be acyclic...\n");
         bothAreDAGs = false;
+        Assert(false);
     }
     return bothAreDAGs;
 }
 
+// a utility function to be called recurrsively to update visited
+bool dagfyUtil(IndexType nodeIdx, std::vector<bool> visited, std::vector<bool> recStack, ConstraintGraph::IndexMap idxMap, ConstraintGraph &cg)
+{
+    bool hasCycle = false;
+    if (!visited.at(nodeIdx))
+    {
+        // Has visited
+        recStack.at(nodeIdx) = false;
+        return false;
+    }
+    visited.at(nodeIdx) = true;
+    recStack.at(nodeIdx) = true;
+    auto neighbors = boost::adjacent_vertices(boost::vertex(nodeIdx, cg.boostGraph()), cg.boostGraph());
+    for (; neighbors.first != neighbors.second; ++neighbors.first)
+    {
+        IndexType neighborNode = idxMap[*neighbors.first];
+        if (!visited.at(neighborNode) && dagfyUtil(neighborNode, visited, recStack, idxMap, cg))
+        {
+            hasCycle = true; // The downstream recursion detect a cycle, but it will be remove and resulting in a acylic graph
+        }
+        else if (recStack.at(neighborNode))
+        {
+            // Find a back edge -> cycle
+            hasCycle = true;
+            cg.removeEdge(nodeIdx, neighborNode);
+        }
+    }
+    recStack.at(nodeIdx) = false; // Remove the vertex from recursion 
+    return hasCycle;
+}
 bool CGLegalizer::dagfyOneConstraintGraph(ConstraintGraph &cg)
 {
     // Since the CG should also be a network, ie. it has source and target. Don't need a standard topological sort, :
     IndexType numNodes = cg.numNodes();
-    return true;
+    IndexType sourceIdx = cg.sourceNodeIdx();
+    std::vector<bool> visited(numNodes, false);
+    std::vector<bool> recStack(numNodes, false);
+    ConstraintGraph::IndexMap idxMap = boost::get(boost::vertex_index, cg.boostGraph());
+
+    // Don't need a loop over all vertices because we know we just need to search from source
+    return dagfyUtil(sourceIdx, visited, recStack, idxMap, cg);
 }
 
 void CGLegalizer::readloadConstraints()
@@ -666,9 +697,7 @@ bool CGLegalizer::dfsRemoveTransitiveEdge(ConstraintGraph &cg, Vector2D<IntType>
                 if (edgeMat.at(node, i) == 1)
                 {
                     edgeMat.at(node, i) = 0;
-                    boost::remove_edge(boost::vertex(node, cg.boostGraph()), 
-                            boost::vertex(i, cg.boostGraph()), 
-                            cg.boostGraph());
+                    cg.removeEdge(node, i);
                     hasTransitiveEdge = true;
                 }
                 reachable.at(node, i) = 1;

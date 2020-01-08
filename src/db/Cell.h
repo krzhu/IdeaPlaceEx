@@ -44,6 +44,9 @@ class Cell
         /// @brief get the name of the cell
         /// @return the name of the cell
         const std::string & name() const { return _name; }
+        /// @brief get the location of the cell
+        /// @return the XY location of the cell
+        const XY<LocType> & loc() const { return _loc; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
