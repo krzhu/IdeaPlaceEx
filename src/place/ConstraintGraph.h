@@ -53,6 +53,18 @@ class ConstraintGraph
         {
             boost::add_edge(sourceVex, targetVex, weight, _cg);
         }
+        /// @brief get the number of nodes
+        /// @return the number of nodes
+        IndexType numNodes() const { return boost::num_vertices(_cg); }
+        /// @brief get the source node index
+        /// @return the index of the source node
+        IndexType sourceNodeIdx() const { return numNodes() - 2;}
+        /// @brief get the target node index
+        /// @return the index of the target node
+        IndexType targetNodeIdx() const { return numNodes() - 1; }
+        /// @brief get the number of cells 
+        /// @return the number of cell nodes in the graph
+        IndexType numCellNodes() const { return numNodes() - 2; }
         void clear()
         {
             _cg.clear();

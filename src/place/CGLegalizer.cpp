@@ -341,6 +341,8 @@ void CGLegalizer::generateConstraints()
     // Minimize the DAG
     dagTransitiveReduction(_hCG);
     dagTransitiveReduction(_vCG);
+    // Force the two constraint graphs to be acylic
+    dagfyConstraintGraphs();
     // Get necessary edges
     getNecessaryEdges();
     // Minimize the DAG
@@ -440,6 +442,29 @@ void CGLegalizer::generateConstraints()
         DBG("vertical i  %s \n",  edge.toStr().c_str());
     }
 #endif
+}
+
+bool CGLegalizer::dagfyConstraintGraphs()
+{
+    bool bothAreDAGs = true;
+    if (!dagfyOneConstraintGraph(_hCG))
+    {
+        WRN("CG Legalizer:: the horizontal constraint graph is not a DAG. Force it to be acyclic...\n");
+        bothAreDAGs = false;
+    }
+    if (!dagfyOneConstraintGraph(_vCG))
+    {
+        WRN("CG Legalizer:: the vertical constraint graph is not a DAG. Force it to be acyclic...\n");
+        bothAreDAGs = false;
+    }
+    return bothAreDAGs;
+}
+
+bool CGLegalizer::dagfyOneConstraintGraph(ConstraintGraph &cg)
+{
+    // Since the CG should also be a network, ie. it has source and target. Don't need a standard topological sort, :
+    IndexType numNodes = cg.numNodes();
+    return true;
 }
 
 void CGLegalizer::readloadConstraints()

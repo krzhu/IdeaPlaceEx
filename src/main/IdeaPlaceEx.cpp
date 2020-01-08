@@ -135,6 +135,7 @@ bool IdeaPlaceEx::solve()
     bool legalizeResult = legalizer.legalize();
     if (!legalizeResult)
     {
+        exit(0);
         INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
         NlpWnconj tryagain(_db);
         tryagain.setToughMode(true);
