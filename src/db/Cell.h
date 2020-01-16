@@ -114,7 +114,7 @@ class Cell
                 _cellBBox.unionBox(bbox);
             }
             //INF("Enlarge cell boundry for 10 for spacing \n");
-            _cellBBox.enlargeBy(370);
+            _cellBBox.enlargeBy(340 / 2);
         }
         /// @brief get the bounding box of the entire cell
         /// @return the bounding box of the entire cell

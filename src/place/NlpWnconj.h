@@ -357,6 +357,23 @@ inline double NlpWnconj::objFunc(double *values)
     // Wire length penalty
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
+        IndexType numCells = 0;
+        std::vector<IntType> hasCell;
+        hasCell.resize(_db.numCells(), 0);
+        for (IndexType pinIdx : _db.net(netIdx).pinIdxArray())
+        {
+            IndexType cellIdx = _db.pin(pinIdx).cellIdx();
+            if (hasCell.at(cellIdx) == 1)
+            {
+                continue;
+            }
+            hasCell.at(cellIdx) = 1;
+            numCells ++;
+        }
+        if (numCells <= 1)
+        {
+            continue;
+        }
         double smoothHPWL = this->logSumExpHPWL(values, netIdx, _alpha);
         result += _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
         _fHpwl +=  _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
