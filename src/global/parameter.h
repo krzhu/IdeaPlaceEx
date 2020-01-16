@@ -15,7 +15,7 @@ PROJECT_NAMESPACE_BEGIN
 /* NLP wn conj */
 constexpr double LAMBDA_1Init = 1; ///< The initial value for x/y overlapping penalty
 constexpr double LAMBDA_2Init = 1; ///< The initial value for out of boundry penalty
-constexpr double LAMBDA_3Init = 256; ///< The initial value for wirelength penalty
+constexpr double LAMBDA_3Init = 16; ///< The initial value for wirelength penalty
 constexpr double LAMBDA_4Init = 4; ///< The initial value for asymmetric penalty
 constexpr double LAMBDA_MAX_OVERLAP_Init = 50; ///< The initial value for asymmetric penalty
 constexpr double NLP_WN_CONJ_OVERLAP_THRESHOLD = 0.001; ///< The threshold for whether increase the penalty for overlapping

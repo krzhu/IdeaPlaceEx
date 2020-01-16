@@ -376,6 +376,7 @@ bool NlpWnconj::nlpKernel()
     // Iteratively solving NLP
     while (_iter < _maxIter)
     {
+        _innerIter = 0;
         wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         if (_toughModel && _iter >= _maxIter / 5)
@@ -420,4 +421,41 @@ bool NlpWnconj::cleanup()
     return true;
 }
 
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
+PROJECT_NAMESPACE_END
+#include "writer/gdsii/WriteGds.h"
+PROJECT_NAMESPACE_BEGIN
+void NlpWnconj::drawCurrentLayout(const std::string &filename, double * values)
+{
+    auto wg = std::make_shared<WriteGds>(filename);
+    if (!wg->initWriter())
+    {
+        return;
+    }
+    if (!wg->createLib("TOP", 2000, 1e-6/2000)) // Hardcoded numbers
+    {
+        return;
+    }
+    if (!wg->writeCellBgn("DEBUG"))
+    {
+        return;
+    }
+    // Write all the cells
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        const auto &cell = _db.cell(cellIdx);
+        Box<LocType> cellBox = cell.cellBBox();
+        LocType xLo = static_cast<LocType>(values[cellIdx * 2] / _scale);
+        LocType yLo = static_cast<LocType>(values[cellIdx * 2 + 1] / _scale);
+        Box<LocType> cellShape = Box<LocType>(xLo, yLo, xLo + cellBox.xLen(), yLo + cellBox.yLen());
+        wg->writeRectangle(cellShape, cellIdx, 0);
+    }
+    // END
+    wg->writeCellEnd();
+    wg->endLib();
+    DBG("Database::%s: debug cell block saved in %s \n", __FUNCTION__, filename.c_str());
+}
+#endif
+#endif
 PROJECT_NAMESPACE_END

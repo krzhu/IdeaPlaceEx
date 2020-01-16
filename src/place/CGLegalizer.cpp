@@ -344,11 +344,6 @@ void CGLegalizer::generateConstraints()
     dagTransitiveReduction(_vCG);
     // Force the two constraint graphs to be acylic
     dagfyConstraintGraphs();
-    // Get necessary edges
-    getNecessaryEdges();
-    // Minimize the DAG
-    dagTransitiveReduction(_hCG);
-    dagTransitiveReduction(_vCG);
 
     // FIXME: remove vertical edges between symmetric pairs and add the corresponding horizontal edges
     for (IndexType symGroupIdx = 0; symGroupIdx < _db.numSymGroups(); ++symGroupIdx)
@@ -378,7 +373,12 @@ void CGLegalizer::generateConstraints()
         }
     } // for (IndexType symPairIdx = 0; symPairIdx < _db.numSymGroups(); ++symPairIdx)
 
-    dagfyConstraintGraphs();
+    // Get necessary edges
+    getNecessaryEdges();
+    // Minimize the DAG
+    dagTransitiveReduction(_hCG);
+    dagTransitiveReduction(_vCG);
+    //dagfyConstraintGraphs();
     // reload the constraints from the boost graph and prepare for the LP solving
     readloadConstraints();
     for (const auto &edge : _hConstraints.edges())
@@ -472,25 +472,27 @@ bool dagfyUtil(IndexType nodeIdx, std::vector<char>  &visited, std::vector<char>
         recStack.at(nodeIdx) = false;
         return false;
     }
-    visited.at(nodeIdx) = true;
-    recStack.at(nodeIdx) = true;
+    visited[nodeIdx] = true;
+    recStack[nodeIdx] = true;
     auto neighbors = boost::adjacent_vertices(boost::vertex(nodeIdx, cg.boostGraph()), cg.boostGraph());
     for (; neighbors.first != neighbors.second; ++neighbors.first)
     {
         IndexType neighborNode = idxMap[*neighbors.first];
-        if (!visited.at(neighborNode) && dagfyUtil(neighborNode, visited, recStack, idxMap, cg))
+        if (!visited[neighborNode] && dagfyUtil(neighborNode, visited, recStack, idxMap, cg))
         {
             hasCycle = true; // The downstream recursion detect a cycle, but it will be remove and resulting in a acylic graph
         }
-        else if (recStack.at(neighborNode))
+        else if (recStack[neighborNode])
         {
             // Find a back edge -> cycle
             hasCycle = true;
             cg.removeEdge(nodeIdx, neighborNode);
-            DBG("Remove edge %d %d \n", nodeIdx, neighborNode);
+#ifdef DEBUG_LEGALIZE
+            DBG("DAGFY::Remove edge %d %d \n", nodeIdx, neighborNode);
+#endif
         }
     }
-    recStack.at(nodeIdx) = false; // Remove the vertex from recursion 
+    recStack[nodeIdx] = false; // Remove the vertex from recursion 
     return hasCycle;
 }
 bool CGLegalizer::dagfyOneConstraintGraph(ConstraintGraph &cg)
@@ -503,15 +505,37 @@ bool CGLegalizer::dagfyOneConstraintGraph(ConstraintGraph &cg)
     ConstraintGraph::IndexMap idxMap = boost::get(boost::vertex_index, cg.boostGraph());
 
     // Don't need a loop over all vertices because we know we just need to search from source
+    //bool hasCyle =  dagfyUtil(sourceIdx, visited, recStack, idxMap, cg);
+    
+    bool check = true;
+    while (check)
+    {
+        check = false;
+        for (IndexType idx = 0; idx < numNodes; ++idx)
+        {
+            visited[idx] = false;
+            recStack[idx] = false;
+        }
+        dagfyUtil(sourceIdx, visited, recStack, idxMap, cg);
+        for (IndexType idx = 0; idx < cg.numCellNodes(); ++idx)
+        {
+            //AssertMsg(visited[idx], "node %d \n", idx);
+            if (!visited[idx])
+            {
+                WRN("CGLegalizer::missing edge from source  %d\n", idx);
+                cg.addEdge(sourceIdx, idx);
+                Assert(cg.hasEdge(sourceIdx, idx));
+                check = true;
+                break;
+            }
+
+        }
+    }
+
+    visited.resize(numNodes, false);
+    recStack.resize(numNodes, false);
+
     bool hasCyle =  dagfyUtil(sourceIdx, visited, recStack, idxMap, cg);
-    for (IndexType idx = 0; idx < numNodes; ++idx)
-    {
-        //AssertMsg(visited[idx], "node %d \n", idx);
-    }
-    for (IndexType idx = 0; idx < numNodes; ++idx)
-    {
-        dagfyUtil(idx, visited, recStack, idxMap, cg);
-    }
     return hasCyle;
 }
 
@@ -560,18 +584,44 @@ void CGLegalizer::getNecessaryEdges()
     dfsGraph(dpTabH, visitedH, sourceIdx, _hCG, idxMap);
     dfsGraph(dpTabV, visitedV, sourceIdx, _vCG, idxMap);
 
-    for (IndexType i = 0; i < numNodes; ++i)
+    bool check = true;
+
+    while (check)
     {
-        for (IndexType j = i+1; j < numNodes; ++j)
+        check = false;
+        for (IndexType xIdx = 0; xIdx < numNodes; ++xIdx)
         {
-            bool dp = dpTabH.at(i, j) == 1 || dpTabH.at(j, i) == 1
-                || dpTabV.at(i, j) == 1 || dpTabV.at(j, i) == 1;
-            if (!dp)
+            for (IndexType yIdx = 0; yIdx < numNodes; ++yIdx)
             {
-                addEdgeGreedy(i, j);
+                dpTabH.at(xIdx, yIdx) = 0;
+                dpTabV.at(xIdx, yIdx) = 0;
+            }
+            visitedH[xIdx] = 0;
+            visitedV[xIdx] = 0;
+        }
+        // DFS to find the mutal constrainted cells
+        dfsGraph(dpTabH, visitedH, sourceIdx, _hCG, idxMap);
+        dfsGraph(dpTabV, visitedV, sourceIdx, _vCG, idxMap);
+
+        for (IndexType i = 0; i < numNodes; ++i)
+        {
+            for (IndexType j = i+1; j < numNodes; ++j)
+            {
+                bool dp = dpTabH.at(i, j) == 1 || dpTabH.at(j, i) == 1
+                    || dpTabV.at(i, j) == 1 || dpTabV.at(j, i) == 1;
+                if (!dp)
+                {
+#ifdef DEBUG_LEGALIZE
+                    DBG("add edge %d %d \n", i, j);
+#endif
+                    addEdgeGreedy(i, j);
+                    check = true;
+                    break;
+                }
             }
         }
     }
+
 }
 
 void CGLegalizer::addEdgeGreedy(IndexType i, IndexType j)
