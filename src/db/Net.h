@@ -50,6 +50,7 @@ class Net
         /// @param the index of pin array
         /// @return the databse pin index
         IndexType pinIdx(IndexType idx) const { return AT(_pinIdxArray, idx); }
+        const std::vector<IndexType> & pinIdxArray() const { return _pinIdxArray; }
     private:
         std::string _name = ""; ///< The name for the net
         std::vector<IndexType> _pinIdxArray; ///< The index to the pins belonging to the net

@@ -272,6 +272,12 @@ class CGLegalizer
         RealType lpLegalization(bool isHor);
         /// @brief LP-based detailed placement. For optimizing wire length
         bool lpDetailedPlacement();
+        /// @brief force the two constraint graphs to be DAG
+        /// @return if both of the two graphs are DAGs
+        bool dagfyConstraintGraphs();
+        /// @brief dagfy one graph
+        /// @return if the graph was acyclic
+        bool dagfyOneConstraintGraph(ConstraintGraph &cg);
     private:
         Database &_db; ///< The database of IdeaPlaceEx
         ConstraintGraph _hCG; ///< The horizontal constraint graph

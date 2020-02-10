@@ -7,6 +7,8 @@
 #include "parser/ParserNetwgt.h"
 #include "parser/ParserGds.h"
 #include "parser/ParserSymFile.h"
+/* Post-Processing */
+#include "place/alignGrid.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -133,6 +135,7 @@ bool IdeaPlaceEx::solve()
 #endif
     CGLegalizer legalizer(_db);
     bool legalizeResult = legalizer.legalize();
+    INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
     if (!legalizeResult)
     {
         INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
@@ -168,6 +171,17 @@ IndexType IdeaPlaceEx::cellIdxName(const std::string name)
         }
     }
     return cellIdx;
+}
+
+void IdeaPlaceEx::alignToGrid(LocType gridStepSize)
+{
+    GridAligner align(_db);
+    align.align(gridStepSize);
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
+    _db.drawCellBlocks("./debug/after_alignment.gds");
+#endif //DEBUG_DRAW
+#endif
 }
 
 PROJECT_NAMESPACE_END

@@ -222,6 +222,12 @@ class NlpWnconj
 
         void alignSym();
 
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
+        void drawCurrentLayout(const std::string &filename, double * values);
+#endif
+#endif
+
         
     private:
         Database &_db; ///< The placement engine database
@@ -254,6 +260,7 @@ class NlpWnconj
         IndexType _iter = 0; ///< Current iteration
         double _tao = 0.5; ///< The exponential decay factor for step size
         IndexType _maxIter = NLP_WN_CONJ_DEFAULT_MAX_ITER; ///< The maximum iterations
+        IndexType _innerIter = 0; ///< The iteration in the inner non-linear optimization problem
         RealType _defaultSymAxis = 0;
         bool _toughModel = false; ///< Whether try hard to be feasible
 };
@@ -350,6 +357,23 @@ inline double NlpWnconj::objFunc(double *values)
     // Wire length penalty
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
+        IndexType numCells = 0;
+        std::vector<IntType> hasCell;
+        hasCell.resize(_db.numCells(), 0);
+        for (IndexType pinIdx : _db.net(netIdx).pinIdxArray())
+        {
+            IndexType cellIdx = _db.pin(pinIdx).cellIdx();
+            if (hasCell.at(cellIdx) == 1)
+            {
+                continue;
+            }
+            hasCell.at(cellIdx) = 1;
+            numCells ++;
+        }
+        if (numCells <= 1)
+        {
+            continue;
+        }
         double smoothHPWL = this->logSumExpHPWL(values, netIdx, _alpha);
         result += _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
         _fHpwl +=  _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
@@ -404,6 +428,7 @@ inline double NlpWnconj::objFunc(double *values)
 
 inline void NlpWnconj::gradFunc(double *grad, double *values)
 {
+    _innerIter++;
     RealType maxOverlapRatio = 0;
     IndexType maxOverLapIndex = 0;
     RealType maxOverLapGradX = 0;
@@ -430,22 +455,23 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
             // max( min (xHiI - xLoJ, xHiJ - xLoi), 0)
             double var1x = xHiI - xLoJ;
             double var2x = xHiJ - xLoI;
-            double ox = NlpWnconjDetails::logSumExp(var1x, var2x, -_alpha); // smoothed min
-            double gradOx = NlpWnconjDetails::gradLogSumExp0(ox, _alpha); // sommothed max with 0
+            double oxMin = NlpWnconjDetails::logSumExp(var1x, var2x, -_alpha); // smoothed min
+            double oxMinMax0 = NlpWnconjDetails::logSumExp0(oxMin, _alpha); // max with 0
+            double gradOxMin0 = NlpWnconjDetails::gradLogSumExp0(oxMin, _alpha); // sommothed max with 0. grad
             // max ( min(yHiI - yLoj, yHiJ - yLoI), 0 )
             double var1y = yHiI - yLoJ;
             double var2y = yHiJ - yLoI;
-            double oy = NlpWnconjDetails::logSumExp(var1y, var2y, -_alpha); // smoothed min
-            oy = NlpWnconjDetails::logSumExp0(oy, _alpha); // smoothed max with 0
-            RealType gradX = oy * gradOx * NlpWnconjDetails::gradLogSumExp(var1x, var2x, -_alpha);
+            double oyMin = NlpWnconjDetails::logSumExp(var1y, var2y, -_alpha); // smoothed min
+            double oyMinMax0 = NlpWnconjDetails::logSumExp0(oyMin, _alpha); // smoothed max with 0
+            RealType gradX = oyMinMax0 * gradOxMin0 * NlpWnconjDetails::gradLogSumExp(var1x, var2x, -_alpha);
             // Record gradOy
             grad[2 * cellIdxI] += _lambda1 * gradX;
-            double gradOy = NlpWnconjDetails::gradLogSumExp0(oy, _alpha);
-            RealType gradY = ox * gradOy * NlpWnconjDetails::gradLogSumExp(var1y, var2y, -_alpha);
+            double gradOyMin0 = NlpWnconjDetails::gradLogSumExp0(oyMin, _alpha);
+            RealType gradY = oxMinMax0 * gradOyMin0 * NlpWnconjDetails::gradLogSumExp(var1y, var2y, -_alpha);
             // Record gradOy
             grad[2 * cellIdxI + 1] += _lambda1 * gradY;
             // maxoverlap parts
-            RealType overlapArea= ox * oy;
+            RealType overlapArea= oxMinMax0 * oyMinMax0;
             RealType areaI = (xHiI - xLoI) * (yHiI - yLoI);
             if (maxOverlapRatio < overlapArea / areaI)
             {
@@ -481,6 +507,9 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
             
         }
     }
+
+
+
     // Update the max overlap
     grad[2 * maxOverLapIndex] += _lambdaMaxOverlap * maxOverLapGradX ;
     grad[2 * maxOverLapIndex + 1] += _lambdaMaxOverlap * maxOverLapGradY ;
@@ -569,6 +598,14 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
 #endif
         }
     }
+
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
+    std::stringstream ss;
+    ss<< "./debug/gr_iter_" << _iter  << "_"<< _innerIter << ".gds";
+    drawCurrentLayout(ss.str(), values);
+#endif
+#endif
     
 }
 

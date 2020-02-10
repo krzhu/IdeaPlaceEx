@@ -21,6 +21,38 @@ bool Database::initCell(IndexType cellIdx)
     AT(_cellArray, cellIdx).allocateLayers(numLayers);
     return true;
 }
+
+LocType Database::hpwl() const
+{
+    LocType hpwl = 0;
+    for (const auto & net : _netArray)
+    {
+        if (net.numPinIdx() <= 1)
+        {
+            continue;
+        }
+        LocType xMax = LOC_TYPE_MIN;
+        LocType xMin = LOC_TYPE_MAX;
+        LocType yMax = LOC_TYPE_MIN;
+        LocType yMin = LOC_TYPE_MAX;
+        for (IndexType pinIdx : net.pinIdxArray())
+        {
+            const auto &pin = AT(_pinArray, pinIdx);
+            auto pinLoc = pin.midLoc();
+            IndexType cellIdx = pin.cellIdx();
+            const auto &cell = AT(_cellArray, cellIdx);
+            auto cellLoc = cell.loc();
+            auto pinFinalLoc = pinLoc + cellLoc;
+            xMax = std::max(xMax, pinFinalLoc.x());
+            xMin = std::min(xMin, pinFinalLoc.x());
+            yMax = std::max(yMax, pinFinalLoc.y());
+            yMin = std::min(yMin, pinFinalLoc.y());
+        }
+        hpwl = (xMax - xMin) + (yMax - yMin);
+    }
+    return hpwl;
+}
+
 /*------------------------------*/ 
 /* Debug functions              */
 /*------------------------------*/ 

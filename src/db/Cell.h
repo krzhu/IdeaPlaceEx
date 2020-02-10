@@ -44,6 +44,9 @@ class Cell
         /// @brief get the name of the cell
         /// @return the name of the cell
         const std::string & name() const { return _name; }
+        /// @brief get the location of the cell
+        /// @return the XY location of the cell
+        const XY<LocType> & loc() const { return _loc; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
@@ -111,7 +114,7 @@ class Cell
                 _cellBBox.unionBox(bbox);
             }
             //INF("Enlarge cell boundry for 10 for spacing \n");
-            _cellBBox.enlargeBy(0);
+            _cellBBox.enlargeBy(340 / 2);
         }
         /// @brief get the bounding box of the entire cell
         /// @return the bounding box of the entire cell
