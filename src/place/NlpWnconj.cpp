@@ -377,7 +377,7 @@ bool NlpWnconj::nlpKernel()
     while (_iter < _maxIter)
     {
         _innerIter = 0;
-        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
+        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 5000);
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         if (_toughModel && _iter >= _maxIter / 5)
         {
@@ -391,7 +391,7 @@ bool NlpWnconj::nlpKernel()
 #endif
         if (_toughModel)
         {
-            if (updateMultipliers())
+            if (updateMultipliers2())
             {
                 INF("Global placement terminates \n");
                 break;
@@ -399,7 +399,7 @@ bool NlpWnconj::nlpKernel()
         }
         else
         {
-            if (updateMultipliers())
+            if (updateMultipliers2())
             {
                 INF("Global placement terminates \n");
                 break;

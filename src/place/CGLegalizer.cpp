@@ -1,9 +1,13 @@
 #include "CGLegalizer.h"
+#include "constraintGraphGeneration.h"
 
 PROJECT_NAMESPACE_BEGIN
 
 bool CGLegalizer::legalize()
 {
+    //SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
+    //sweepline.solve();
+
     this->generateConstraints();
     _wStar = lpLegalization(true);
     if (_wStar < 0)
