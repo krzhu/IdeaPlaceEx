@@ -102,6 +102,13 @@ class Cell
             Assert(this->layerHasShape(layerIdx)); 
             return AT(_bboxArray, layerIdx).offsetBox(_loc);
         }
+        void forceExtendToGrid(LocType gridStep)
+        {
+           LocType yDif = gridStep - (_cellBBox.yLen() % gridStep);
+           _cellBBox.setYHi(_cellBBox.yHi() + yDif);
+           LocType xDif = gridStep - (_cellBBox.xLen() % gridStep);
+           _cellBBox.setXHi(_cellBBox.xHi() + xDif);
+        }
         /*------------------------------*/ 
         /* Supporting functions         */
         /*------------------------------*/ 
@@ -122,6 +129,11 @@ class Cell
         /// @brief calculate the cellBBox offset by the current location
         /// @return the cellBBox offset by the current location
         Box<LocType> cellBBoxOff() const { return _cellBBox.offsetBox(_loc); }
+        bool hasSym() const { return hasSymPair() or isSelfSym(); }
+        bool hasSymPair() const { return _symNetIdx != INDEX_TYPE_MAX; }
+        bool isSelfSym() const { return _bSelfSym; }
+        void setSelfSym(bool selfSym=true) { _bSelfSym = selfSym; };
+        void setSymNetIdx(IndexType symNetIdx) { _symNetIdx = symNetIdx; }
 
     private:
         std::string _name; ///< The cell name
@@ -129,6 +141,8 @@ class Cell
         std::vector<IndexType> _pinIdxArray; ///< The index to the pins belonging to the cell
         std::vector<Box<LocType>> _bboxArray; ///< _shapeArray[layer] = the bounding box of the shapes in the layer
         Box<LocType> _cellBBox = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The bounding box of the entire cell
+        IndexType _symNetIdx =INDEX_TYPE_MAX; 
+        bool _bSelfSym = false;
 };
 
 PROJECT_NAMESPACE_END

@@ -66,6 +66,8 @@ bool ParserSymFile::read(const std::string &filename)
                 return false;
             }
             _db.symGroup(idx).addSymPair(cellIdx1, cellIdx2);
+            _db.cell(cellIdx1).setSymNetIdx(cellIdx2);
+            _db.cell(cellIdx2).setSymNetIdx(cellIdx1);
         }
         if (words.size() == 1)
         {
@@ -79,6 +81,7 @@ bool ParserSymFile::read(const std::string &filename)
                 return false;
             }
             _db.symGroup(idx).addSelfSym(cellId);
+            _db.cell(cellId).setSelfSym(true);
         }
     }
     return true;

@@ -24,7 +24,11 @@ class GridAligner
         void align(LocType stepSize);
     private:
         void naiveAlign();
+        void bettherThanNaiveAlign();
         void adjustOffset(const XY<LocType> &offset);
+        LocType findCurrentSymAxis();
+        void adjustSymPair(const SymPair &symPair, LocType symAxis);
+        void adjustSelfSym(IndexType cellIdx, LocType symAxis);
     private:
         Database &_db; ///< The placement database
         LocType _stepSize = 1;  ///< The grid step size

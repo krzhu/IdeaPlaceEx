@@ -126,6 +126,13 @@ class Database
         /// @brief calculate and return the HPWL
         /// @return HPWL
         LocType hpwl() const;
+        void expandCellToGridSize(LocType gridSize)
+        {
+           for (auto &cell : _cellArray)
+           {
+               cell.forceExtendToGrid(gridSize);
+           }
+        }
         /*------------------------------*/ 
         /* Debug functions              */
         /*------------------------------*/ 
