@@ -89,17 +89,27 @@ void GridAligner::adjustSelfSym(IndexType cellIdx, LocType symAxis)
 
 struct CellIdxNode
 {
-    CellIdxNode(IndexType cellIdx_, std::vector<char> *fixed_, std::vector<char> *hasSym_) : cellIdx(cellIdx_), fixed(fixed_), hasSym(hasSym_) {}
+    CellIdxNode(IndexType cellIdx_, std::vector<char> *fixed_, std::vector<char> *hasSym_,
+            std::vector<LocType> *dis2SymAxis_) 
+        : cellIdx(cellIdx_), fixed(fixed_), hasSym(hasSym_), dis2SymAxis(dis2SymAxis_) {}
     IndexType cellIdx;
     std::vector<char>  *fixed;
     std::vector<char>  *hasSym;
+    std::vector<LocType> *dis2SymAxis;
     bool operator<(const CellIdxNode &rhs) const
     {
         if (hasSym->at(cellIdx) == hasSym->at(rhs.cellIdx))
         {
             if (fixed->at(cellIdx) == fixed->at(rhs.cellIdx))
             {
-                return cellIdx > rhs.cellIdx;
+                if (dis2SymAxis->at(cellIdx) == dis2SymAxis->at(rhs.cellIdx))
+                {
+                    return cellIdx > rhs.cellIdx;
+                }
+                else
+                {
+                    return dis2SymAxis->at(cellIdx) > dis2SymAxis->at(rhs.cellIdx);
+                }
             }
             else
             {
@@ -157,6 +167,7 @@ void GridAligner::bettherThanNaiveAlign()
     std::vector<char> xDecided(_db.numCells(), false);
     std::vector<char> inHeap(_db.numCells(), true);
     std::vector<char> hasSym(_db.numCells(), false);
+    std::vector<LocType> dis2SymAxis(_db.numCells());
     // fixed all syms
     using HeapType = boost::heap::fibonacci_heap<CellIdxNode, boost::heap::compare<compareCellIdxNode>>;
     using HandleType = HeapType::handle_type;
@@ -170,10 +181,12 @@ void GridAligner::bettherThanNaiveAlign()
             xDecided.at(cellIdx) = true;
             hasSym.at(cellIdx) = true;
         }
+        LocType center = (_db.cell(cellIdx).xLo() + _db.cell(cellIdx).xHi()) / 2;
+        dis2SymAxis.at(cellIdx) = std::abs(center - symAxis);
     }
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
-        heapHandles.emplace_back(cellNodeHeap.push(CellIdxNode(cellIdx, &xDecided, &hasSym)));
+        heapHandles.emplace_back(cellNodeHeap.push(CellIdxNode(cellIdx, &xDecided, &hasSym, &dis2SymAxis)));
     }
     // Decompose the constraints into look-up table
     std::vector<std::vector<IndexType>> edgeLUT;
@@ -207,12 +220,12 @@ void GridAligner::bettherThanNaiveAlign()
             xDecided.at(target) = true;
             if (inHeap.at(target))
             {
-                cellNodeHeap.update(heapHandles.at(target), CellIdxNode(target, &xDecided, &hasSym));
+                cellNodeHeap.update(heapHandles.at(target), CellIdxNode(target, &xDecided, &hasSym, &dis2SymAxis));
             }
             else
             {
                 inHeap.at(target) = true;
-                heapHandles.at(target) = cellNodeHeap.push(CellIdxNode(target, &xDecided, &hasSym));
+                heapHandles.at(target) = cellNodeHeap.push(CellIdxNode(target, &xDecided, &hasSym, &dis2SymAxis));
             }
         }
         for (IndexType source : edgeLUTReverse.at(cellIdx))
@@ -227,12 +240,12 @@ void GridAligner::bettherThanNaiveAlign()
             xDecided.at(source) = true;
             if (inHeap.at(source))
             {
-                cellNodeHeap.update(heapHandles.at(source), CellIdxNode(source, &xDecided, &hasSym));
+                cellNodeHeap.update(heapHandles.at(source), CellIdxNode(source, &xDecided, &hasSym, &dis2SymAxis));
             }
             else
             {
                 inHeap.at(source) = true;
-                heapHandles.at(source) = cellNodeHeap.push(CellIdxNode(source, &xDecided, &hasSym));
+                heapHandles.at(source) = cellNodeHeap.push(CellIdxNode(source, &xDecided, &hasSym, &dis2SymAxis));
             }
         }
     }
