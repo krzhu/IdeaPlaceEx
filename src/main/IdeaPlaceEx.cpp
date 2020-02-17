@@ -111,7 +111,7 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
     return true;
 }
 
-bool IdeaPlaceEx::solve()
+bool IdeaPlaceEx::solve(LocType gridStep)
 {
     // Start message printer timer
     MsgPrinter::startTimer();
@@ -122,6 +122,11 @@ bool IdeaPlaceEx::solve()
 #ifdef DEBUG_GR
         DBG("cell %d %s bbox %s \n", cellIdx, _db.cell(cellIdx).name().c_str(), _db.cell(cellIdx).cellBBox().toStr().c_str());
 #endif
+    }
+
+    if (gridStep > 0)
+    {
+        _db.expandCellToGridSize(gridStep);
     }
 
     NlpWnconj nlp(_db);
@@ -150,6 +155,11 @@ bool IdeaPlaceEx::solve()
 #endif
         CGLegalizer legalizer2(_db);
         legalizer2.legalize();
+    }
+
+    if (gridStep > 0)
+    {
+        alignToGrid(gridStep);
     }
     return true;
 }

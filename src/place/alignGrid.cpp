@@ -29,6 +29,7 @@ IntType ceilDif(IntType n, IntType stepSize)
 
 void GridAligner::align(LocType stepSize)
 {
+    INF("Align to grid %d \n", stepSize);
     _stepSize = stepSize;
 #ifdef MULTI_SYM_GROUP
     Assert(0);
@@ -36,7 +37,13 @@ void GridAligner::align(LocType stepSize)
     //naiveAlign();
     bettherThanNaiveAlign();
 #endif
-    adjustOffset(XY<LocType>(0, 0));
+    //adjustOffset(XY<LocType>(0, 0));
+    INF("Ideaplace: finished alignment\n");
+    for (IndexType cellIdx =0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        const auto &cell = _db.cell(cellIdx);
+        INF("IDEAPLACE::%s cell %d %d\n ", __FUNCTION__, cell.xLo(), cell.yLo());
+    }
 }
 
 LocType GridAligner::findCurrentSymAxis()
@@ -135,13 +142,30 @@ void GridAligner::bettherThanNaiveAlign()
 {
     // Assume one symmetric axis and it should be at the center line of a grid
     auto symAxis = findCurrentSymAxis();
-    auto symDif = floorDif(static_cast<IntType>(symAxis - 0.5 * _stepSize), _stepSize);
+    auto symDif = floorDif(static_cast<IntType>(symAxis - 0.5*_stepSize), _stepSize);
     symAxis = symAxis - symDif;
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         auto &cell = _db.cell(cellIdx);
+        if (cell.cellBBox().xLen() % _stepSize != 0)
+        {
+            ERR("Cell width %d is not multiples of the grid size %d ! \n", cell.cellBBox().xLen(), _stepSize);
+        }
+        if (cell.cellBBox().yLen() % _stepSize != 0)
+        {
+            ERR("Cell height %d is not multiples of the grid size %d ! \n", cell.cellBBox().yLen(), _stepSize);
+        }
+
         cell.setXLoc(cell.xLoc() - symDif);
         cell.setYLoc(cell.yLoc() -  floorDif(cell.yLo(), _stepSize));
+        if (cell.xLoc() < symDif)
+        {
+            cell.setXLoc(cell.xLoc() - floorDif(cell.xLo(), _stepSize));
+        }
+        else
+        {
+            cell.setXLoc(cell.xLoc() + ceilDif(cell.xLo(), _stepSize));
+        }
     }
     // Sweep line
     Constraints hc;

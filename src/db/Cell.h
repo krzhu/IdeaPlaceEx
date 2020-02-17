@@ -105,9 +105,19 @@ class Cell
         void forceExtendToGrid(LocType gridStep)
         {
            LocType yDif = gridStep - (_cellBBox.yLen() % gridStep);
-           _cellBBox.setYHi(_cellBBox.yHi() + yDif);
+           if ((_cellBBox.yLen() + yDif) % gridStep == 0 )
+           {
+               yDif += gridStep;
+           }
            LocType xDif = gridStep - (_cellBBox.xLen() % gridStep);
-           _cellBBox.setXHi(_cellBBox.xHi() + xDif);
+           if ((_cellBBox.xLen() + xDif) % gridStep == 0 )
+           {
+               xDif += gridStep;
+           }
+           _cellBBox.setXLo(_cellBBox.xLo() - xDif / 2);
+           _cellBBox.setXHi(_cellBBox.xHi() + xDif / 2);
+           _cellBBox.setYLo(_cellBBox.yLo() - yDif / 2);
+           _cellBBox.setYHi(_cellBBox.yHi() + yDif / 2);
         }
         /*------------------------------*/ 
         /* Supporting functions         */
@@ -121,7 +131,7 @@ class Cell
                 _cellBBox.unionBox(bbox);
             }
             //INF("Enlarge cell boundry for 10 for spacing \n");
-            _cellBBox.enlargeBy(340 / 2);
+            //_cellBBox.enlargeBy(340 / 2);
         }
         /// @brief get the bounding box of the entire cell
         /// @return the bounding box of the entire cell
