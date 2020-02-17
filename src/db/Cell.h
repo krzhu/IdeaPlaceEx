@@ -47,6 +47,8 @@ class Cell
         /// @brief get the location of the cell
         /// @return the XY location of the cell
         const XY<LocType> & loc() const { return _loc; }
+        LocType xCenter() const { return _loc.x() + (_cellBBox.xLo() + _cellBBox.xHi()) / 2; }
+        LocType yCenter() const { return _loc.y() + (_cellBBox.yLo() + _cellBBox.yHi()) / 2; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
@@ -118,6 +120,8 @@ class Cell
            _cellBBox.setXHi(_cellBBox.xHi() + xDif / 2);
            _cellBBox.setYLo(_cellBBox.yLo() - yDif / 2);
            _cellBBox.setYHi(_cellBBox.yHi() + yDif / 2);
+           assert(_cellBBox.xLen() % gridStep == 0);
+           assert(_cellBBox.yLen() % gridStep == 0);
         }
         /*------------------------------*/ 
         /* Supporting functions         */
@@ -144,6 +148,7 @@ class Cell
         bool isSelfSym() const { return _bSelfSym; }
         void setSelfSym(bool selfSym=true) { _bSelfSym = selfSym; };
         void setSymNetIdx(IndexType symNetIdx) { _symNetIdx = symNetIdx; }
+        IndexType symNetIdx() const {return _symNetIdx; }
 
     private:
         std::string _name; ///< The cell name

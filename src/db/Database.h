@@ -133,6 +133,7 @@ class Database
                cell.forceExtendToGrid(gridSize);
            }
         }
+        bool checkSym();
         /*------------------------------*/ 
         /* Debug functions              */
         /*------------------------------*/ 

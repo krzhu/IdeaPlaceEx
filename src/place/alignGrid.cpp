@@ -44,6 +44,7 @@ void GridAligner::align(LocType stepSize)
         const auto &cell = _db.cell(cellIdx);
         INF("IDEAPLACE::%s cell %d %d\n ", __FUNCTION__, cell.xLo(), cell.yLo());
     }
+    Assert(_db.checkSym());
 }
 
 LocType GridAligner::findCurrentSymAxis()
@@ -90,8 +91,9 @@ void GridAligner::adjustSymPair(const SymPair &symPair, LocType symAxis)
 void GridAligner::adjustSelfSym(IndexType cellIdx, LocType symAxis)
 {
     auto &cell = _db.cell(cellIdx);
-    LocType center = (cell.xLo() + cell.xHi()) / 2; 
-    cell.setXLoc(cell.xLoc() +  center - symAxis);
+    LocType center = cell.xCenter(); 
+    cell.setXLoc(cell.xLoc() -  center + symAxis);
+    Assert(cell.xCenter() == symAxis);
 }
 
 struct CellIdxNode
@@ -144,6 +146,7 @@ void GridAligner::bettherThanNaiveAlign()
     auto symAxis = findCurrentSymAxis();
     auto symDif = floorDif(static_cast<IntType>(symAxis - 0.5*_stepSize), _stepSize);
     symAxis = symAxis - symDif;
+    INF("Alignment symaxis %d \n", symAxis);
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         auto &cell = _db.cell(cellIdx);
@@ -158,7 +161,7 @@ void GridAligner::bettherThanNaiveAlign()
 
         cell.setXLoc(cell.xLoc() - symDif);
         cell.setYLoc(cell.yLoc() -  floorDif(cell.yLo(), _stepSize));
-        if (cell.xLoc() < symDif)
+        if (cell.xLo() < symDif)
         {
             cell.setXLoc(cell.xLoc() - floorDif(cell.xLo(), _stepSize));
         }
@@ -239,7 +242,6 @@ void GridAligner::bettherThanNaiveAlign()
             {
                 continue;
             }
-            //Assert(!_db.cell(target).hasSym());
             _db.cell(target).setXLoc(_db.cell(target).xLoc() - spacing);
             xDecided.at(target) = true;
             if (inHeap.at(target))
@@ -250,6 +252,21 @@ void GridAligner::bettherThanNaiveAlign()
             {
                 inHeap.at(target) = true;
                 heapHandles.at(target) = cellNodeHeap.push(CellIdxNode(target, &xDecided, &hasSym, &dis2SymAxis));
+            }
+            if (_db.cell(target).hasSymPair())
+            {
+                IndexType symNetIdx = _db.cell(target).symNetIdx();
+                _db.cell(symNetIdx).setXLoc(_db.cell(symNetIdx).xLoc() + spacing);
+                xDecided.at(symNetIdx) = true;
+                if (inHeap.at(symNetIdx))
+                {
+                    cellNodeHeap.update(heapHandles.at(symNetIdx), CellIdxNode(symNetIdx, &xDecided, &hasSym, &dis2SymAxis));
+                }
+                else
+                {
+                    inHeap.at(symNetIdx) = true;
+                    heapHandles.at(symNetIdx) = cellNodeHeap.push(CellIdxNode(symNetIdx, &xDecided, &hasSym, &dis2SymAxis));
+                }
             }
         }
         for (IndexType source : edgeLUTReverse.at(cellIdx))
@@ -270,6 +287,21 @@ void GridAligner::bettherThanNaiveAlign()
             {
                 inHeap.at(source) = true;
                 heapHandles.at(source) = cellNodeHeap.push(CellIdxNode(source, &xDecided, &hasSym, &dis2SymAxis));
+            }
+            if (_db.cell(source).hasSymPair())
+            {
+                IndexType symNetIdx = _db.cell(source).symNetIdx();
+                _db.cell(symNetIdx).setXLoc(_db.cell(symNetIdx).xLoc() - spacing);
+                xDecided.at(symNetIdx) = true;
+                if (inHeap.at(symNetIdx))
+                {
+                    cellNodeHeap.update(heapHandles.at(symNetIdx), CellIdxNode(symNetIdx, &xDecided, &hasSym, &dis2SymAxis));
+                }
+                else
+                {
+                    inHeap.at(symNetIdx) = true;
+                    heapHandles.at(symNetIdx) = cellNodeHeap.push(CellIdxNode(symNetIdx, &xDecided, &hasSym, &dis2SymAxis));
+                }
             }
         }
     }

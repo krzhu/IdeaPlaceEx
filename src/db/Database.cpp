@@ -53,6 +53,64 @@ LocType Database::hpwl() const
     return hpwl;
 }
 
+bool Database::checkSym()
+{
+#ifndef MULTI_SYM_GROUP
+    LocType axis = LOC_TYPE_MIN;
+#endif
+    for (const auto &symGrp : _symGroups)
+    {
+        if (symGrp.numSymPairs() == 0)
+        {
+            break;
+        }
+        LocType symAxis;
+        for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++symPairIdx)
+        {
+            const auto &symPair = symGrp.symPair(symPairIdx);
+            symAxis = (cell(symPair.firstCell()).xCenter() + cell(symPair.secondCell()).xCenter()) / 2;
+            break;
+        }
+        if (axis != LOC_TYPE_MIN)
+        {
+            if (axis != symAxis)
+            {
+                ERR("Check Symmetry: different sym axises! \n");
+                return false;
+            }
+        }
+        else
+        {
+            axis = symAxis;
+        }
+        for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++symPairIdx)
+        {
+            const auto &symPair = symGrp.symPair(symPairIdx);
+            if (symAxis != (cell(symPair.firstCell()).xCenter() + cell(symPair.secondCell()).xCenter()) / 2)
+            {
+                ERR("Check Symmetry: symPair failed. axis %d, cell %d %d \n", symAxis, cell(symPair.firstCell()).xCenter(),
+                        cell(symPair.secondCell()).xCenter());
+                return false;
+            }
+            if ((cell(symPair.firstCell()).yLoc() != cell(symPair.secondCell()).yLoc()))
+            {
+                ERR("Check Symmetry: symPair failed. different y, cell %d %d \n", symAxis, cell(symPair.firstCell()).yLoc(),
+                        cell(symPair.secondCell()).yLoc());
+                return false;
+            }
+        }
+        for (IndexType ssIdx = 0; ssIdx < symGrp.numSelfSyms(); ++ssIdx)
+        {
+            if (cell(symGrp.selfSym(ssIdx)).xCenter() != symAxis)
+            {
+                ERR("Check Symmetry: selfSym failed. axis %d, cell idx %d at %d \n", symAxis, symGrp.selfSym(ssIdx), cell(symGrp.selfSym(ssIdx)).xCenter());
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 /*------------------------------*/ 
 /* Debug functions              */
 /*------------------------------*/ 
