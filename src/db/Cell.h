@@ -120,7 +120,7 @@ class Cell
             dif  = ceilDif(_cellBBox.yHi(), gridStep);
             _cellBBox.setYHi(_cellBBox.yHi() + dif);
             // Force to be odd * gridStep
-           if ((_cellBBox.xLen()) % gridStep == 0 )
+           if ((_cellBBox.xLen()) % (2 * gridStep) == 0 )
            {
                if (std::abs(_cellBBox.xLo()) < std::abs(_cellBBox.xHi()))
                {
@@ -131,7 +131,7 @@ class Cell
                    _cellBBox.setXHi(_cellBBox.xHi() + gridStep);
                }
            }
-           if ((_cellBBox.yLen()) % gridStep == 0 )
+           if ((_cellBBox.yLen()) % (2 * gridStep) == 0 )
            {
                if (std::abs(_cellBBox.yLo()) < std::abs(_cellBBox.yHi()))
                {
