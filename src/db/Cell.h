@@ -106,20 +106,42 @@ class Cell
         }
         void forceExtendToGrid(LocType gridStep)
         {
-           LocType yDif = gridStep - (_cellBBox.yLen() % gridStep);
-           if ((_cellBBox.yLen() + yDif) % gridStep == 0 )
+            auto ceilDif = [&](LocType n, LocType gridStep)
+            {
+                return gridStep - (std::abs(n % gridStep));
+            };
+            // first align to grid
+            LocType dif = ceilDif(_cellBBox.xLo(), gridStep);
+            _cellBBox.setXLo(_cellBBox.xLo() - dif);
+            dif  = ceilDif(_cellBBox.xHi(), gridStep);
+            _cellBBox.setXHi(_cellBBox.xHi() + dif);
+            dif = ceilDif(_cellBBox.yLo(), gridStep);
+            _cellBBox.setYLo(_cellBBox.yLo() - dif);
+            dif  = ceilDif(_cellBBox.yHi(), gridStep);
+            _cellBBox.setYHi(_cellBBox.yHi() + dif);
+            // Force to be odd * gridStep
+           if ((_cellBBox.xLen()) % gridStep == 0 )
            {
-               yDif += gridStep;
+               if (std::abs(_cellBBox.xLo()) < std::abs(_cellBBox.xHi()))
+               {
+                   _cellBBox.setXLo(_cellBBox.xLo() - gridStep);
+               }
+               else
+               {
+                   _cellBBox.setXHi(_cellBBox.xHi() + gridStep);
+               }
            }
-           LocType xDif = gridStep - (_cellBBox.xLen() % gridStep);
-           if ((_cellBBox.xLen() + xDif) % gridStep == 0 )
+           if ((_cellBBox.yLen()) % gridStep == 0 )
            {
-               xDif += gridStep;
+               if (std::abs(_cellBBox.yLo()) < std::abs(_cellBBox.yHi()))
+               {
+                   _cellBBox.setYLo(_cellBBox.yLo() - gridStep);
+               }
+               else
+               {
+                   _cellBBox.setYHi(_cellBBox.yHi() + gridStep);
+               }
            }
-           _cellBBox.setXLo(_cellBBox.xLo() - xDif / 2);
-           _cellBBox.setXHi(_cellBBox.xHi() + xDif / 2);
-           _cellBBox.setYLo(_cellBBox.yLo() - yDif / 2);
-           _cellBBox.setYHi(_cellBBox.yHi() + yDif / 2);
            assert(_cellBBox.xLen() % gridStep == 0);
            assert(_cellBBox.yLen() % gridStep == 0);
         }
