@@ -44,6 +44,7 @@ pybind11 = os.environ['PYBIND11_DIR'] + "/include"
 gtest =  os.environ['GTEST_DIR'] + '/googletest/include'
 wnlib = os.environ['WNLIB_DIR'] + '/acc/h'
 lpsolve = os.environ['LPSOLVE_DIR']
+lemon = os.environ['LEMON_DIR'] + "/include"
 flags = [
 '-Wall',
 '-Wextra',
@@ -72,7 +73,7 @@ get_python_inc(),
 '-I', './src',
 
 #Added
-'-I', os.environ['LEMON_INC'],
+'-I', lemon,
 '-I', sparseHash,
 '-I', limbo,
 '-I', pybind11,

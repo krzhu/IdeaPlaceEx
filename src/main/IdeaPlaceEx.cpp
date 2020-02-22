@@ -7,6 +7,7 @@
 #include "parser/ParserNetwgt.h"
 #include "parser/ParserGds.h"
 #include "parser/ParserSymFile.h"
+#include "pinassign/VirtualPinAssigner.h"
 /* Post-Processing */
 #include "place/alignGrid.h"
 
@@ -140,7 +141,10 @@ bool IdeaPlaceEx::solve(LocType gridStep)
 #endif
     CGLegalizer legalizer(_db);
     bool legalizeResult = legalizer.legalize();
+    VirtualPinAssigner pinAssigner(_db);
+    pinAssigner.solveFromDB();
     INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
+    INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n",  _db.hpwlWithVitualPins());
     if (!legalizeResult)
     {
         INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
@@ -161,6 +165,7 @@ bool IdeaPlaceEx::solve(LocType gridStep)
     {
         alignToGrid(gridStep);
     }
+    _db.drawCellBlocks("./debug/after_evertt.gds");
     return true;
 }
 

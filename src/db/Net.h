@@ -28,6 +28,13 @@ class Net
         /// @brief get the name for the net
         /// @return the name of this net
         const std::string & name() const { return _name; }
+        /// @brief get whether this pin is an IO pin
+        bool isIo() const { return _isIo; }
+        /// @brief get the virtual pin location
+        /// @return the location for the virtual pin
+        const XY<LocType> &virtualPinLoc() const { return _virtualPin; }
+        /// @brief get whether need to consider the virtual pin: If not IO net, or if no vitual pin assigned
+        bool isValidVirtualPin() const { return _isIo && _virtualPin.x() != LOC_TYPE_MIN; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
@@ -37,6 +44,12 @@ class Net
         /// @brief set the name of the net
         /// @param the name of the net
         void setName(const std::string &name) { _name = name; }
+        /// @brief set whether this net is an IO net
+        void setIsIo(bool isIo) { _isIo =isIo; }
+        /// @brief set the virtual pin location of this net
+        void setVirtualPin(const XY<LocType> &virtualPinLocation) { _virtualPin = virtualPinLocation; }
+        /// @brief invalidate the virtual pin
+        void invalidateVirtualPin() { _virtualPin = XY<LocType>(LOC_TYPE_MIN, LOC_TYPE_MIN); }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -55,6 +68,8 @@ class Net
         std::string _name = ""; ///< The name for the net
         std::vector<IndexType> _pinIdxArray; ///< The index to the pins belonging to the net
         IntType _weight = 1; ///< The weight of this net
+        bool _isIo = true; ///< Whether thisnet is an IO net 
+        XY<LocType> _virtualPin = XY<LocType>(LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The virtual pin location
 };
 
 PROJECT_NAMESPACE_END
