@@ -126,6 +126,7 @@ class Database
         /// @brief calculate and return the HPWL
         /// @return HPWL
         LocType hpwl() const;
+        LocType hpwlWithVitualPins() const;
         void expandCellToGridSize(LocType gridSize)
         {
            for (auto &cell : _cellArray)

@@ -60,8 +60,8 @@ bool NlpWnconj::writeOut()
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         auto & cell = _db.cell(cellIdx);
-        LocType xLo = ::klib::autoRound<LocType>((_solutionVect[cellIdx * 2] - minX) / _scale);
-        LocType yLo = ::klib::autoRound<LocType>((_solutionVect[cellIdx * 2 + 1] - minY) / _scale);
+        LocType xLo = ::klib::autoRound<LocType>((_solutionVect[cellIdx * 2] - minX) / _scale + LAYOUT_OFFSET);
+        LocType yLo = ::klib::autoRound<LocType>((_solutionVect[cellIdx * 2 + 1] - minY) / _scale + LAYOUT_OFFSET);
         _db.cell(cellIdx).setXLoc(xLo - cell.cellBBox().xLo());
         _db.cell(cellIdx).setYLoc(yLo - cell.cellBBox().yLo());
     }
@@ -372,6 +372,10 @@ bool NlpWnconj::nlpKernel()
     {
         initial_coord_x0s[i] = 1.0;
     }
+
+#ifdef PIN_ASSIGN_IN_GP
+    this->assignPin();
+#endif
 
     // Iteratively solving NLP
     while (_iter < _maxIter)

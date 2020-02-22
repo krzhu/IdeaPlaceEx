@@ -24,4 +24,7 @@
 #define AT(vec, idx) vec.at(idx)
 #endif /// NODEBUG
 
+#define PIN_ASSIGN_IN_GP
+#define PIN_ASSIGN_IN_LG
+
 #endif /// IDEAPLACE_DEFINE_H

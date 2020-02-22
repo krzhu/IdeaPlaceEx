@@ -64,6 +64,15 @@ find_package( ZLIB REQUIRED )
 
 
 
+# Find Lemon
+if (LEMON_DIR)
+  set(LEMON_ROOT_DIR ${LEMON_DIR})
+else()
+  set(LEMON_ROOT_DIR $ENV{LEMON_DIR})
+endif()
+message(STATUS "Find Lemon: ${LEMON_ROOT_DIR}")
+unset(LEMON_DIR CACHE)
+
 # Find the directory for WNLIB. If cache variable WNLIB_DIR is defined, use it as the path to WNLIB, otherwise use the system WNLIB_DIR
 if (WNLIB_DIR)
     set(WNLIB_ROOT_DIR ${WNLIB_DIR})
@@ -125,14 +134,13 @@ mark_as_advanced(VERSION_MAJOR VERSION_MINOR VERSION_PATCH)
 
 
 
-                #$ENV{LEMON_INC}
-#link_directories(${BOOST_LIBRARYDIR})
 file(GLOB SOURCES src/global/*.h    src/global/*.cpp
                   src/db/*.h        src/db/*.cpp
                   src/util/*.h      src/util/*.cpp 
                   src/parser/*.h    src/parser/*.cpp
                   src/writer/gdsii/*.h    src/writer/gdsii/*.cpp
                   src/place/*.h    src/place/*.cpp
+                  src/pinassign/*.h src/pinassign/*.cpp
                   src/main/IdeaPlaceEx.h src/main/IdeaPlaceEx.cpp)
 
 file(GLOB EXE_SOURCES src/main/main.cpp)
@@ -207,6 +215,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${LPSOLVE_ROOT_DIR} 
     ${PYTHON_INCLUDE_DIRS}
     ${PYBIND11_ROOT_DIR}/include
+    ${LEMON_ROOT_DIR}/include
 )
 
 target_link_libraries(${PROJECT_NAME} 

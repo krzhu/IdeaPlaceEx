@@ -15,11 +15,11 @@ void LpLegalizeSolver::exportSolution()
         // convert to cell original location
         if (_isHor)
         {
-            _db.cell(cellIdx).setXLoc(static_cast<LocType>(var - _db.cell(cellIdx).cellBBox().xLo()));
+            _db.cell(cellIdx).setXLoc(static_cast<LocType>(var - _db.cell(cellIdx).cellBBox().xLo()) + LAYOUT_OFFSET);
         }
         else
         {
-            _db.cell(cellIdx).setYLoc(static_cast<LocType>(var - _db.cell(cellIdx).cellBBox().yLo()));
+            _db.cell(cellIdx).setYLoc(static_cast<LocType>(var - _db.cell(cellIdx).cellBBox().yLo()) + LAYOUT_OFFSET);
         }
     }
 }
@@ -73,7 +73,11 @@ void LpLegalizeSolver::configureObjFunc()
         bool hasAtLeastOneNet = false;
         for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
         {
-            if (_db.net(netIdx).numPinIdx() <= 1)
+            if (_db.net(netIdx).numPinIdx() == 0)
+            {
+                continue;
+            }
+            if (_db.net(netIdx).numPinIdx() == 1 && !_db.net(netIdx).isValidVirtualPin())
             {
                 continue;
             }
@@ -296,6 +300,30 @@ void LpLegalizeSolver::addIlpConstraints()
                     // wl_r >= _loc + pin_offset for all pins in the net
                     _ilpModel.addConstraint(  AT(_wlR, netIdx)
                             - AT(_locs, pin.cellIdx()) 
+                            >=  loc);
+                }
+            }
+            // Wirelength with virtual pin
+            if (net.isValidVirtualPin())
+            {
+                if (_isHor)
+                {
+                    RealType loc = static_cast<RealType>(net.virtualPinLoc().x());
+                    // wl_l <= _loc + pin_offset for all pins in the net
+                    _ilpModel.addConstraint(  AT(_wlL, netIdx)
+                            <=  std::max(loc, 0.0));
+                    // wl_r >= _loc + pin_offset for all pins in the net
+                    _ilpModel.addConstraint(  AT(_wlR, netIdx)
+                            >=  loc);
+                }
+                else
+                {
+                    RealType loc = static_cast<RealType>(net.virtualPinLoc().y());
+                    // wl_l <= _loc + pin_offset for all pins in the net
+                    _ilpModel.addConstraint(  AT(_wlL, netIdx)
+                            <=  std::max(loc, 0.0));
+                    // wl_r >= _loc + pin_offset for all pins in the net
+                    _ilpModel.addConstraint(  AT(_wlR, netIdx)
                             >=  loc);
                 }
             }
