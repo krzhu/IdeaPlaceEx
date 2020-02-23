@@ -138,7 +138,6 @@ class NlpWnconj
                 ymax += exp(pinLoc.y() / alpha);
                 ymin += exp(-pinLoc.y() / alpha);
             }
-#ifdef PIN_ASSIGN_IN_GP
             if (net.isValidVirtualPin())
             {
                 XY<double> virtualPinLoc = XY<double>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
@@ -148,7 +147,6 @@ class NlpWnconj
                 ymax += exp(virtualPinLoc.y() / alpha);
                 ymin += exp(-virtualPinLoc.y() / alpha);
             }
-#endif
             xmax = log(xmax);
             xmin = log(xmin);
             ymax = log(ymax);
@@ -193,7 +191,6 @@ class NlpWnconj
                 ymax += exp(pinLoc.y() / alpha);
                 ymin += exp(- pinLoc.y() / alpha);
             }
-#ifdef PIN_ASSIGN_IN_GP
             if (net.isValidVirtualPin())
             {
                 XY<double> virtualPinLoc = XY<double>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
@@ -203,7 +200,6 @@ class NlpWnconj
                 ymax += exp(virtualPinLoc.y() / alpha);
                 ymin += exp(-virtualPinLoc.y() / alpha);
             }
-#endif
             // Calculate the pin-wise terms
             for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
             {
@@ -253,6 +249,7 @@ class NlpWnconj
         /* Pin assignment */
         void assignPin()
         {
+            if (!_db.parameters().ifUsePinAssignment()) { return; }
             auto cellLocQueryFunc = [&] (IndexType cellIdx)
             {
                 double x = _solutionVect[cellIdx * 2];
@@ -502,12 +499,10 @@ inline double NlpWnconj::objFunc(double *values)
 
 inline void NlpWnconj::gradFunc(double *grad, double *values)
 {
-#ifdef PIN_ASSIGN_IN_GP
     if (_innerIter % 500 == 0)
     {
         this->assignPin();
     }
-#endif
     _innerIter++;
     RealType maxOverlapRatio = 0;
     IndexType maxOverLapIndex = 0;

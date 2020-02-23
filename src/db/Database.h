@@ -95,6 +95,8 @@ class Database
         /// @brief allocate a new net in the array
         /// @return index of the new net
         IndexType allocateNet() { _netArray.emplace_back(Net()); return _netArray.size() -1; }
+        const std::vector<Net> & nets() const { return _netArray; }
+        std::vector<Net> & nets() { return _netArray; }
         /// @brief get the number of pins
         /// @return the number of pins
         IndexType numPins() const { return _pinArray.size(); }
@@ -106,9 +108,21 @@ class Database
         /// @param the index of the pin
         /// @return the pin of the index
         Pin & pin(IndexType pinIdx) { return AT(_pinArray, pinIdx); }
+        const std::vector<Pin> & pins() const { return _pinArray; }
+        std::vector<Pin> &pins() { return _pinArray; }
         /// @brief allocate a new pin in the array
         /// @return the index of the pin
         IndexType allocatePin() { _pinArray.emplace_back(Pin()); return _pinArray.size() - 1; }
+        /// @brief get the vector of proximity groups
+        /// @return the vector of proximity groups
+        const std::vector<ProximityGroup> & proximityGrps() const { return _proximityGrps; }
+        /// @brief get the vector of proximity groups
+        /// @return the vector of proximity groups
+        std::vector<ProximityGroup> & proximityGrps() { return _proximityGrps; }
+        IndexType allocateProximityGroup() 
+        { _proximityGrps.emplace_back(ProximityGroup()); return _proximityGrps.size() - 1; }
+        const ProximityGroup &proximityGrp( IndexType grpIdx ) const { return _proximityGrps.at(grpIdx); }
+        ProximityGroup &proximityGrp( IndexType grpIdx ) { return _proximityGrps.at(grpIdx); }
         /*------------------------------*/ 
         /* Technology-dependent         */
         /*------------------------------*/ 
@@ -149,6 +163,7 @@ class Database
         std::vector<Net> _netArray; ///< The nets of the placement problem
         std::vector<Pin> _pinArray; ///< The pins of the placement problem
         std::vector<SymGroup> _symGroups; ///< The symmetric groups
+        std::vector<ProximityGroup> _proximityGrps; ///< The proximity group constraints
         Tech _tech; ///< The tech information
         Parameters _para; ///< The parameters for the placement engine
 };

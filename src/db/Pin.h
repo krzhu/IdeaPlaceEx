@@ -35,6 +35,9 @@ class Pin
         /// @brief get the name of the pin
         /// @return the name of the pin
         const std::string & name() const { return _name; }
+        /// @brief get wether this pin is a dummy pin
+        /// @return whether this pin is a dummy pin
+        bool isDummyPin() const { return _isDummy; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/
@@ -44,6 +47,7 @@ class Pin
         /// @brief set the name of the pin
         /// @param the name of the pin
         void setName(const std::string &name) { _name = name; }
+        void markAsDummyPin() { _isDummy = true; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -68,6 +72,7 @@ class Pin
         std::vector<IndexType> _netIdxArray; ///< The indices of nets connected to this pin
         IndexType _cellIdx = INDEX_TYPE_MAX; ///< The cell this pin belongs to. Each pin can belong on only one cell
         Box<LocType> _shape = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The relative location of this pin with respect to the cell
+        bool _isDummy = false; ///< This is a dummy pin
 };
 
 PROJECT_NAMESPACE_END

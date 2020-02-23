@@ -7,7 +7,9 @@
 #include "parser/ParserNetwgt.h"
 #include "parser/ParserGds.h"
 #include "parser/ParserSymFile.h"
+/* Placement */
 #include "pinassign/VirtualPinAssigner.h"
+#include "place/ProximityMgr.h"
 /* Post-Processing */
 #include "place/alignGrid.h"
 
@@ -130,6 +132,10 @@ bool IdeaPlaceEx::solve(LocType gridStep)
         _db.expandCellToGridSize(gridStep);
     }
 
+    // Set proximity group
+    ProximityMgr proximityMgr(_db);
+    proximityMgr.applyProximityWithDummyNets();
+
     NlpWnconj nlp(_db);
     nlp.setToughMode(false);
     nlpPtr = &nlp;
@@ -160,6 +166,9 @@ bool IdeaPlaceEx::solve(LocType gridStep)
         CGLegalizer legalizer2(_db);
         legalizer2.legalize();
     }
+
+    // Restore proxmity group
+    proximityMgr.restore();
 
     if (gridStep > 0)
     {
