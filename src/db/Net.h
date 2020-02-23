@@ -35,6 +35,9 @@ class Net
         const XY<LocType> &virtualPinLoc() const { return _virtualPin; }
         /// @brief get whether need to consider the virtual pin: If not IO net, or if no vitual pin assigned
         bool isValidVirtualPin() const { return _isIo && _virtualPin.x() != LOC_TYPE_MIN; }
+        /// @brief get whether this net is a dummy net
+        /// @return whether this net is a dummy net
+        bool isDummyNet() const { return _isDummy; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
@@ -50,6 +53,8 @@ class Net
         void setVirtualPin(const XY<LocType> &virtualPinLocation) { _virtualPin = virtualPinLocation; }
         /// @brief invalidate the virtual pin
         void invalidateVirtualPin() { _virtualPin = XY<LocType>(LOC_TYPE_MIN, LOC_TYPE_MIN); }
+        /// @brief mark this net as a dummy net
+        void markAsDummyNet() { _isDummy = true; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -70,6 +75,7 @@ class Net
         IntType _weight = 1; ///< The weight of this net
         bool _isIo = true; ///< Whether thisnet is an IO net 
         XY<LocType> _virtualPin = XY<LocType>(LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The virtual pin location
+        bool _isDummy = false; ///< Whether this is a dummy net
 };
 
 PROJECT_NAMESPACE_END

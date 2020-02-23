@@ -74,6 +74,8 @@ class Cell
         /// @param the index of pin array
         /// @return the databse pin index
         IndexType pinIdx(IndexType idx) const { return AT(_pinIdxArray, idx); }
+        const std::vector<IndexType> & pins() const { return _pinIdxArray; }
+        std::vector<IndexType> & pins() { return _pinIdxArray; }
         /// @brief allocate the bounding box array with the size of layers
         /// @param the number of layers need to be considered
         void allocateLayers(IndexType numLayers) 

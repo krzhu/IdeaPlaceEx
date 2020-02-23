@@ -204,7 +204,6 @@ void Database::drawCellBlocks(const std::string &filename)
     // END
     wg->writeCellEnd();
     wg->endLib();
-    DBG("Database::%s: debug cell block saved in %s \n", __FUNCTION__, filename.c_str());
 }
 
 #endif //DEBUG_DRAW

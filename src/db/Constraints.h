@@ -82,6 +82,27 @@ class SymGroup
         std::vector<IndexType> _selfSyms; ///< The self symmetric cells
 };
 
+/// @brief simple proximity
+class ProximityGroup
+{
+  public:
+    /// @brief default constructor
+    explicit ProximityGroup() = default;
+    /// @brief add a cell to this proximity group
+    /// @param the cell index
+    void addCell(IndexType cellIdx) { _cells.emplace_back(cellIdx); }
+    /// @brief set the weight of the proximity group
+    /// @param the weight of this proximity group
+    void setWeight(IntType weight) { _weight = weight; }
+    /// @brief get the vector of the cell indices
+    /// @return get the vector of the cell indices
+    const std::vector<IndexType> &cells() const { return _cells; }
+
+  private:
+    std::vector<IndexType> _cells; ///< The cells belonging to this proximity group
+    IntType _weight; ///< The weight of this proximity group
+};
+
 PROJECT_NAMESPACE_END
 
 #endif //IDEAPLACE_DATABASE_CONSTRAINTS_H_

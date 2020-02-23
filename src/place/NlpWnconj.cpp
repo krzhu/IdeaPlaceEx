@@ -171,6 +171,7 @@ bool NlpWnconj::updateMultipliers2()
 
 void NlpWnconj::alignSym()
 {
+    return;
     for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
     {
         const auto &symGrp = _db.symGroup(symGrpIdx);
@@ -373,9 +374,7 @@ bool NlpWnconj::nlpKernel()
         initial_coord_x0s[i] = 1.0;
     }
 
-#ifdef PIN_ASSIGN_IN_GP
     this->assignPin();
-#endif
 
     // Iteratively solving NLP
     while (_iter < _maxIter)
