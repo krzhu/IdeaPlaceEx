@@ -376,6 +376,9 @@ bool NlpWnconj::nlpKernel()
 
     this->assignPin();
 
+    // Init the opeartors
+    this->initOperators();
+
     // Iteratively solving NLP
     while (_iter < _maxIter)
     {
@@ -415,6 +418,22 @@ bool NlpWnconj::nlpKernel()
         _iter++;
     }
     return true;
+}
+
+void NlpWnconj::initOperators()
+{
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        const auto &cellBBox = _db.cell(cellIdx).cellBBox();
+        _oobOps.emplace_back(nlp_oob_type(
+                    cellIdx,
+                    cellBBox.xLen() * _scale,
+                    cellBBox.yLen() * _scale,
+                    &_boundary,
+                    &_alpha,
+                    &_lambda2
+                    ));
+    }
 }
 
 bool NlpWnconj::cleanup()

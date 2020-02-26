@@ -12,6 +12,7 @@
 #include "wnconj.h"
 #include <math.h>
 #include "pinassign/VirtualPinAssigner.h"
+#include "different.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -60,6 +61,9 @@ namespace NlpWnconjDetails
 /// @brief the non-linear optimization for global placement with wnlib conjugated gradient solver
 class NlpWnconj
 {
+    typedef RealType nlp_coordinate_type;
+    typedef RealType nlp_numerical_type;
+    typedef CellOutOfBoundaryPenalty<nlp_coordinate_type, nlp_numerical_type> nlp_oob_type;
     public:
         /// @brief default constructor
         explicit NlpWnconj(Database &db) : _db(db) , _assigner(db) {}
@@ -297,6 +301,9 @@ class NlpWnconj
 #endif
 #endif
 
+        /* Init operators */
+        void initOperators();
+
         
     private:
         Database &_db; ///< The placement engine database
@@ -334,10 +341,23 @@ class NlpWnconj
         bool _toughModel = false; ///< Whether try hard to be feasible
 
         VirtualPinAssigner _assigner;
+        /* NLP differentiable operators */
+        std::vector<nlp_oob_type> _oobOps; ///< The cell out of boundary operators; 
 };
 
 inline double NlpWnconj::objFunc(double *values)
 {
+    auto getVarFunc = [&] (IndexType cellIdx, Orient2DType orient)
+    {
+        if (orient == Orient2DType::HORIZONTAL)
+        {
+            return values[2 * cellIdx];
+        }
+        else
+        {
+            return values[2 * cellIdx + 1];
+        }
+    };
     //values[2 * _db.numCells()] = 0;
     //values[2 * _db.numCells() + 1] = 0;
     // Initial the objective to be 0 and add the non-zero to it
@@ -405,26 +425,14 @@ inline double NlpWnconj::objFunc(double *values)
     // record max overlap penalty
     result += _lambdaMaxOverlap * _fMaxOver;
 
-    //double oobCost = 0;
-
-    // Out of boundary penalty
-    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    // Out of boundary
+    for (const auto & op:  _oobOps)
     {
-        const auto &bbox = _db.cell(cellIdx).cellBBox();
-        double xLo = values[2 * cellIdx]; double xHi = xLo + bbox.xLen() * _scale;
-        double yLo = values[2 * cellIdx + 1]; double yHi = yLo + bbox.yLen() * _scale;
-        // max (-xLo +boundary_xLo, 0), max(xHi - boundary_xHi, 0)
-        double obXLo = NlpWnconjDetails::logSumExp0(_boundary.xLo() - xLo, _alpha);
-        double obXHi = NlpWnconjDetails::logSumExp0(xHi - _boundary.xHi(), _alpha);
-        // also y
-        double obYLo = NlpWnconjDetails::logSumExp0(_boundary.yLo() - yLo, _alpha);
-        double obYHi = NlpWnconjDetails::logSumExp0(yHi - _boundary.yLo(), _alpha);
-        // Add to the objective
-        result += _lambda2 * (obXLo + obXHi + obYLo + obYHi);
-        _fOOB +=  _lambda2 * (obXLo + obXHi + obYLo + obYHi);
-        //oobCost += (obXLo + obXHi + obYLo + obYHi);
-        //DBG("OOB add %f, lambda %f \n",_lambda2 * (obXLo + obXHi + obYLo + obYHi), _lambda2);
+        auto oobCost = placement_differentiable_traits<nlp_oob_type>::evaluate(op, getVarFunc);
+        result += oobCost;
+        _fOOB += oobCost;
     }
+
     // Wire length penalty
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
@@ -499,6 +507,29 @@ inline double NlpWnconj::objFunc(double *values)
 
 inline void NlpWnconj::gradFunc(double *grad, double *values)
 {
+    auto getVarFunc = [&] (IndexType cellIdx, Orient2DType orient)
+    {
+        if (orient == Orient2DType::HORIZONTAL)
+        {
+            return values[2 * cellIdx];
+        }
+        else
+        {
+            return values[2 * cellIdx + 1];
+        }
+    };
+
+    auto accumulateGradFunc = [&] (nlp_numerical_type value, IndexType cellIdx, Orient2DType orient)
+    {
+        if (orient == Orient2DType::HORIZONTAL)
+        {
+            grad[2 * cellIdx] +=  value;
+        }
+        else
+        {
+            grad[2 * cellIdx + 1] += value;
+        }
+    };
     if (_innerIter % 500 == 0)
     {
         this->assignPin();
@@ -588,22 +619,13 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
     // Update the max overlap
     grad[2 * maxOverLapIndex] += _lambdaMaxOverlap * maxOverLapGradX ;
     grad[2 * maxOverLapIndex + 1] += _lambdaMaxOverlap * maxOverLapGradY ;
-    // out of boundary penalty
-    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+
+    // Out of boundary Penalty
+    for (const auto & op:  _oobOps)
     {
-        const auto &bbox = _db.cell(cellIdx).cellBBox();
-        double xLo = values[2 * cellIdx] ; double xHi = xLo + bbox.xLen() * _scale;
-        double yLo = values[2 * cellIdx + 1]; double yHi = yLo + bbox.yLen() * _scale;
-        // max(lower - x/yLo, 0), max (x/yHi - upper, 0)
-        double gradObX = - NlpWnconjDetails::gradLogSumExp0(_boundary.xLo() - xLo, _alpha); // the negative is from derivative
-        gradObX += NlpWnconjDetails::gradLogSumExp0(xHi - _boundary.xHi(), _alpha);
-        // Record
-        grad[2 * cellIdx] +=  _lambda2 * gradObX;
-        double gradObY = - NlpWnconjDetails::gradLogSumExp0(_boundary.yLo() - yLo, _alpha); // the negative is from derivative
-        gradObY += NlpWnconjDetails::gradLogSumExp0(yHi - _boundary.yHi(), _alpha);
-        // Record
-        grad[2 * cellIdx + 1] += _lambda2 * gradObY;
+        placement_differentiable_traits<nlp_oob_type>::accumlateGradient(op, getVarFunc, accumulateGradFunc);
     }
+    
     // Wire length penalty
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
