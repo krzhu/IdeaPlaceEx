@@ -55,9 +55,11 @@ class Cell
         /// @brief set the x coordinate of the cell
         /// @param the x coordinate of the cell
         void setXLoc(LocType xLoc) { _loc.setX(xLoc); }
+        void setXLo(LocType xLo) { _loc.setX(xLo - _cellBBox.xLo()); }
         /// @brief set the y coordinate of the cell
         /// @param the y coordinate of the cell
         void setYLoc(LocType yLoc) { _loc.setY(yLoc); }
+        void setYLo(LocType yLo) { _loc.setY(yLo - _cellBBox.yLo()); }
         /// @brief set the name of the cell
         /// @param the name of the cell
         void setName(const std::string &name) { _name = name; }

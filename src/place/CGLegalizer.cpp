@@ -37,7 +37,7 @@ bool CGLegalizer::legalize()
     }
     _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
     _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
-    this->generateConstraints();
+    //this->generateConstraints();
     if (_db.parameters().ifUsePinAssignment())
     {
         pinAssigner.solveFromDB();
@@ -47,6 +47,7 @@ bool CGLegalizer::legalize()
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
         return true;
     }
+    return true;
 
     this->generateConstraints();
     _wStar = lpLegalization(true);

@@ -15,11 +15,11 @@ void LpLegalizeSolver::exportSolution()
         // convert to cell original location
         if (_isHor)
         {
-            _db.cell(cellIdx).setXLoc(static_cast<LocType>(var - _db.cell(cellIdx).cellBBox().xLo()) + LAYOUT_OFFSET);
+            _db.cell(cellIdx).setXLo(static_cast<LocType>(var) + LAYOUT_OFFSET);
         }
         else
         {
-            _db.cell(cellIdx).setYLoc(static_cast<LocType>(var - _db.cell(cellIdx).cellBBox().yLo()) + LAYOUT_OFFSET);
+            _db.cell(cellIdx).setYLo(static_cast<LocType>(var) + LAYOUT_OFFSET);
         }
     }
 }
@@ -68,7 +68,7 @@ bool LpLegalizeSolver::solveLp()
 void LpLegalizeSolver::configureObjFunc()
 {
     // Wirelength
-    if (_optHpwl)
+    if (_optHpwl == 1)
     {
         bool hasAtLeastOneNet = false;
         for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
@@ -83,7 +83,7 @@ void LpLegalizeSolver::configureObjFunc()
             }
             hasAtLeastOneNet = true;
             auto weight = _db.net(netIdx).weight();
-            _obj += weight * (AT(_wlR, netIdx) - AT(_wlL, netIdx));
+            _obj += weight * (_wlR[netIdx] - _wlL[netIdx]);
         }
         if (!hasAtLeastOneNet)
         {
@@ -92,7 +92,7 @@ void LpLegalizeSolver::configureObjFunc()
         }
     }
     // Area
-    if (_optArea)
+    if (_optArea == 1)
     {
         _obj += _dim;
     }
@@ -277,7 +277,10 @@ void LpLegalizeSolver::addIlpConstraints()
             {
                 IndexType pinIdx = net.pinIdx(pinIdxInNet);
                 const auto &pin = _db.pin(pinIdx);
+                const auto &cell = _db.cell(pin.cellIdx());
                 auto midLoc = pin.midLoc();
+                XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo());
+                midLoc -= cellLoLoc;
                 if (_isHor)
                 {
                     RealType loc = static_cast<RealType>(midLoc.x());
