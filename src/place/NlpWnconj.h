@@ -207,10 +207,12 @@ class NlpWnconj
                 IndexType pinIdx = net.pinIdx(idx);
                 const auto &pin = _db.pin(pinIdx);
                 IndexType cellIdxTemp = pin.cellIdx();
+                const auto &cell = _db.cell(cellIdxTemp);
                 // Get the cell location from the input arguments
                 XY<double> cellLoc = XY<double>(values[cellIdxTemp * 2], values[cellIdxTemp * 2 + 1]);
                 XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-                XY<double> pinLoc = cellLoc + midLoc;
+                XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+                XY<double> pinLoc = cellLoc + midLoc - cellLoLoc;
                 double pinXmax = exp( pinLoc.x() / alpha ) / xmax;
                 double pinXmin = exp( - pinLoc.x() / alpha) / xmin;
                 double pinYmax = exp( pinLoc.y() / alpha) / ymax;
