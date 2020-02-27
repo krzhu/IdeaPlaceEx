@@ -63,6 +63,7 @@ class NlpWnconj
 {
     typedef RealType nlp_coordinate_type;
     typedef RealType nlp_numerical_type;
+    typedef CellPairOverlapPenalty<nlp_coordinate_type, nlp_numerical_type> nlp_ovl_type;
     typedef CellOutOfBoundaryPenalty<nlp_coordinate_type, nlp_numerical_type> nlp_oob_type;
     public:
         /// @brief default constructor
@@ -342,7 +343,8 @@ class NlpWnconj
 
         VirtualPinAssigner _assigner;
         /* NLP differentiable operators */
-        std::vector<nlp_oob_type> _oobOps; ///< The cell out of boundary operators; 
+        std::vector<nlp_ovl_type> _ovlOps; ///< The cell pair overlapping penalty operators
+        std::vector<nlp_oob_type> _oobOps; ///< The cell out of boundary penalty operators 
 };
 
 inline double NlpWnconj::objFunc(double *values)
@@ -358,8 +360,6 @@ inline double NlpWnconj::objFunc(double *values)
             return values[2 * cellIdx + 1];
         }
     };
-    //values[2 * _db.numCells()] = 0;
-    //values[2 * _db.numCells() + 1] = 0;
     // Initial the objective to be 0 and add the non-zero to it
     double result = 0;
     _fOverlap = 0;
@@ -367,66 +367,18 @@ inline double NlpWnconj::objFunc(double *values)
     _fHpwl = 0;
     _fAsym = 0;
     _fMaxOver = 0;
-    // log-sum-exp model for overlap penalty
-    // Calculate the cell-wise overlapping area penalty
-    // TODO: improve the codes below from O(n^2) to O(nlogn)
-    for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
+
+    // Calculate the cell-wise overlapping area penalty 
+    for (const auto & op : _ovlOps)
     {
-        const auto &bboxI = _db.cell(cellIdxI).cellBBox();
-        for (IndexType cellIdxJ = cellIdxI + 1; cellIdxJ < _db.numCells(); ++cellIdxJ)
-        {
-            const auto &bboxJ = _db.cell(cellIdxJ).cellBBox();
-            // Values arrangement x0, y0, x1, y1...
-            double xLoI = values[2 * cellIdxI]; double xHiI = xLoI + bboxI.xLen() * _scale;
-            double xLoJ = values[2 * cellIdxJ]; double xHiJ = xLoJ + bboxJ.xLen() * _scale;
-            double yLoI = values[2 * cellIdxI + 1]; double yHiI = yLoI + bboxI.yLen() * _scale;
-            double yLoJ = values[2 * cellIdxJ + 1]; double yHiJ = yLoJ + bboxJ.yLen() * _scale;
-            // max (min(xHiI - xLoJ, xHiJ - xLoI), 0)
-            double var1X = xHiI - xLoJ;
-            double var2X = xHiJ - xLoI;
-            double overlapX = NlpWnconjDetails::logSumExp(var1X, var2X, -_alpha);
-            overlapX = NlpWnconjDetails::logSumExp0(overlapX, _alpha);
-            // max (min(yHiI - yLoJ, yHiJ - yLoI), 0)
-            double var1Y = yHiI - yLoJ;
-            double var2Y = yHiJ - yLoI;
-            double overlapY = NlpWnconjDetails::logSumExp(var1Y, var2Y, -_alpha);
-            overlapY = NlpWnconjDetails::logSumExp0(overlapY, _alpha);
-            // find the max overlap
-            RealType overlapArea = overlapX * overlapY;
-            RealType areaI = (xHiI - xLoI) * (yHiI - yLoI);
-            RealType areaJ = (xHiJ - xLoJ) * (yHiJ - yLoJ);
-            RealType minArea = overlapArea / std::min(areaI, areaJ);
-            if (_fMaxOver < minArea)
-            {
-                _fMaxOver = minArea;
-            }
-            
-            if (0)
-            {
-                if (overlapArea / areaI > 1.0)
-                {
-                    result += _lambdaMaxOverlap * overlapX *overlapY ;
-                    DBG("1:  %f \n" ,_lambdaMaxOverlap * overlapX *overlapY  );
-                }
-                if (overlapArea / areaJ > 1.0)
-                {
-                    result += _lambdaMaxOverlap * overlapX *overlapY ;
-                }
-            }
-            
-            // Add to the objective
-            result += _lambda1 * overlapX * overlapY;
-            //DBG("Overlap add %f, lambda %f \n", _lambda1 * overlapX * overlapY, _lambda1);
-            _fOverlap += _lambda1 * overlapX * overlapY ;
-        }
+        auto ovlCost = placement_differentiable_traits<nlp_ovl_type>::evaluate(op, getVarFunc);
+        result += ovlCost;
+        _fOverlap += ovlCost;
     }
 
 
-    // record max overlap penalty
-    result += _lambdaMaxOverlap * _fMaxOver;
-
     // Out of boundary
-    for (const auto & op:  _oobOps)
+    for (const auto & op :  _oobOps)
     {
         auto oobCost = placement_differentiable_traits<nlp_oob_type>::evaluate(op, getVarFunc);
         result += oobCost;
@@ -535,91 +487,12 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         this->assignPin();
     }
     _innerIter++;
-    RealType maxOverlapRatio = 0;
-    IndexType maxOverLapIndex = 0;
-    RealType maxOverLapGradX = 0;
-    RealType maxOverLapGradY = 0;
-    //RealType cellAreaMaxOverlap = 0;
+
     // log-sum-exp model for overlap penalty
-    for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
+    for (const auto & op:  _ovlOps)
     {
-        grad[2 * cellIdxI] = 0; // df/dx
-        grad[2 * cellIdxI + 1] = 0; // df/dy
-        const auto &bboxI = _db.cell(cellIdxI).cellBBox();
-        for (IndexType cellIdxJ = 0; cellIdxJ < _db.numCells(); ++cellIdxJ)
-        {
-            if (cellIdxI == cellIdxJ)
-            {
-                continue;
-            }
-            const auto &bboxJ = _db.cell(cellIdxJ).cellBBox();
-            // Values arrangement x0, y0, x1, y1...
-            double xLoI = values[2 * cellIdxI]; double xHiI = xLoI + bboxI.xLen() * _scale;
-            double xLoJ = values[2 * cellIdxJ]; double xHiJ = xLoJ + bboxJ.xLen() * _scale;
-            double yLoI = values[2 * cellIdxI + 1]; double yHiI = yLoI + bboxI.yLen() * _scale;
-            double yLoJ = values[2 * cellIdxJ + 1]; double yHiJ = yLoJ + bboxJ.yLen() * _scale;
-            // max( min (xHiI - xLoJ, xHiJ - xLoi), 0)
-            double var1x = xHiI - xLoJ;
-            double var2x = xHiJ - xLoI;
-            double oxMin = NlpWnconjDetails::logSumExp(var1x, var2x, -_alpha); // smoothed min
-            double oxMinMax0 = NlpWnconjDetails::logSumExp0(oxMin, _alpha); // max with 0
-            double gradOxMin0 = NlpWnconjDetails::gradLogSumExp0(oxMin, _alpha); // sommothed max with 0. grad
-            // max ( min(yHiI - yLoj, yHiJ - yLoI), 0 )
-            double var1y = yHiI - yLoJ;
-            double var2y = yHiJ - yLoI;
-            double oyMin = NlpWnconjDetails::logSumExp(var1y, var2y, -_alpha); // smoothed min
-            double oyMinMax0 = NlpWnconjDetails::logSumExp0(oyMin, _alpha); // smoothed max with 0
-            RealType gradX = oyMinMax0 * gradOxMin0 * NlpWnconjDetails::gradLogSumExp(var1x, var2x, -_alpha);
-            // Record gradOy
-            grad[2 * cellIdxI] += _lambda1 * gradX;
-            double gradOyMin0 = NlpWnconjDetails::gradLogSumExp0(oyMin, _alpha);
-            RealType gradY = oxMinMax0 * gradOyMin0 * NlpWnconjDetails::gradLogSumExp(var1y, var2y, -_alpha);
-            // Record gradOy
-            grad[2 * cellIdxI + 1] += _lambda1 * gradY;
-            // maxoverlap parts
-            RealType overlapArea= oxMinMax0 * oyMinMax0;
-            RealType areaI = (xHiI - xLoI) * (yHiI - yLoI);
-            if (maxOverlapRatio < overlapArea / areaI)
-            {
-                maxOverLapIndex = cellIdxI;
-                maxOverLapGradX = gradX;
-                maxOverLapGradY = gradY;
-                //cellAreaMaxOverlap = areaI;
-            }
-            
-            if (0)
-            {
-                RealType lambda;
-                RealType threshold = 0.7;
-                if (_toughModel)
-                {
-                    lambda = _lambdaMaxOverlap ;
-                    threshold = 0.5;
-                }
-                else
-                {
-                    lambda = _lambda1 ;
-                }
-                if (overlapArea / areaI > threshold)
-                {
-                    RealType ratio = overlapArea / areaI;
-                    ratio /= threshold;
-                    ratio *= ratio;
-                    ratio *= ratio;
-                    grad[2 * cellIdxI] += lambda * gradX * ratio;
-                    grad[2 * cellIdxI + 1] += lambda * gradY  * ratio;
-                }
-            }
-            
-        }
+        placement_differentiable_traits<nlp_ovl_type>::accumlateGradient(op, getVarFunc, accumulateGradFunc);
     }
-
-
-
-    // Update the max overlap
-    grad[2 * maxOverLapIndex] += _lambdaMaxOverlap * maxOverLapGradX ;
-    grad[2 * maxOverLapIndex + 1] += _lambdaMaxOverlap * maxOverLapGradY ;
-
     // Out of boundary Penalty
     for (const auto & op:  _oobOps)
     {

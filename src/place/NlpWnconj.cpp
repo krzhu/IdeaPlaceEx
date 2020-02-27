@@ -41,7 +41,6 @@ bool NlpWnconj::solve()
 
 bool NlpWnconj::writeOut()
 {
-    this->alignSym();
     // find the min value
     RealType minX =1e10; 
     RealType minY = 1e10;
@@ -72,7 +71,7 @@ RealType NlpWnconj::stepSize()
 {
     RealType eps = _epsilon * ( exp( _iter * _tao));
     RealType obj = this->objFunc(_solutionVect); // also calculate fOOB etc.
-    RealType violate = _fOverlap + _fOOB + _fAsym + _fMaxOver;
+    RealType violate = _fOverlap + _fOOB + _fAsym  + 50; // + _fMaxOver; FIXME
     //return eps;
     return eps * ( obj - 0.0) / violate; // 0.0 is better to be replaced by lower bound baseline
 }
@@ -383,7 +382,7 @@ bool NlpWnconj::nlpKernel()
     while (_iter < _maxIter)
     {
         _innerIter = 0;
-        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 5000);
+        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 50);
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         if (_toughModel && _iter >= _maxIter / 5)
         {
@@ -422,6 +421,26 @@ bool NlpWnconj::nlpKernel()
 
 void NlpWnconj::initOperators()
 {
+    // Pair-wise cell overlapping
+    for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
+    {
+        const auto cellBBoxI = _db.cell(cellIdxI).cellBBox();
+        for (IndexType cellIdxJ = cellIdxI + 1; cellIdxJ < _db.numCells(); ++cellIdxJ)
+        {
+            const auto cellBBoxJ = _db.cell(cellIdxJ).cellBBox();
+            _ovlOps.emplace_back(nlp_ovl_type(
+                        cellIdxI,
+                        cellBBoxI.xLen() * _scale,
+                        cellBBoxI.yLen() * _scale,
+                        cellIdxJ,
+                        cellBBoxJ.xLen() * _scale,
+                        cellBBoxJ.yLen() * _scale,
+                        &_alpha,
+                        &_lambda1
+                        ));
+        }
+    }
+    // Out of boundary
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         const auto &cellBBox = _db.cell(cellIdx).cellBBox();
