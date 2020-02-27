@@ -4,10 +4,10 @@
 
 PROJECT_NAMESPACE_BEGIN
 
-void VirtualPinAssigner::solveFromDB()
+bool VirtualPinAssigner::solveFromDB()
 {
     reconfigureVirtualPinLocationFromDB();
-    pinAssignmentFromDB();
+    return pinAssignmentFromDB();
 }
 
 void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
@@ -22,14 +22,14 @@ void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
 }
 
 
-void VirtualPinAssigner::pinAssignmentFromDB()
+bool VirtualPinAssigner::pinAssignmentFromDB()
 {
     auto cellLocQueryFunc = [&] (IndexType cellIdx)
     {
         const auto &cell = _db.cell(cellIdx);
         return cell.loc();
     };
-    pinAssignment(cellLocQueryFunc);
+    return pinAssignment(cellLocQueryFunc);
 }
 
 void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cellsBBox)
@@ -49,7 +49,7 @@ void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cell
         _virtualPins.emplace_back(XY<LocType>(_boundary.xHi(), y));
     }
 }
-void VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
+bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
 {
     std::vector<IndexType> ioNets; // The net indices that are IOs 
     ioNets.reserve(_db.numNets());
@@ -66,7 +66,7 @@ void VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     IndexType numSites = _virtualPins.size();
     if (numSites <= numNets)
     {
-        return;
+        return false;
     }
 
     // Calculate the current HPWLs without virtual pin
@@ -164,6 +164,7 @@ void VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         }
     }
 
+    return true;
 }
 
 PROJECT_NAMESPACE_END

@@ -9,7 +9,6 @@
 #define IDEAPLACE_DIFFERENT_H_
 
 #include "db/Database.h"
-#include <math.h>
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -90,14 +89,136 @@ namespace op
     }
 };
 
+
+/// @brief LSE-smoothed HPWL
+template<typename NumType, typename CoordType>
+struct LseHpwlDifferentiable
+{
+    typedef NumType numerical_type;
+    typedef CoordType coordinate_type;
+    LseHpwlDifferentiable(NumType *alpha, NumType *lambda) { _alpha = alpha; _lambda = lambda; }
+
+    void setVirtualPin(const CoordType &x, const CoordType &y) 
+    { 
+        _validVirtualPin = 1; 
+        _virtualPinX = x;
+        _virtualPinY = y;
+    }
+    void removeVirtualPin() { _validVirtualPin = 0; }
+    void addVar(IndexType cellIdx, const CoordType &offsetX, const CoordType &offsetY)
+    {
+        _cells.emplace_back(cellIdx);
+        _offsetX.emplace_back(offsetX);
+        _offsetY.emplace_back(offsetY);
+    }
+    void setWeight(const NumType &weight) { _weight = weight; }
+    bool validHpwl() const { return _cells.size() + _validVirtualPin > 1;}
+
+
+    NumType evaluate( std::function<CoordType(IndexType, Orient2DType)> getVarFunc) const
+    {
+        if (! validHpwl())
+        {
+            return 0;
+        }
+        std::array<NumType, 4> max_val = { 0, 0, 0, 0}; // xmax xin ymax ymin
+        auto alpha = (*_alpha);
+        auto lambda = (*_lambda);
+        NumType *pMax = &max_val.front(); 
+        for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
+        {
+            NumType x = op::conv<CoordType, NumType>(
+                    getVarFunc(_cells[pinIdx], Orient2DType::HORIZONTAL) + _offsetX[pinIdx]
+                    );
+            NumType y = op::conv<CoordType, NumType>(
+                    getVarFunc(_cells[pinIdx], Orient2DType::VERTICAL) + _offsetY[pinIdx]
+                    );
+            pMax[0] += exp(x / alpha);
+            pMax[1] += exp(- x / alpha);
+            pMax[2] += exp(y / alpha);
+            pMax[3] += exp(- y / alpha);
+        }
+        if (_validVirtualPin == 1)
+        {
+            pMax[0] += exp(_virtualPinX / alpha);
+            pMax[1] += exp(- _virtualPinX / alpha);
+            pMax[2] += exp(_virtualPinY / alpha);
+            pMax[3] += exp(- _virtualPinY / alpha);
+        }
+        NumType obj = 0;
+        for (int i = 0; i < 4; ++ i)
+        {
+            obj += log(pMax[i]);
+        }
+        return alpha * obj * _weight * lambda;
+    }
+    void accumlateGradient(std::function<CoordType(IndexType cellIdx, Orient2DType orient)> getVarFunc,
+            std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const
+    {
+        if (! validHpwl())
+        {
+            return;
+        }
+        std::array<NumType, 4> max_val = { 0, 0, 0, 0}; // xmax xin ymax ymin
+        auto alpha = (*_alpha);
+        auto lambda = (*_lambda);
+        NumType *pMax = &max_val.front(); 
+        std::vector<std::array<NumType, 4>> exp_results(_cells.size());
+        for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
+        {
+            NumType x = op::conv<CoordType, NumType>(
+                    getVarFunc(_cells[pinIdx], Orient2DType::HORIZONTAL) + _offsetX[pinIdx]
+                    );
+            NumType y = op::conv<CoordType, NumType>(
+                    getVarFunc(_cells[pinIdx], Orient2DType::VERTICAL) + _offsetY[pinIdx]
+                    );
+            exp_results[pinIdx][0] = exp(x / alpha);
+            pMax[0] += exp_results[pinIdx][0];
+            exp_results[pinIdx][1] = exp(- x / alpha);
+            pMax[1] += exp_results[pinIdx][1];
+            exp_results[pinIdx][2] = exp( y / alpha);
+            pMax[2] += exp_results[pinIdx][2];
+            exp_results[pinIdx][3] = exp(- y / alpha);
+            pMax[3] += exp_results[pinIdx][3];
+        }
+        if (_validVirtualPin == 1)
+        {
+            pMax[0] += exp(_virtualPinX / alpha);
+            pMax[1] += exp(- _virtualPinX / alpha);
+            pMax[2] += exp(_virtualPinY / alpha);
+            pMax[3] += exp(- _virtualPinY / alpha);
+        }
+        for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
+        {
+            IndexType cellIdx = _cells[pinIdx];
+            NumType xPartial = lambda * _weight;
+            NumType yPartial = xPartial;
+            xPartial *= (exp_results[pinIdx][0] / pMax[0]) - (exp_results[pinIdx][1] / pMax[1]);
+            yPartial *= (exp_results[pinIdx][2] / pMax[2]) - (exp_results[pinIdx][3] / pMax[3]);
+            accumulateGradFunc(xPartial, cellIdx, Orient2DType::HORIZONTAL);
+            accumulateGradFunc(yPartial, cellIdx, Orient2DType::VERTICAL);
+        }
+    }
+
+    IntType _validVirtualPin = 0;
+    CoordType _virtualPinX = 0;
+    CoordType _virtualPinY = 0;
+    std::vector<IndexType> _cells;
+    std::vector<CoordType> _offsetX;
+    std::vector<CoordType> _offsetY;
+    NumType _weight = 1;
+    NumType *_alpha = nullptr;
+    NumType *_lambda = nullptr;
+};
+
 // @brief pair-wise cell overlapping penalty
 template<typename NumType, typename CoordType>
-struct CellPairOverlapPenalty
+struct CellPairOverlapPenaltyDifferentiable
 {
     typedef NumType numerical_type;
     typedef CoordType coordinate_type;
 
-    CellPairOverlapPenalty(IndexType cellIdxI, CoordType cellWidthI, CoordType cellHeightI,
+    CellPairOverlapPenaltyDifferentiable(IndexType cellIdxI, CoordType cellWidthI, CoordType cellHeightI,
                            IndexType cellIdxJ, CoordType cellWidthJ, CoordType cellHeightJ,
                            NumType *alpha, NumType *lambda)
     {
@@ -202,8 +323,7 @@ struct CellPairOverlapPenalty
         NumType hj = op::conv<CoordType, NumType>(_cellHeightJ);
         NumType alpha = (*_alpha);
 
-        NumType dxi = (alpha * alpha *log(1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(exp(-(wi + xi - xj)/alpha)/alpha - exp(-(wj - xi + xj)/alpha)/alpha))/((1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*pow(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha), 2))
-            ;
+        NumType dxi = (alpha * alpha *log(1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(exp(-(wi + xi - xj)/alpha)/alpha - exp(-(wj - xi + xj)/alpha)/alpha))/((1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*pow(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha), 2));
          NumType dxj = -dxi;
 
         NumType dyi = (alpha * alpha *log(1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*(exp(-(hi + yi - yj)/alpha)/alpha - exp(-(hj - yi + yj)/alpha)/alpha))/((1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(pow(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha), 2)));
@@ -228,12 +348,12 @@ struct CellPairOverlapPenalty
 
 /// @brief the cell out of boundary penalty
 template<typename NumType, typename CoordType>
-struct CellOutOfBoundaryPenalty
+struct CellOutOfBoundaryPenaltyDifferentiable
 {
     typedef NumType numerical_type;
     typedef CoordType coordinate_type;
 
-    CellOutOfBoundaryPenalty(IndexType cellIdx, CoordType cellWidth, CoordType cellHeight, Box<CoordType> *boundary, NumType *alpha, NumType *lambda)
+    CellOutOfBoundaryPenaltyDifferentiable(IndexType cellIdx, CoordType cellWidth, CoordType cellHeight, Box<CoordType> *boundary, NumType *alpha, NumType *lambda)
     {
         _cellIdx = cellIdx;
         _cellWidth = cellWidth;
@@ -309,6 +429,7 @@ struct CellOutOfBoundaryPenalty
     NumType *_alpha = nullptr;
     NumType *_lambda = nullptr;
 };
+
 
 PROJECT_NAMESPACE_END
 

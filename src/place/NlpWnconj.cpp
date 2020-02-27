@@ -421,6 +421,27 @@ bool NlpWnconj::nlpKernel()
 
 void NlpWnconj::initOperators()
 {
+    // Hpwl
+    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+    {
+        const auto &net = _db.net(netIdx);
+        _hpwlOps.emplace_back(nlp_hpwl_type(&_alpha, &_lambda3));
+        auto &op = _hpwlOps.back();
+        op.setWeight(net.weight());
+        for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
+        {
+            // Get the pin location referenced to the cell
+            IndexType pinIdx = net.pinIdx(idx);
+            const auto &pin = _db.pin(pinIdx);
+            IndexType cellIdx = pin.cellIdx();
+            const auto &cell = _db.cell(cellIdx);
+            // Get the cell location from the input arguments
+            XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
+            XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+            XY<double> pinLoc = midLoc - cellLoLoc;
+            op.addVar(cellIdx, pinLoc.x(), pinLoc.y());
+        }
+    }
     // Pair-wise cell overlapping
     for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
     {

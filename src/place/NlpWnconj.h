@@ -63,8 +63,9 @@ class NlpWnconj
 {
     typedef RealType nlp_coordinate_type;
     typedef RealType nlp_numerical_type;
-    typedef CellPairOverlapPenalty<nlp_coordinate_type, nlp_numerical_type> nlp_ovl_type;
-    typedef CellOutOfBoundaryPenalty<nlp_coordinate_type, nlp_numerical_type> nlp_oob_type;
+    typedef LseHpwlDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_hpwl_type;
+    typedef CellPairOverlapPenaltyDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_ovl_type;
+    typedef CellOutOfBoundaryPenaltyDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_oob_type;
     public:
         /// @brief default constructor
         explicit NlpWnconj(Database &db) : _db(db) , _assigner(db) {}
@@ -212,10 +213,12 @@ class NlpWnconj
                 IndexType pinIdx = net.pinIdx(idx);
                 const auto &pin = _db.pin(pinIdx);
                 IndexType cellIdxTemp = pin.cellIdx();
+                const auto &cell = _db.cell(cellIdxTemp);
                 // Get the cell location from the input arguments
                 XY<double> cellLoc = XY<double>(values[cellIdxTemp * 2], values[cellIdxTemp * 2 + 1]);
                 XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-                XY<double> pinLoc = cellLoc + midLoc;
+                XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+                XY<double> pinLoc = cellLoc + midLoc - cellLoLoc;
                 double pinXmax = exp( pinLoc.x() / alpha ) / xmax;
                 double pinXmin = exp( - pinLoc.x() / alpha) / xmin;
                 double pinYmax = exp( pinLoc.y() / alpha) / ymax;
@@ -293,7 +296,20 @@ class NlpWnconj
             LocType xHiBox = ::klib::autoRound<LocType>(xHi / _scale);
             LocType yHiBox = ::klib::autoRound<LocType>(yHi / _scale);
             _assigner.reconfigureVirtualPinLocations(Box<LocType>(xLoBox, yLoBox, xHiBox, yHiBox));
-            _assigner.pinAssignment(cellLocQueryFunc);
+            if ( _assigner.pinAssignment(cellLocQueryFunc))
+            {
+                // Update the hpwl operators
+                for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+                {
+                    const auto &net = _db.net(netIdx);
+                    if (net.isValidVirtualPin())
+                    {
+                        XY<double> virtualPinLoc = XY<double>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                        virtualPinLoc *= _scale;
+                        _hpwlOps[netIdx].setVirtualPin(virtualPinLoc.x(), virtualPinLoc.y());
+                    }
+                }
+            }
         }
 
 #ifdef DEBUG_GR
@@ -343,6 +359,7 @@ class NlpWnconj
 
         VirtualPinAssigner _assigner;
         /* NLP differentiable operators */
+        std::vector<nlp_hpwl_type> _hpwlOps; ///< The HPWL cost 
         std::vector<nlp_ovl_type> _ovlOps; ///< The cell pair overlapping penalty operators
         std::vector<nlp_oob_type> _oobOps; ///< The cell out of boundary penalty operators 
 };
@@ -386,29 +403,11 @@ inline double NlpWnconj::objFunc(double *values)
     }
 
     // Wire length penalty
-    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+    for (const auto & op :  _hpwlOps)
     {
-        IndexType numCells = 0;
-        std::vector<IntType> hasCell;
-        hasCell.resize(_db.numCells(), 0);
-        for (IndexType pinIdx : _db.net(netIdx).pinIdxArray())
-        {
-            IndexType cellIdx = _db.pin(pinIdx).cellIdx();
-            if (hasCell.at(cellIdx) == 1)
-            {
-                continue;
-            }
-            hasCell.at(cellIdx) = 1;
-            numCells ++;
-        }
-        if (numCells <= 1)
-        {
-            continue;
-        }
-        double smoothHPWL = this->logSumExpHPWL(values, netIdx, _alpha);
-        result += _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
-        _fHpwl +=  _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
-        //DBG("HPWL add %f, lambda %f \n", _lambda3 * _db.net(netIdx).weight() * smoothHPWL, _lambda3);
+        auto hpwlCost = placement_differentiable_traits<nlp_hpwl_type>::evaluate(op, getVarFunc);
+        result += hpwlCost;
+        _fHpwl +=  hpwlCost;
     }
     
     // ASYMMETRY
@@ -499,23 +498,10 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
         placement_differentiable_traits<nlp_oob_type>::accumlateGradient(op, getVarFunc, accumulateGradFunc);
     }
     
-    // Wire length penalty
-    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+    // Out of boundary Penalty
+    for (const auto & op:  _hpwlOps)
     {
-        const auto &net = _db.net(netIdx);
-        auto netWgt = net.weight();
-        std::vector<double> gradX, gradY;
-        // Calculate the gradients for the net. idx by pin
-        this->gradLogSumExpHpwl(values, netIdx, _alpha, gradX, gradY);
-        for (IndexType pinInNetIdx = 0; pinInNetIdx < net.numPinIdx(); ++pinInNetIdx)
-        {
-            IndexType pinIdx = net.pinIdx(pinInNetIdx);
-            const auto &pin = _db.pin(pinIdx);
-            IndexType cellIdx = pin.cellIdx();
-            // Record
-            grad[2 * cellIdx] += netWgt * _lambda3 * gradX[pinInNetIdx];
-            grad[2 * cellIdx + 1] += netWgt * _lambda3 * gradY[pinInNetIdx];
-        }
+        placement_differentiable_traits<nlp_hpwl_type>::accumlateGradient(op, getVarFunc, accumulateGradFunc);
     }
     
     // ASYMMETRY
