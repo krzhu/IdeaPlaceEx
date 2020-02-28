@@ -130,10 +130,11 @@ class Cell
             // Force to be odd * gridStep
            if ((_cellBBox.xLen()) % (2 * gridStep) == 0 )
            {
-                if (_flip)
-                   _cellBBox.setXHi(_cellBBox.xHi() + gridStep);
-                else
-                    _cellBBox.setXLo(_cellBBox.xLo() - gridStep);
+               LocType center = _cellBBox.center().x();
+               LocType xLo = center - _cellBBox.xLen() / 2 - gridStep / 2;
+               LocType xHi = center + _cellBBox.xLen() / 2 + gridStep / 2;
+               _cellBBox.setXLo(xLo);
+               _cellBBox.setXHi(xHi);
            }
            if ((_cellBBox.yLen()) % (2 * gridStep) == 0 )
            {               

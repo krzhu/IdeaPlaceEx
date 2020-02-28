@@ -45,6 +45,22 @@ void GridAligner::align(LocType stepSize)
         INF("IDEAPLACE::%s cell %d %d\n ", __FUNCTION__, cell.xCenter(), cell.yCenter());
     }
     Assert(_db.checkSym());
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        const auto &cell = _db.cell(cellIdx);
+        LocType xLo = cell.xLo();
+        LocType yLo = cell.yLo();
+        if (xLo % _stepSize == 0)
+        {
+            ERR("Ideaplace: align to grid failed \n");
+            Assert(0);
+        }
+        if(yLo % _stepSize == 0)
+        {
+            ERR("Ideaplace: align to grid failed \n");
+            Assert(0);
+        }
+    }
 }
 
 LocType GridAligner::findCurrentSymAxis()
