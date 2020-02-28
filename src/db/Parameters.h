@@ -26,6 +26,10 @@ class Parameters
         /// @brief set the boundry constraints
         /// @param the placement boundry
         void setBoundaryConstraint(const Box<LocType> &boundaryConstraint) { _boundaryConstraint = boundaryConstraint; }
+        /// @brief open the functionality of virtual pin assignment
+        void openVirtualPinAssignment() { _ifUsePinAssignment = true; }
+        /// @brief close the functionality of virtual pin assignment 
+        void closeVirtualPinAssignment() { _ifUsePinAssignment = false; }
         /*------------------------------*/ 
         /* Query the parameters         */
         /*------------------------------*/ 
@@ -35,8 +39,11 @@ class Parameters
         /// @brief get the boundry constraint
         /// @return the boundry constraint
         const Box<LocType> & boundaryConstraint() const { return _boundaryConstraint; }
+        /// @brief get whether to use the virtual pin assignment functionality
+        bool ifUsePinAssignment() const { return _ifUsePinAssignment; }
     private:
         Box<LocType> _boundaryConstraint = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
+        bool _ifUsePinAssignment = true; ///< If do pin assignment
 };
 
 PROJECT_NAMESPACE_END

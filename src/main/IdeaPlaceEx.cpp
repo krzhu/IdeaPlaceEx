@@ -7,6 +7,9 @@
 #include "parser/ParserNetwgt.h"
 #include "parser/ParserGds.h"
 #include "parser/ParserSymFile.h"
+/* Placement */
+#include "pinassign/VirtualPinAssigner.h"
+#include "place/ProximityMgr.h"
 /* Post-Processing */
 #include "place/alignGrid.h"
 
@@ -129,6 +132,10 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
         _db.expandCellToGridSize(gridStep);
     }
 
+    // Set proximity group
+    ProximityMgr proximityMgr(_db);
+    proximityMgr.applyProximityWithDummyNets();
+
     NlpWnconj nlp(_db);
     nlp.setToughMode(false);
     nlpPtr = &nlp;
@@ -140,7 +147,10 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
 #endif
     CGLegalizer legalizer(_db);
     bool legalizeResult = legalizer.legalize();
+    VirtualPinAssigner pinAssigner(_db);
+    pinAssigner.solveFromDB();
     INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
+    INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n",  _db.hpwlWithVitualPins());
     if (!legalizeResult)
     {
         INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
@@ -157,10 +167,17 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
         legalizer2.legalize();
     }
     LocType symAxis(0);
+
+    // Restore proxmity group
+    proximityMgr.restore();
+
     if (gridStep > 0)
     {
         symAxis = alignToGrid(gridStep);
     }
+
+    _db.drawCellBlocks("./debug/after_evertt.gds");
+
     return symAxis;
 }
 

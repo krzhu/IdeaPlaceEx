@@ -11,6 +11,7 @@
 #include "db/Database.h"
 #include "wnconj.h"
 #include <math.h>
+#include "pinassign/VirtualPinAssigner.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -61,7 +62,7 @@ class NlpWnconj
 {
     public:
         /// @brief default constructor
-        explicit NlpWnconj(Database &db) : _db(db) {}
+        explicit NlpWnconj(Database &db) : _db(db) , _assigner(db) {}
         /// @brief run the NLP placer
         /// @return if successful
         bool solve();
@@ -105,7 +106,11 @@ class NlpWnconj
         {
             double xmax = 0, xmin = 0, ymax = 0, ymin = 0;
             const auto &net = _db.net(netIdx);
-            if (net.numPinIdx() <= 1)
+            if (net.numPinIdx() == 0)
+            {
+                return 0;
+            }
+            if (net.numPinIdx() == 1 && !net.isValidVirtualPin())
             {
                 return 0;
             }
@@ -133,6 +138,15 @@ class NlpWnconj
                 ymax += exp(pinLoc.y() / alpha);
                 ymin += exp(-pinLoc.y() / alpha);
             }
+            if (net.isValidVirtualPin())
+            {
+                XY<double> virtualPinLoc = XY<double>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                virtualPinLoc *= _scale;
+                xmax += exp(virtualPinLoc.x() / alpha);
+                xmin += exp(-virtualPinLoc.x() / alpha);
+                ymax += exp(virtualPinLoc.y() / alpha);
+                ymin += exp(-virtualPinLoc.y() / alpha);
+            }
             xmax = log(xmax);
             xmin = log(xmin);
             ymax = log(ymax);
@@ -150,7 +164,9 @@ class NlpWnconj
             double xmax = 0, xmin = 0;
             double ymax = 0, ymin = 0;
             const auto &net = _db.net(netIdx);
-            if (net.numPinIdx() <= 1)
+            if ((net.numPinIdx() == 0) 
+                    or 
+                (net.numPinIdx() == 1 && !net.isValidVirtualPin()))
             {
                 for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
                 {
@@ -175,6 +191,15 @@ class NlpWnconj
                 ymax += exp(pinLoc.y() / alpha);
                 ymin += exp(- pinLoc.y() / alpha);
             }
+            if (net.isValidVirtualPin())
+            {
+                XY<double> virtualPinLoc = XY<double>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                virtualPinLoc *= _scale;
+                xmax += exp(virtualPinLoc.x() / alpha);
+                xmin += exp(-virtualPinLoc.x() / alpha);
+                ymax += exp(virtualPinLoc.y() / alpha);
+                ymin += exp(-virtualPinLoc.y() / alpha);
+            }
             // Calculate the pin-wise terms
             for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
             {
@@ -194,7 +219,6 @@ class NlpWnconj
                 gradX.emplace_back(pinXmax - pinXmin);
                 gradY.emplace_back(pinYmax - pinYmin);
             }
-            
             
         }
     public:
@@ -221,6 +245,51 @@ class NlpWnconj
         bool updateMultipliers2();
 
         void alignSym();
+
+        /* Pin assignment */
+        void assignPin()
+        {
+            if (!_db.parameters().ifUsePinAssignment()) { return; }
+            auto cellLocQueryFunc = [&] (IndexType cellIdx)
+            {
+                double x = _solutionVect[cellIdx * 2];
+                double y = _solutionVect[cellIdx * 2 + 1];
+                LocType xLoc = ::klib::autoRound<LocType>(x / _scale);
+                LocType yLoc = ::klib::autoRound<LocType>(y / _scale);
+                return XY<LocType>(xLoc, yLoc);
+            };
+            RealType xLo = REAL_TYPE_MAX; RealType xHi = REAL_TYPE_MIN; RealType yLo = REAL_TYPE_MAX; RealType yHi = REAL_TYPE_MIN;
+            for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+            {
+                if (_solutionVect[cellIdx *2] < xLo)
+                {
+                    xLo = _solutionVect[cellIdx * 2];
+                }
+                if (_solutionVect[cellIdx *2 + 1] < yLo)
+                {
+                    yLo = _solutionVect[cellIdx *2 + 1];
+                }
+                if (_solutionVect[cellIdx *2] > xHi)
+                {
+                    xHi = _solutionVect[cellIdx * 2];
+                }
+                if (_solutionVect[cellIdx *2 + 1] < yHi)
+                {
+                    yHi = _solutionVect[cellIdx *2 + 1];
+                }
+            }
+            xLo = std::min(xLo, _boundary.xLo());
+            xHi = std::max(xHi, _boundary.xHi());
+            yLo = std::min(yLo, _boundary.xLo());
+            yHi = std::max(yHi, _boundary.yHi());
+
+            LocType xLoBox = ::klib::autoRound<LocType>(xLo / _scale);
+            LocType yLoBox = ::klib::autoRound<LocType>(yLo / _scale);
+            LocType xHiBox = ::klib::autoRound<LocType>(xHi / _scale);
+            LocType yHiBox = ::klib::autoRound<LocType>(yHi / _scale);
+            _assigner.reconfigureVirtualPinLocations(Box<LocType>(xLoBox, yLoBox, xHiBox, yHiBox));
+            _assigner.pinAssignment(cellLocQueryFunc);
+        }
 
 #ifdef DEBUG_GR
 #ifdef DEBUG_DRAW
@@ -263,6 +332,8 @@ class NlpWnconj
         IndexType _innerIter = 0; ///< The iteration in the inner non-linear optimization problem
         RealType _defaultSymAxis = 0;
         bool _toughModel = false; ///< Whether try hard to be feasible
+
+        VirtualPinAssigner _assigner;
 };
 
 inline double NlpWnconj::objFunc(double *values)
@@ -428,6 +499,10 @@ inline double NlpWnconj::objFunc(double *values)
 
 inline void NlpWnconj::gradFunc(double *grad, double *values)
 {
+    if (_innerIter % 500 == 0)
+    {
+        this->assignPin();
+    }
     _innerIter++;
     RealType maxOverlapRatio = 0;
     IndexType maxOverLapIndex = 0;

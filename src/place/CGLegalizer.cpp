@@ -1,5 +1,6 @@
 #include "CGLegalizer.h"
 #include "constraintGraphGeneration.h"
+#include "pinassign/VirtualPinAssigner.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -7,6 +8,8 @@ bool CGLegalizer::legalize()
 {
     //SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
     //sweepline.solve();
+
+    VirtualPinAssigner pinAssigner(_db);
 
     this->generateConstraints();
     _wStar = lpLegalization(true);
@@ -35,6 +38,10 @@ bool CGLegalizer::legalize()
     _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
     _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
     this->generateConstraints();
+    if (_db.parameters().ifUsePinAssignment())
+    {
+        pinAssigner.solveFromDB();
+    }
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
@@ -68,6 +75,10 @@ bool CGLegalizer::legalize()
     _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
     _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
     this->generateConstraints();
+    if (_db.parameters().ifUsePinAssignment())
+    {
+        pinAssigner.solveFromDB();
+    }
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output.  \n");

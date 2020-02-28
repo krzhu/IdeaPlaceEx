@@ -158,6 +158,23 @@ class IdeaPlaceEx
         {
             _db.cell(cellIdx).unionBBox(placerLayer, Box<LocType>(xLo, yLo, xHi, yHi));
         }
+        /// @brief allocate a new proximity group
+        /// @return the index of the proximity group
+        IndexType allocateProximityGroup()
+        {
+            return _db.allocateProximityGroup();
+        }
+        /// @brief add an cell to a prixmityGroup
+        /// @param first: the index of the cell
+        /// @param second: the index of the proximity group
+        void addCellToProximityGroup(IndexType cellIdx, IndexType proximityGrpIdx)
+        {
+            _db.proximityGrp(proximityGrpIdx).addCell(cellIdx);
+        }
+        /// @brief open the functionality of virtual pin assignment
+        void openVirtualPinAssignment() { _db.parameters().openVirtualPinAssignment(); }
+        /// @brief close the functionality of virtual pin assignment 
+        void closeVirtualPinAssignment() { _db.parameters().closeVirtualPinAssignment(); }
         /*------------------------------*/ 
         /* Standard output interface    */
         /*------------------------------*/ 

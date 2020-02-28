@@ -53,6 +53,45 @@ LocType Database::hpwl() const
     return hpwl;
 }
 
+LocType Database::hpwlWithVitualPins() const 
+{
+    LocType hpwl = 0;
+    for (const auto & net : _netArray)
+    {
+        if (net.numPinIdx() <= 1)
+        {
+            continue;
+        }
+        LocType xMax = LOC_TYPE_MIN;
+        LocType xMin = LOC_TYPE_MAX;
+        LocType yMax = LOC_TYPE_MIN;
+        LocType yMin = LOC_TYPE_MAX;
+        for (IndexType pinIdx : net.pinIdxArray())
+        {
+            const auto &pin = AT(_pinArray, pinIdx);
+            auto pinLoc = pin.midLoc();
+            IndexType cellIdx = pin.cellIdx();
+            const auto &cell = AT(_cellArray, cellIdx);
+            auto cellLoc = cell.loc();
+            auto pinFinalLoc = pinLoc + cellLoc;
+            xMax = std::max(xMax, pinFinalLoc.x());
+            xMin = std::min(xMin, pinFinalLoc.x());
+            yMax = std::max(yMax, pinFinalLoc.y());
+            yMin = std::min(yMin, pinFinalLoc.y());
+        }
+        if (net.isIo())
+        {
+            const auto &virPin = net.virtualPinLoc();
+            xMax = std::max(xMax, virPin.x());
+            xMin = std::min(xMin, virPin.x());
+            yMax = std::max(yMax, virPin.y());
+            yMin = std::min(yMin, virPin.y());
+        }
+        hpwl = (xMax - xMin) + (yMax - yMin);
+    }
+    return hpwl;
+}
+
 bool Database::checkSym()
 {
 #ifndef MULTI_SYM_GROUP
@@ -151,10 +190,20 @@ void Database::drawCellBlocks(const std::string &filename)
             wg->writeRectangle(pinBox, 100 + cellIdx, 0);
         }
     }
+    // net virtual pins
+    for (IndexType netIdx = 0; netIdx < numNets(); ++netIdx)
+    {
+        const auto &net = _netArray.at(netIdx);
+        if (net.isValidVirtualPin())
+        {
+            Box<LocType> box = Box<LocType>(net.virtualPinLoc(), net.virtualPinLoc());
+            box.enlargeBy(100);
+            wg->writeRectangle(box, 500 + netIdx, 0);
+        }
+    }
     // END
     wg->writeCellEnd();
     wg->endLib();
-    DBG("Database::%s: debug cell block saved in %s \n", __FUNCTION__, filename.c_str());
 }
 
 #endif //DEBUG_DRAW
