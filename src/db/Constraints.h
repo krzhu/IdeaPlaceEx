@@ -77,6 +77,8 @@ class SymGroup
         /// @return a symmetric pair
         const SymPair & symPair(IndexType idx) const { return AT(_symPairs, idx); }
         IndexType numConstraints() const { return numSelfSyms() + numSymPairs(); }
+        const std::vector<SymPair> & vSymPairs() const { return _symPairs; }
+        const std::vector<IndexType> & vSelfSyms() const { return _selfSyms; }
     private:
         std::vector<SymPair> _symPairs; ///< The symmetric pairs
         std::vector<IndexType> _selfSyms; ///< The self symmetric cells

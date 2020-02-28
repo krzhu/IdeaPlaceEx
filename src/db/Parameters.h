@@ -43,7 +43,7 @@ class Parameters
         bool ifUsePinAssignment() const { return _ifUsePinAssignment; }
     private:
         Box<LocType> _boundaryConstraint = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
-        bool _ifUsePinAssignment = true; ///< If do pin assignment
+        bool _ifUsePinAssignment = false; ///< If do pin assignment
 };
 
 PROJECT_NAMESPACE_END

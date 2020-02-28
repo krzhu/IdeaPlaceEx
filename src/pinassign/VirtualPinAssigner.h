@@ -24,12 +24,12 @@ class VirtualPinAssigner
         /// @brief reconfigure the virtual boundary and pin locations
         void reconfigureVirtualPinLocations(const Box<LocType> &cellsBBox);
         /// @brief solve pin assignment from information from DB
-        void pinAssignmentFromDB();
+        bool pinAssignmentFromDB();
         /// @brief short cut to solve the problem from databse information
-        void solveFromDB();
+        bool solveFromDB();
         /// @brief solve the pin assignment problem. Export the solution to the database
         /// @param a function for query cell location
-        void pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc);
+        bool pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc);
         /* Parameter settings */
         /// @brief set the extension distance of placement boundary to cell boundary
         void setVirtualBoundaryExtension(LocType ex) { _virtualBoundaryExtension = ex; }

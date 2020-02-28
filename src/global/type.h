@@ -48,7 +48,23 @@ enum class SymType
     NONE = 2
 };
 
+enum class Orient2DType
+{
+    HORIZONTAL = 0,
+    VERTICAL   = 1,
+    NONE = 2
+};
 
+struct YesType
+{
+    static const bool value = true;
+};
+
+
+struct NoType
+{
+    static const bool value = false;
+};
 
 PROJECT_NAMESPACE_END
 

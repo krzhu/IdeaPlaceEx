@@ -41,7 +41,6 @@ bool NlpWnconj::solve()
 
 bool NlpWnconj::writeOut()
 {
-    this->alignSym();
     // find the min value
     RealType minX =1e10; 
     RealType minY = 1e10;
@@ -72,7 +71,7 @@ RealType NlpWnconj::stepSize()
 {
     RealType eps = _epsilon * ( exp( _iter * _tao));
     RealType obj = this->objFunc(_solutionVect); // also calculate fOOB etc.
-    RealType violate = _fOverlap + _fOOB + _fAsym + _fMaxOver;
+    RealType violate = _fOverlap + _fOOB + _fAsym  + 50; // + _fMaxOver; FIXME
     //return eps;
     return eps * ( obj - 0.0) / violate; // 0.0 is better to be replaced by lower bound baseline
 }
@@ -376,11 +375,14 @@ bool NlpWnconj::nlpKernel()
 
     this->assignPin();
 
+    // Init the opeartors
+    this->initOperators();
+
     // Iteratively solving NLP
-    while (_iter < _maxIter)
+    while (_iter < _maxIter * 100)
     {
         _innerIter = 0;
-        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 5000);
+        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         if (_toughModel && _iter >= _maxIter / 5)
         {
@@ -415,6 +417,85 @@ bool NlpWnconj::nlpKernel()
         _iter++;
     }
     return true;
+}
+
+void NlpWnconj::initOperators()
+{
+    // Hpwl
+    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+    {
+        const auto &net = _db.net(netIdx);
+        _hpwlOps.emplace_back(nlp_hpwl_type(&_alpha, &_lambda3));
+        _ops.emplace_back(OpIdxType( _hpwlOps.size() - 1, OpEnumType::hpwl));
+        auto &op = _hpwlOps.back();
+        op.setWeight(net.weight());
+        for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
+        {
+            // Get the pin location referenced to the cell
+            IndexType pinIdx = net.pinIdx(idx);
+            const auto &pin = _db.pin(pinIdx);
+            IndexType cellIdx = pin.cellIdx();
+            const auto &cell = _db.cell(cellIdx);
+            // Get the cell location from the input arguments
+            XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
+            XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+            XY<double> pinLoc = midLoc - cellLoLoc;
+            op.addVar(cellIdx, pinLoc.x(), pinLoc.y());
+        }
+    }
+    // Pair-wise cell overlapping
+    for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
+    {
+        const auto cellBBoxI = _db.cell(cellIdxI).cellBBox();
+        for (IndexType cellIdxJ = cellIdxI + 1; cellIdxJ < _db.numCells(); ++cellIdxJ)
+        {
+            const auto cellBBoxJ = _db.cell(cellIdxJ).cellBBox();
+            _ovlOps.emplace_back(nlp_ovl_type(
+                        cellIdxI,
+                        cellBBoxI.xLen() * _scale,
+                        cellBBoxI.yLen() * _scale,
+                        cellIdxJ,
+                        cellBBoxJ.xLen() * _scale,
+                        cellBBoxJ.yLen() * _scale,
+                        &_alpha,
+                        &_lambda1
+                        ));
+            _ops.emplace_back(OpIdxType(_ovlOps.size() - 1, OpEnumType::ovl));
+        }
+    }
+    // Out of boundary
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        const auto &cellBBox = _db.cell(cellIdx).cellBBox();
+        _oobOps.emplace_back(nlp_oob_type(
+                    cellIdx,
+                    cellBBox.xLen() * _scale,
+                    cellBBox.yLen() * _scale,
+                    &_boundary,
+                    &_alpha,
+                    &_lambda2
+                    ));
+        _ops.emplace_back(OpIdxType(_oobOps.size() - 1, OpEnumType::oob));
+    }
+    // Asym
+    for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+    {
+        const auto &symGrp = _db.symGroup(symGrpIdx);
+        _asymOps.emplace_back(nlp_asym_type(symGrpIdx, &_lambda4));
+        _ops.emplace_back(OpIdxType(_asymOps.size() - 1, OpEnumType::asym));
+        for (const auto &symPair : symGrp.vSymPairs())
+        {
+            IndexType cellIdxI = symPair.firstCell();
+            IndexType cellIdxJ = symPair.secondCell();
+            RealType widthI = _db.cell(cellIdxI).cellBBox().xLen() * _scale;
+            _asymOps.back().addSymPair(cellIdxI, cellIdxJ, widthI);
+        }
+        for (const auto &ssCellIdx : symGrp.vSelfSyms())
+        {
+            RealType width = _db.cell(ssCellIdx).cellBBox().xLen() * _scale;
+            _asymOps.back().addSelfSym(ssCellIdx, width);
+        }
+    }
 }
 
 bool NlpWnconj::cleanup()

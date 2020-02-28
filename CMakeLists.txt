@@ -193,12 +193,12 @@ ELSE()
 ENDIF()
 #set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -march=native -fopenmp ")
-#set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -march=native -fopenmp -fext-numeric-literals")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline ")
 #set(CMAKE_CXX_FLAGS_RELEASE "-O3 -fno-inline") 
 #set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -frename-registers -fprofile-use -fprofile-correction") 
-set(CMAKE_CXX_FLAGS_PROFILE "-Ofast -pg -Winline")
+#set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -frename-registers -fprofile-use -fprofile-correction") 
+set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
+set(CMAKE_CXX_FLAGS_PROFILE "-O3 -pg -Winline")
 #set(CMAKE_EXE_LINKER_FLAGS "-pthread -static-libgcc -static-libstdc++ -static")
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
@@ -228,11 +228,11 @@ target_link_libraries(${PROJECT_NAME}
     )
 #
 ## Add modules to pybind
-pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})
-target_link_libraries("IdeaPlaceExPy" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES}
-    ${WNLIB_LIBRARIES}
-    ${LPSOLVE_LIBRARIES}
-)
+#pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})
+#target_link_libraries("IdeaPlaceExPy" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES}
+#    ${WNLIB_LIBRARIES}
+#    ${LPSOLVE_LIBRARIES}
+#)
 #
 ##Install
 #install (TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX_DIR}/bin)

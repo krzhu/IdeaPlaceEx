@@ -12,54 +12,31 @@
 #include "wnconj.h"
 #include <math.h>
 #include "pinassign/VirtualPinAssigner.h"
+#include "different.h"
 
 PROJECT_NAMESPACE_BEGIN
-
-namespace NlpWnconjDetails
-{
-    /// @brief calculate the log sum exp, used to smooth min max function
-    /// @return the calculated log sum exp
-    inline double logSumExp(double var1, double var2, double alpha)
-    {
-        return alpha * log(exp(var1 / alpha) + exp(var2 / alpha));
-    }
-
-    /// @brief Some smooth function from Biying I cannot understand
-    /// @return the smoothed result
-    inline double logSumExp0(double var, double alpha)
-    {
-        return alpha * log(exp(var / alpha) + 1);
-        // modify it to handle overflow issue
-        // avg > 709.8 => overflow; avg < -709.8 => underflow
-        if (var / alpha < 709.8)
-        {
-            return alpha * log(exp(var / alpha) + 1);
-        }
-        else
-        {
-            // -var + 32
-            return alpha * log(exp(32 / alpha) + exp((-var + 32)/alpha)) + var - 32;
-        }
-    }
-    /// @brief the gradient of LSE
-    /// @return the gradient of log sum exp
-    inline double gradLogSumExp(double var1, double var2, double alpha)
-    {
-        return ( exp(var1 / alpha) - exp(var2 / alpha) ) / ( exp(var1 / alpha) + exp(var2 / alpha) );
-    }
-
-    /// @brief The gradient of some smooth function from Biying I cannot understand
-    /// @return the gradient of logSumExp0
-    inline double gradLogSumExp0(double var, double alpha)
-    {
-        return exp( var / alpha ) / ( exp(var / alpha) + 1);
-    }
-}
 
 /// @class IDEAPLACE::NlpWnconj
 /// @brief the non-linear optimization for global placement with wnlib conjugated gradient solver
 class NlpWnconj
 {
+    typedef RealType nlp_coordinate_type;
+    typedef RealType nlp_numerical_type;
+    typedef LseHpwlDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_hpwl_type;
+    typedef CellPairOverlapPenaltyDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_ovl_type;
+    typedef CellOutOfBoundaryPenaltyDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_oob_type;
+    typedef AsymmetryDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_asym_type;
+
+    enum class OpEnumType
+    {
+        hpwl, ovl, oob, asym
+    };
+    struct OpIdxType
+    {
+        OpIdxType(IndexType idx_, OpEnumType type_) : idx(idx_), type(type_) {}
+        IndexType idx;
+        OpEnumType type;
+    };
     public:
         /// @brief default constructor
         explicit NlpWnconj(Database &db) : _db(db) , _assigner(db) {}
@@ -95,134 +72,6 @@ class NlpWnconj
         double totalAsymDist() { return 0; }
         /// @brief evalute the current solution. Specifically, calculating _curOvlRatio, _curOOBRatio, _curAsymDist
         void evaluteSolution();
-        /*------------------------------*/ 
-        /* Math                         */
-        /*------------------------------*/ 
-        /// @brief calculate the smoothed HPWL of each net
-        /// @param first: the array of the current values
-        /// @param second: the net index
-        /// @param third: alpha parameter in the smooth function
-        double logSumExpHPWL(double *values, IndexType netIdx, double alpha)
-        {
-            double xmax = 0, xmin = 0, ymax = 0, ymin = 0;
-            const auto &net = _db.net(netIdx);
-            if (net.numPinIdx() == 0)
-            {
-                return 0;
-            }
-            if (net.numPinIdx() == 1 && !net.isValidVirtualPin())
-            {
-                return 0;
-            }
-            for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
-            {
-                // Get the pin location referenced to the cell
-                IndexType pinIdx = net.pinIdx(idx);
-                const auto &pin = _db.pin(pinIdx);
-                IndexType cellIdx = pin.cellIdx();
-                const auto &cell = _db.cell(cellIdx);
-                // Get the cell location from the input arguments
-                XY<double> cellLoc = XY<double>(values[cellIdx * 2], values[cellIdx * 2 + 1]);
-                XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-                XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
-                XY<double> pinLoc = cellLoc + midLoc - cellLoLoc;
-                /*
-                DBG("cell loc %s mid loc %s cellloloc %s pinloc %s \n", 
-                        cellLoc.toStr().c_str(),
-                        midLoc.toStr().c_str(),
-                        cellLoLoc.toStr().c_str(),
-                        pinLoc.toStr().c_str());
-                        */
-                xmax += exp(pinLoc.x() / alpha);
-                xmin += exp(-pinLoc.x() / alpha);
-                ymax += exp(pinLoc.y() / alpha);
-                ymin += exp(-pinLoc.y() / alpha);
-            }
-            if (net.isValidVirtualPin())
-            {
-                XY<double> virtualPinLoc = XY<double>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
-                virtualPinLoc *= _scale;
-                xmax += exp(virtualPinLoc.x() / alpha);
-                xmin += exp(-virtualPinLoc.x() / alpha);
-                ymax += exp(virtualPinLoc.y() / alpha);
-                ymin += exp(-virtualPinLoc.y() / alpha);
-            }
-            xmax = log(xmax);
-            xmin = log(xmin);
-            ymax = log(ymax);
-            ymin = log(ymin);
-            return alpha * (xmax + xmin + ymax + ymin);
-        }
-        /// @brief the gradient if hpwl with respect to x
-        /// @param first: the current variables values
-        /// @param second: the index of net
-        /// @param third: the alpha constant in LSE
-        /// @param fourth: a reference to a vector to store the calculated gradient for dx
-        /// @param fourth: a reference to a vector to store the calculated gradient for dy
-        void gradLogSumExpHpwl(double *values, IndexType netIdx, double alpha, std::vector<double> &gradX, std::vector<double> &gradY)
-        {
-            double xmax = 0, xmin = 0;
-            double ymax = 0, ymin = 0;
-            const auto &net = _db.net(netIdx);
-            if ((net.numPinIdx() == 0) 
-                    or 
-                (net.numPinIdx() == 1 && !net.isValidVirtualPin()))
-            {
-                for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
-                {
-                    gradX.emplace_back(0);
-                    gradY.emplace_back(0);
-                }
-            }
-            for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
-            {
-                // Get the pin location referenced to the cell
-                IndexType pinIdx = net.pinIdx(idx);
-                const auto &pin = _db.pin(pinIdx);
-                IndexType cellIdxTemp = pin.cellIdx();
-                const auto &cell = _db.cell(cellIdxTemp);
-                // Get the cell location from the input arguments
-                XY<double> cellLoc = XY<double>(values[cellIdxTemp * 2], values[cellIdxTemp * 2 + 1]);
-                XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-                XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
-                XY<double> pinLoc = cellLoc + midLoc - cellLoLoc;
-                xmax += exp(pinLoc.x() / alpha);
-                xmin += exp(- pinLoc.x() / alpha);
-                ymax += exp(pinLoc.y() / alpha);
-                ymin += exp(- pinLoc.y() / alpha);
-            }
-            if (net.isValidVirtualPin())
-            {
-                XY<double> virtualPinLoc = XY<double>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
-                virtualPinLoc *= _scale;
-                xmax += exp(virtualPinLoc.x() / alpha);
-                xmin += exp(-virtualPinLoc.x() / alpha);
-                ymax += exp(virtualPinLoc.y() / alpha);
-                ymin += exp(-virtualPinLoc.y() / alpha);
-            }
-            // Calculate the pin-wise terms
-            for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
-            {
-                // Get the pin location referenced to the cell
-                IndexType pinIdx = net.pinIdx(idx);
-                const auto &pin = _db.pin(pinIdx);
-                IndexType cellIdxTemp = pin.cellIdx();
-                const auto &cell = _db.cell(cellIdxTemp);
-                // Get the cell location from the input arguments
-                XY<double> cellLoc = XY<double>(values[cellIdxTemp * 2], values[cellIdxTemp * 2 + 1]);
-                XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-                XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
-                XY<double> pinLoc = cellLoc + midLoc - cellLoLoc;
-                double pinXmax = exp( pinLoc.x() / alpha ) / xmax;
-                double pinXmin = exp( - pinLoc.x() / alpha) / xmin;
-                double pinYmax = exp( pinLoc.y() / alpha) / ymax;
-                double pinYmin = exp( - pinLoc.y() / alpha) / ymin;
-                // Push back the calculated gradient to the vectors
-                gradX.emplace_back(pinXmax - pinXmin);
-                gradY.emplace_back(pinYmax - pinYmin);
-            }
-            
-        }
     public:
         /*------------------------------*/ 
         /* For WNLIB interface          */
@@ -290,7 +139,20 @@ class NlpWnconj
             LocType xHiBox = ::klib::autoRound<LocType>(xHi / _scale);
             LocType yHiBox = ::klib::autoRound<LocType>(yHi / _scale);
             _assigner.reconfigureVirtualPinLocations(Box<LocType>(xLoBox, yLoBox, xHiBox, yHiBox));
-            _assigner.pinAssignment(cellLocQueryFunc);
+            if ( _assigner.pinAssignment(cellLocQueryFunc))
+            {
+                // Update the hpwl operators
+                for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+                {
+                    const auto &net = _db.net(netIdx);
+                    if (net.isValidVirtualPin())
+                    {
+                        XY<double> virtualPinLoc = XY<double>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                        virtualPinLoc *= _scale;
+                        _hpwlOps[netIdx].setVirtualPin(virtualPinLoc.x(), virtualPinLoc.y());
+                    }
+                }
+            }
         }
 
 #ifdef DEBUG_GR
@@ -298,6 +160,9 @@ class NlpWnconj
         void drawCurrentLayout(const std::string &filename, double * values);
 #endif
 #endif
+
+        /* Init operators */
+        void initOperators();
 
         
     private:
@@ -336,12 +201,35 @@ class NlpWnconj
         bool _toughModel = false; ///< Whether try hard to be feasible
 
         VirtualPinAssigner _assigner;
+        /* NLP differentiable operators */
+        std::vector<OpIdxType> _ops; ///< The operator index and enum type struct. Record the types and indices
+        std::vector<nlp_hpwl_type> _hpwlOps; ///< The HPWL cost 
+        std::vector<nlp_ovl_type> _ovlOps; ///< The cell pair overlapping penalty operators
+        std::vector<nlp_oob_type> _oobOps; ///< The cell out of boundary penalty operators 
+        std::vector<nlp_asym_type> _asymOps; ///< The asymmetric penalty operators
 };
 
 inline double NlpWnconj::objFunc(double *values)
 {
-    //values[2 * _db.numCells()] = 0;
-    //values[2 * _db.numCells() + 1] = 0;
+    auto getVarFunc = [&] (IndexType cellIdx, Orient2DType orient)
+    {
+        if (orient == Orient2DType::HORIZONTAL)
+        {
+            return values[2 * cellIdx];
+        }
+        else if (orient == Orient2DType::VERTICAL)
+        {
+            return values[2 * cellIdx + 1];
+        }
+        else
+        {
+#ifdef MULTI_SYM_GROUP
+            return values[2 * _db.numCells() + cellIdx];
+#else
+            return _defaultSymAxis;
+#endif
+        }
+    };
     // Initial the objective to be 0 and add the non-zero to it
     double result = 0;
     _fOverlap = 0;
@@ -349,330 +237,100 @@ inline double NlpWnconj::objFunc(double *values)
     _fHpwl = 0;
     _fAsym = 0;
     _fMaxOver = 0;
-    // log-sum-exp model for overlap penalty
-    // Calculate the cell-wise overlapping area penalty
-    // TODO: improve the codes below from O(n^2) to O(nlogn)
-    for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
+
+    for (const auto & opIdx : _ops)
     {
-        const auto &bboxI = _db.cell(cellIdxI).cellBBox();
-        for (IndexType cellIdxJ = cellIdxI + 1; cellIdxJ < _db.numCells(); ++cellIdxJ)
+        nlp_numerical_type cost;
+        switch (opIdx.type)
         {
-            const auto &bboxJ = _db.cell(cellIdxJ).cellBBox();
-            // Values arrangement x0, y0, x1, y1...
-            double xLoI = values[2 * cellIdxI]; double xHiI = xLoI + bboxI.xLen() * _scale;
-            double xLoJ = values[2 * cellIdxJ]; double xHiJ = xLoJ + bboxJ.xLen() * _scale;
-            double yLoI = values[2 * cellIdxI + 1]; double yHiI = yLoI + bboxI.yLen() * _scale;
-            double yLoJ = values[2 * cellIdxJ + 1]; double yHiJ = yLoJ + bboxJ.yLen() * _scale;
-            // max (min(xHiI - xLoJ, xHiJ - xLoI), 0)
-            double var1X = xHiI - xLoJ;
-            double var2X = xHiJ - xLoI;
-            double overlapX = NlpWnconjDetails::logSumExp(var1X, var2X, -_alpha);
-            overlapX = NlpWnconjDetails::logSumExp0(overlapX, _alpha);
-            // max (min(yHiI - yLoJ, yHiJ - yLoI), 0)
-            double var1Y = yHiI - yLoJ;
-            double var2Y = yHiJ - yLoI;
-            double overlapY = NlpWnconjDetails::logSumExp(var1Y, var2Y, -_alpha);
-            overlapY = NlpWnconjDetails::logSumExp0(overlapY, _alpha);
-            // find the max overlap
-            RealType overlapArea = overlapX * overlapY;
-            RealType areaI = (xHiI - xLoI) * (yHiI - yLoI);
-            RealType areaJ = (xHiJ - xLoJ) * (yHiJ - yLoJ);
-            RealType minArea = overlapArea / std::min(areaI, areaJ);
-            if (_fMaxOver < minArea)
-            {
-                _fMaxOver = minArea;
-            }
-            
-            if (0)
-            {
-                if (overlapArea / areaI > 1.0)
-                {
-                    result += _lambdaMaxOverlap * overlapX *overlapY ;
-                    DBG("1:  %f \n" ,_lambdaMaxOverlap * overlapX *overlapY  );
-                }
-                if (overlapArea / areaJ > 1.0)
-                {
-                    result += _lambdaMaxOverlap * overlapX *overlapY ;
-                }
-            }
-            
-            // Add to the objective
-            result += _lambda1 * overlapX * overlapY;
-            //DBG("Overlap add %f, lambda %f \n", _lambda1 * overlapX * overlapY, _lambda1);
-            _fOverlap += _lambda1 * overlapX * overlapY ;
+            case OpEnumType::ovl :  // overlap
+                cost = placement_differentiable_traits<nlp_ovl_type>::evaluate(_ovlOps[opIdx.idx], getVarFunc);
+                result += cost;
+                _fOverlap += cost;
+                break;
+            case OpEnumType::oob: // out of boundary
+                cost = placement_differentiable_traits<nlp_oob_type>::evaluate(_oobOps[opIdx.idx], getVarFunc);
+                result += cost;
+                _fOOB += cost;
+                break;
+            case OpEnumType::hpwl: // hpwl
+                cost = placement_differentiable_traits<nlp_hpwl_type>::evaluate(_hpwlOps[opIdx.idx], getVarFunc);
+                result += cost;
+                _fHpwl += cost;
+                break;
+            case OpEnumType::asym: // asymmetry
+                cost = placement_differentiable_traits<nlp_asym_type>::evaluate(_asymOps[opIdx.idx], getVarFunc);
+                result += cost;
+                _fAsym += cost;
+                break;
         }
     }
 
-
-    // record max overlap penalty
-    result += _lambdaMaxOverlap * _fMaxOver;
-
-    //double oobCost = 0;
-
-    // Out of boundary penalty
-    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
-    {
-        const auto &bbox = _db.cell(cellIdx).cellBBox();
-        double xLo = values[2 * cellIdx]; double xHi = xLo + bbox.xLen() * _scale;
-        double yLo = values[2 * cellIdx + 1]; double yHi = yLo + bbox.yLen() * _scale;
-        // max (-xLo +boundary_xLo, 0), max(xHi - boundary_xHi, 0)
-        double obXLo = NlpWnconjDetails::logSumExp0(_boundary.xLo() - xLo, _alpha);
-        double obXHi = NlpWnconjDetails::logSumExp0(xHi - _boundary.xHi(), _alpha);
-        // also y
-        double obYLo = NlpWnconjDetails::logSumExp0(_boundary.yLo() - yLo, _alpha);
-        double obYHi = NlpWnconjDetails::logSumExp0(yHi - _boundary.yLo(), _alpha);
-        // Add to the objective
-        result += _lambda2 * (obXLo + obXHi + obYLo + obYHi);
-        _fOOB +=  _lambda2 * (obXLo + obXHi + obYLo + obYHi);
-        //oobCost += (obXLo + obXHi + obYLo + obYHi);
-        //DBG("OOB add %f, lambda %f \n",_lambda2 * (obXLo + obXHi + obYLo + obYHi), _lambda2);
-    }
-    // Wire length penalty
-    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
-    {
-        IndexType numCells = 0;
-        std::vector<IntType> hasCell;
-        hasCell.resize(_db.numCells(), 0);
-        for (IndexType pinIdx : _db.net(netIdx).pinIdxArray())
-        {
-            IndexType cellIdx = _db.pin(pinIdx).cellIdx();
-            if (hasCell.at(cellIdx) == 1)
-            {
-                continue;
-            }
-            hasCell.at(cellIdx) = 1;
-            numCells ++;
-        }
-        if (numCells <= 1)
-        {
-            continue;
-        }
-        double smoothHPWL = this->logSumExpHPWL(values, netIdx, _alpha);
-        result += _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
-        _fHpwl +=  _lambda3 * _db.net(netIdx).weight() * smoothHPWL;
-        //DBG("HPWL add %f, lambda %f \n", _lambda3 * _db.net(netIdx).weight() * smoothHPWL, _lambda3);
-    }
-    
-    // ASYMMETRY
-    RealType asymPenalty = 0;
-    for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
-    {
-        const auto & symGrp = _db.symGroup(symGrpIdx);
-        for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++ symPairIdx)
-        {
-            const auto & symPair = symGrp.symPair(symPairIdx);
-            IndexType cellIdx1 = symPair.firstCell();
-            IndexType cellIdx2 = symPair.secondCell();
-            RealType cell1Lo = values[2 * cellIdx1];
-            RealType cell1Hi = _db.cell(cellIdx1).cellBBox().xLen() * _scale + values[2 * cellIdx1];
-            RealType cell2Lo = values[2 * cellIdx2];
-            RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xLen() * _scale + values[2 * cellIdx2];
-            asymPenalty += pow(values[cellIdx1 * 2 +1] - values[2 * cellIdx2 + 1], 2.0); // (y1 -y2) ^ 2
-#ifdef MULTI_SYM_GROUP
-            asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
-                    + cell2Lo / 2 + cell2Hi / 2
-                    - 2 *values[2 * _db.numCells() + symGrpIdx], 2.0);
-#else
-            asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
-                    + cell2Lo / 2 + cell2Hi / 2
-                    - 2 * _defaultSymAxis, 2.0);
-#endif
-        }
-        for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
-        {
-            IndexType selfSymCellIdx = symGrp.selfSym(selfSymIdx);
-            RealType cell1Lo = values[2 * selfSymCellIdx];
-            RealType cell1Hi = _db.cell(selfSymCellIdx).cellBBox().xLen() * _scale + values[2 * selfSymCellIdx];
-#ifdef MULTI_SYM_GROUP
-            asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
-                    -  values[2 * _db.numCells() + symGrpIdx], 2.0);
-#else
-            asymPenalty += pow(cell1Lo / 2 + cell1Hi / 2 
-                    -  _defaultSymAxis, 2.0);
-#endif
-        }
-    }
-    result += _lambda4 * asymPenalty;
-    _fAsym +=  _lambda4 * asymPenalty ;
-    //DBG("foverlap %f, foob %f fhpwl %f fasym %f \n", _fOverlap, _fOOB, _fHpwl, _fAsym);
     
     return result;
 }
 
 inline void NlpWnconj::gradFunc(double *grad, double *values)
 {
+    auto getVarFunc = [&] (IndexType cellIdx, Orient2DType orient)
+    {
+        if (orient == Orient2DType::HORIZONTAL)
+        {
+            return values[2 * cellIdx];
+        }
+        else if (orient == Orient2DType::VERTICAL)
+        {
+            return values[2 * cellIdx + 1];
+        }
+        else
+        {
+#ifdef MULTI_SYM_GROUP
+            return values[2 * _db.numCells() + cellIdx];
+#else
+            return _defaultSymAxis;
+#endif
+        }
+    };
+
+    auto accumulateGradFunc = [&] (nlp_numerical_type value, IndexType cellIdx, Orient2DType orient)
+    {
+        if (orient == Orient2DType::HORIZONTAL)
+        {
+            grad[2 * cellIdx] +=  value;
+        }
+        else if (orient == Orient2DType::VERTICAL)
+        {
+            grad[2 * cellIdx + 1] += value;
+        }
+#ifdef MULTI_SYM_GROUP
+        else
+        {
+            grad[2 * _db.numCells() + cellIdx] += value;
+        }
+#endif
+    };
     if (_innerIter % 500 == 0)
     {
         this->assignPin();
     }
     _innerIter++;
-    RealType maxOverlapRatio = 0;
-    IndexType maxOverLapIndex = 0;
-    RealType maxOverLapGradX = 0;
-    RealType maxOverLapGradY = 0;
-    //RealType cellAreaMaxOverlap = 0;
-    // log-sum-exp model for overlap penalty
-    for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
-    {
-        grad[2 * cellIdxI] = 0; // df/dx
-        grad[2 * cellIdxI + 1] = 0; // df/dy
-        const auto &bboxI = _db.cell(cellIdxI).cellBBox();
-        for (IndexType cellIdxJ = 0; cellIdxJ < _db.numCells(); ++cellIdxJ)
-        {
-            if (cellIdxI == cellIdxJ)
-            {
-                continue;
-            }
-            const auto &bboxJ = _db.cell(cellIdxJ).cellBBox();
-            // Values arrangement x0, y0, x1, y1...
-            double xLoI = values[2 * cellIdxI]; double xHiI = xLoI + bboxI.xLen() * _scale;
-            double xLoJ = values[2 * cellIdxJ]; double xHiJ = xLoJ + bboxJ.xLen() * _scale;
-            double yLoI = values[2 * cellIdxI + 1]; double yHiI = yLoI + bboxI.yLen() * _scale;
-            double yLoJ = values[2 * cellIdxJ + 1]; double yHiJ = yLoJ + bboxJ.yLen() * _scale;
-            // max( min (xHiI - xLoJ, xHiJ - xLoi), 0)
-            double var1x = xHiI - xLoJ;
-            double var2x = xHiJ - xLoI;
-            double oxMin = NlpWnconjDetails::logSumExp(var1x, var2x, -_alpha); // smoothed min
-            double oxMinMax0 = NlpWnconjDetails::logSumExp0(oxMin, _alpha); // max with 0
-            double gradOxMin0 = NlpWnconjDetails::gradLogSumExp0(oxMin, _alpha); // sommothed max with 0. grad
-            // max ( min(yHiI - yLoj, yHiJ - yLoI), 0 )
-            double var1y = yHiI - yLoJ;
-            double var2y = yHiJ - yLoI;
-            double oyMin = NlpWnconjDetails::logSumExp(var1y, var2y, -_alpha); // smoothed min
-            double oyMinMax0 = NlpWnconjDetails::logSumExp0(oyMin, _alpha); // smoothed max with 0
-            RealType gradX = oyMinMax0 * gradOxMin0 * NlpWnconjDetails::gradLogSumExp(var1x, var2x, -_alpha);
-            // Record gradOy
-            grad[2 * cellIdxI] += _lambda1 * gradX;
-            double gradOyMin0 = NlpWnconjDetails::gradLogSumExp0(oyMin, _alpha);
-            RealType gradY = oxMinMax0 * gradOyMin0 * NlpWnconjDetails::gradLogSumExp(var1y, var2y, -_alpha);
-            // Record gradOy
-            grad[2 * cellIdxI + 1] += _lambda1 * gradY;
-            // maxoverlap parts
-            RealType overlapArea= oxMinMax0 * oyMinMax0;
-            RealType areaI = (xHiI - xLoI) * (yHiI - yLoI);
-            if (maxOverlapRatio < overlapArea / areaI)
-            {
-                maxOverLapIndex = cellIdxI;
-                maxOverLapGradX = gradX;
-                maxOverLapGradY = gradY;
-                //cellAreaMaxOverlap = areaI;
-            }
-            
-            if (0)
-            {
-                RealType lambda;
-                RealType threshold = 0.7;
-                if (_toughModel)
-                {
-                    lambda = _lambdaMaxOverlap ;
-                    threshold = 0.5;
-                }
-                else
-                {
-                    lambda = _lambda1 ;
-                }
-                if (overlapArea / areaI > threshold)
-                {
-                    RealType ratio = overlapArea / areaI;
-                    ratio /= threshold;
-                    ratio *= ratio;
-                    ratio *= ratio;
-                    grad[2 * cellIdxI] += lambda * gradX * ratio;
-                    grad[2 * cellIdxI + 1] += lambda * gradY  * ratio;
-                }
-            }
-            
-        }
-    }
 
-
-
-    // Update the max overlap
-    grad[2 * maxOverLapIndex] += _lambdaMaxOverlap * maxOverLapGradX ;
-    grad[2 * maxOverLapIndex + 1] += _lambdaMaxOverlap * maxOverLapGradY ;
-    // out of boundary penalty
-    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    for (const auto & opIdx : _ops)
     {
-        const auto &bbox = _db.cell(cellIdx).cellBBox();
-        double xLo = values[2 * cellIdx] ; double xHi = xLo + bbox.xLen() * _scale;
-        double yLo = values[2 * cellIdx + 1]; double yHi = yLo + bbox.yLen() * _scale;
-        // max(lower - x/yLo, 0), max (x/yHi - upper, 0)
-        double gradObX = - NlpWnconjDetails::gradLogSumExp0(_boundary.xLo() - xLo, _alpha); // the negative is from derivative
-        gradObX += NlpWnconjDetails::gradLogSumExp0(xHi - _boundary.xHi(), _alpha);
-        // Record
-        grad[2 * cellIdx] +=  _lambda2 * gradObX;
-        double gradObY = - NlpWnconjDetails::gradLogSumExp0(_boundary.yLo() - yLo, _alpha); // the negative is from derivative
-        gradObY += NlpWnconjDetails::gradLogSumExp0(yHi - _boundary.yHi(), _alpha);
-        // Record
-        grad[2 * cellIdx + 1] += _lambda2 * gradObY;
-    }
-    // Wire length penalty
-    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
-    {
-        const auto &net = _db.net(netIdx);
-        auto netWgt = net.weight();
-        std::vector<double> gradX, gradY;
-        // Calculate the gradients for the net. idx by pin
-        this->gradLogSumExpHpwl(values, netIdx, _alpha, gradX, gradY);
-        for (IndexType pinInNetIdx = 0; pinInNetIdx < net.numPinIdx(); ++pinInNetIdx)
+        switch (opIdx.type)
         {
-            IndexType pinIdx = net.pinIdx(pinInNetIdx);
-            const auto &pin = _db.pin(pinIdx);
-            IndexType cellIdx = pin.cellIdx();
-            // Record
-            grad[2 * cellIdx] += netWgt * _lambda3 * gradX[pinInNetIdx];
-            grad[2 * cellIdx + 1] += netWgt * _lambda3 * gradY[pinInNetIdx];
-        }
-    }
-    
-    // ASYMMETRY
-    for (IndexType idx = 0; idx < _db.numCells(); ++idx)
-    {
-        grad[idx + 2 * _db.numCells()] = 0; // initialize gradient
-    }
-    for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
-    {
-        const auto & symGrp = _db.symGroup(symGrpIdx);
-        for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++symPairIdx)
-        {
-            IndexType cellIdx1 = symGrp.symPair(symPairIdx).firstCell();
-            IndexType cellIdx2 = symGrp.symPair(symPairIdx).secondCell();
-            RealType cell1Lo =  values[2 * cellIdx1];
-            RealType cell1Hi = _db.cell(cellIdx1).cellBBox().xLen() * _scale + values[2 * cellIdx1];
-            RealType cell2Lo =  values[2 * cellIdx2];
-            RealType cell2Hi = _db.cell(cellIdx2).cellBBox().xLen() * _scale + values[2 * cellIdx2];
-#ifdef MULTI_SYM_GROUP
-            RealType gradX = cell1Lo / 2 + cell1Hi /2 
-                    + cell2Lo / 2 + cell2Hi / 2
-                    - 2 *values[2 * _db.numCells() + symGrpIdx]; // (x1 + x2 + const - 2 xsym)
-#else
-            RealType gradX = cell1Lo / 2 + cell1Hi /2 
-                    + cell2Lo / 2 + cell2Hi / 2
-                    - 2 * _defaultSymAxis; // (x1 + x2 + const - 2 xsym)
-#endif
-            grad[2 * cellIdx1] += _lambda4 * gradX * 2; // for x1. 
-            grad[2 * cellIdx2] +=  _lambda4 * gradX * 2; // for x2
-#ifdef MULTI_SYM_GROUP
-            grad[2 * _db.numCells() + symGrpIdx] += _lambda4 * (- 2 * gradX) / symGrp.numConstraints(); // for xsym
-#endif
-            RealType gradY = 2.0 * (values[2 * cellIdx1 + 1] - values[2 * cellIdx2 + 1]);
-            grad[2 * cellIdx1 + 1] += _lambda4 * gradY;
-            grad[2 * cellIdx2 + 1] += _lambda4 * (- gradY); 
-        }
-        for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
-        {
-            IndexType cellIdx = symGrp.selfSym(selfSymIdx);
-            RealType cell1Lo =  values[2 * cellIdx];
-            RealType cell1Hi = _db.cell(cellIdx).cellBBox().xLen() * _scale + cell1Lo;
-#ifdef MULTI_SYM_GROUP
-            RealType gradSS = 2.0 * (cell1Lo / 2 + cell1Hi / 2  - values[2 * _db.numCells() + symGrpIdx]);
-#else
-            RealType gradSS = 2.0 * (cell1Lo / 2 + cell1Hi / 2  - _defaultSymAxis);
-#endif
-            grad[2 * cellIdx] += _lambda4 * gradSS;
-#ifdef MULTI_SYM_GROUP
-            grad[2 * _db.numCells() + symGrpIdx]  += _lambda4 * (- gradSS) / symGrp.numConstraints(); // for xsym
-#endif
+            case OpEnumType::ovl :  // overlap
+                placement_differentiable_traits<nlp_ovl_type>::accumlateGradient(_ovlOps[opIdx.idx], getVarFunc, accumulateGradFunc);
+                break;
+            case OpEnumType::oob: // out of boundary
+                placement_differentiable_traits<nlp_oob_type>::accumlateGradient(_oobOps[opIdx.idx], getVarFunc, accumulateGradFunc);
+                break;
+            case OpEnumType::hpwl: // hpwl
+                placement_differentiable_traits<nlp_hpwl_type>::accumlateGradient(_hpwlOps[opIdx.idx], getVarFunc, accumulateGradFunc);
+                break;
+            case OpEnumType::asym: // asymmetry
+                placement_differentiable_traits<nlp_asym_type>::accumlateGradient(_asymOps[opIdx.idx], getVarFunc, accumulateGradFunc);
+                break;
         }
     }
 
