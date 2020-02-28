@@ -158,6 +158,10 @@ class IdeaPlaceEx
         {
             _db.cell(cellIdx).unionBBox(placerLayer, Box<LocType>(xLo, yLo, xHi, yHi));
         }
+        void setCellFlip(IndexType cellIdx)
+        {
+            _db.cell(cellIdx).flip();
+        }
         /// @brief allocate a new proximity group
         /// @return the index of the proximity group
         IndexType allocateProximityGroup()

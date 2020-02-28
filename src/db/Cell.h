@@ -49,6 +49,7 @@ class Cell
         const XY<LocType> & loc() const { return _loc; }
         LocType xCenter() const { return _loc.x() + (_cellBBox.xLo() + _cellBBox.xHi()) / 2; }
         LocType yCenter() const { return _loc.y() + (_cellBBox.yLo() + _cellBBox.yHi()) / 2; }
+        bool flip() { return _flip; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
@@ -61,6 +62,7 @@ class Cell
         /// @brief set the name of the cell
         /// @param the name of the cell
         void setName(const std::string &name) { _name = name; }
+        void setFlip(bool flip) { _flip = flip; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -110,42 +112,30 @@ class Cell
         {
             assert(_cellBBox.xLen() % gridStep == 0);
             assert(_cellBBox.yLen() % gridStep == 0);
-            return;
-            auto ceilDif = [&](LocType n, LocType gridStep)
-            {
-                return gridStep - (std::abs(n % gridStep));
-            };
-            // first align to grid
-            LocType dif = ceilDif(_cellBBox.xLo(), gridStep);
-            _cellBBox.setXLo(_cellBBox.xLo() - dif);
-            dif  = ceilDif(_cellBBox.xHi(), gridStep);
-            _cellBBox.setXHi(_cellBBox.xHi() + dif);
-            dif = ceilDif(_cellBBox.yLo(), gridStep);
-            _cellBBox.setYLo(_cellBBox.yLo() - dif);
-            dif  = ceilDif(_cellBBox.yHi(), gridStep);
-            _cellBBox.setYHi(_cellBBox.yHi() + dif);
+            // auto ceilDif = [&](LocType n, LocType gridStep)
+            // {
+            //     return gridStep - (std::abs(n % gridStep));
+            // };
+            // // first align to grid
+            // LocType dif = ceilDif(_cellBBox.xLo(), gridStep);
+            // _cellBBox.setXLo(_cellBBox.xLo() - dif);
+            // dif  = ceilDif(_cellBBox.xHi(), gridStep);
+            // _cellBBox.setXHi(_cellBBox.xHi() + dif);
+            // dif = ceilDif(_cellBBox.yLo(), gridStep);
+            // _cellBBox.setYLo(_cellBBox.yLo() - dif);
+            // dif  = ceilDif(_cellBBox.yHi(), gridStep);
+            // _cellBBox.setYHi(_cellBBox.yHi() + dif);
             // Force to be odd * gridStep
            if ((_cellBBox.xLen()) % (2 * gridStep) == 0 )
            {
-               if (std::abs(_cellBBox.xLo()) < std::abs(_cellBBox.xHi()))
-               {
-                   _cellBBox.setXLo(_cellBBox.xLo() - gridStep);
-               }
-               else
-               {
+                if (_flip)
                    _cellBBox.setXHi(_cellBBox.xHi() + gridStep);
-               }
+                else
+                    _cellBBox.setXLo(_cellBBox.xLo() - gridStep);
            }
            if ((_cellBBox.yLen()) % (2 * gridStep) == 0 )
-           {
-               if (std::abs(_cellBBox.yLo()) < std::abs(_cellBBox.yHi()))
-               {
-                   _cellBBox.setYLo(_cellBBox.yLo() - gridStep);
-               }
-               else
-               {
-                   _cellBBox.setYHi(_cellBBox.yHi() + gridStep);
-               }
+           {               
+               _cellBBox.setYLo(_cellBBox.yLo() - gridStep);
            }
            assert(_cellBBox.xLen() % gridStep == 0);
            assert(_cellBBox.yLen() % gridStep == 0);
@@ -185,6 +175,7 @@ class Cell
         Box<LocType> _cellBBox = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The bounding box of the entire cell
         IndexType _symNetIdx =INDEX_TYPE_MAX; 
         bool _bSelfSym = false;
+        bool _flip = false;
 };
 
 PROJECT_NAMESPACE_END

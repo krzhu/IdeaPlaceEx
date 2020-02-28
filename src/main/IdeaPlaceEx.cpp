@@ -176,7 +176,11 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
         symAxis = alignToGrid(gridStep);
     }
 
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_evertt.gds");
+#endif //DEBUG_DRAW
+#endif
 
     return symAxis;
 }
