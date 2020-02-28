@@ -17,13 +17,13 @@ struct placement_differentiable_concept {};
 template <typename ConceptType>
 struct is_placement_differentiable_concept
 {
-    typedef NoType type;
+    typedef std::false_type is_placement_differentiable_concept_type;
 };
 
 template <>
 struct is_placement_differentiable_concept<placement_differentiable_concept>
 {
-    typedef YesType type;
+    typedef std::true_type  is_placement_differentiable_concept_type;
 };
 
 template <typename DifType>
@@ -75,17 +75,38 @@ namespace op
         return exp( var / alpha ) / ( exp( var / alpha) + 1);
     }
 
+    namespace conv_details
+    {
+        template<typename RhsType, typename LhsType>
+        struct conv_t
+        {
+            static constexpr LhsType conv(RhsType rhs)
+            {
+                if (std::is_same<RhsType, LhsType>::value)
+                {
+                    return rhs;
+                }
+                else
+                {
+                    return static_cast<LhsType>(rhs);
+                }
+            }
+        };
+        template<>
+        struct conv_t<RealType, RealType>
+        {
+            static constexpr RealType conv(RealType rhs)
+            {
+                return rhs;
+            }
+        };
+    } // namespace conv_details
+
+    /// @brief convertor rhs type to lhs type
     template<typename RhsType, typename LhsType>
     constexpr LhsType conv(RhsType rhs)
     {
-        if (std::is_same<RhsType, LhsType>::value)
-        {
-            return rhs;
-        }
-        else
-        {
-            return static_cast<LhsType>(rhs);
-        }
+        return conv_details::conv_t<RhsType, LhsType>::conv(rhs);
     }
 };
 
@@ -96,6 +117,7 @@ struct LseHpwlDifferentiable
 {
     typedef NumType numerical_type;
     typedef CoordType coordinate_type;
+
     LseHpwlDifferentiable(NumType *alpha, NumType *lambda) { _alpha = alpha; _lambda = lambda; }
 
     void setVirtualPin(const CoordType &x, const CoordType &y) 
@@ -152,6 +174,7 @@ struct LseHpwlDifferentiable
         }
         return alpha * obj * _weight * lambda;
     }
+
     void accumlateGradient(std::function<CoordType(IndexType cellIdx, Orient2DType orient)> getVarFunc,
             std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const
     {
@@ -209,6 +232,13 @@ struct LseHpwlDifferentiable
     NumType _weight = 1;
     NumType *_alpha = nullptr;
     NumType *_lambda = nullptr;
+};
+
+
+template <typename NumType, typename CoordType>
+struct is_placement_differentiable_concept<LseHpwlDifferentiable<NumType, CoordType>>
+{
+    typedef std::true_type  is_placement_differentiable_concept_type;
 };
 
 // @brief pair-wise cell overlapping penalty
@@ -346,6 +376,13 @@ struct CellPairOverlapPenaltyDifferentiable
     NumType *_lambda = nullptr;
 };
 
+
+template <typename NumType, typename CoordType>
+struct is_placement_differentiable_concept<CellPairOverlapPenaltyDifferentiable<NumType, CoordType>>
+{
+    typedef std::true_type  is_placement_differentiable_concept_type;
+};
+
 /// @brief the cell out of boundary penalty
 template<typename NumType, typename CoordType>
 struct CellOutOfBoundaryPenaltyDifferentiable
@@ -430,6 +467,114 @@ struct CellOutOfBoundaryPenaltyDifferentiable
     NumType *_lambda = nullptr;
 };
 
+
+template <typename NumType, typename CoordType>
+struct is_placement_differentiable_concept<CellOutOfBoundaryPenaltyDifferentiable<NumType, CoordType>>
+{
+    typedef std::true_type  is_placement_differentiable_concept_type;
+};
+
+/// @brief Asymmetry penalty
+template<typename NumType, typename CoordType>
+struct AsymmetryDifferentiable
+{
+    typedef NumType numerical_type;
+    typedef CoordType coordinate_type;
+
+    AsymmetryDifferentiable(IndexType symGrpIdx, NumType *lambda)
+    {
+        _symGrpIdx = symGrpIdx;
+        _lambda = lambda;
+    }
+    /// @brief add a symmetric pair. require the cell widths are the same
+    void addSymPair(IndexType cellIdxI, IndexType cellIdxJ, CoordType width)
+    {
+        _pairCells.emplace_back(std::array<IndexType, 2>({cellIdxI, cellIdxJ}));
+        _pairWidths.emplace_back(op::conv<CoordType, NumType>(width));
+    }
+    void addSelfSym(IndexType cellIdx, CoordType width)
+    {
+        _selfSymCells.emplace_back(cellIdx);
+        _selfSymWidths.emplace_back(op::conv<CoordType, NumType>(width));
+    }
+
+    NumType evaluate( std::function<CoordType(IndexType, Orient2DType)> getVarFunc) const
+    {
+        NumType asym = 0;
+        NumType symAxis = op::conv<CoordType, NumType>(getVarFunc(_symGrpIdx, Orient2DType::NONE));
+        for (IndexType symPairIdx = 0; symPairIdx < _pairCells.size(); ++symPairIdx)
+        {
+            IndexType cellI = _pairCells[symPairIdx][0];
+            IndexType cellJ = _pairCells[symPairIdx][1];
+            NumType xi = op::conv<CoordType, NumType>(getVarFunc(cellI, Orient2DType::HORIZONTAL));
+            NumType yi = op::conv<CoordType, NumType>(getVarFunc(cellI, Orient2DType::VERTICAL));
+            NumType w = _pairWidths[symPairIdx];
+            NumType xj = op::conv<CoordType, NumType>(getVarFunc(cellJ, Orient2DType::HORIZONTAL));
+            NumType yj = op::conv<CoordType, NumType>(getVarFunc(cellJ, Orient2DType::VERTICAL));
+
+            asym += pow(yi - yj, 2.0);
+            asym += pow(xi + xj + w - 2 *symAxis, 2.0);
+            //DBG("new cellI %d cellJ %d add %f \n", cellI, cellJ, pow(xi + xj + w - 2 *symAxis, 2.0));
+        }
+        for (IndexType ssIdx = 0; ssIdx < _selfSymCells.size(); ++ssIdx)
+        {
+            NumType x = op::conv<CoordType, NumType>(getVarFunc(_selfSymCells[ssIdx], Orient2DType::HORIZONTAL));
+            NumType w = _selfSymWidths[ssIdx];
+
+            asym += pow( x + w / 2 - symAxis, 2.0);
+        }
+        return asym  * (*_lambda);
+    }
+    void accumlateGradient(std::function<CoordType(IndexType cellIdx, Orient2DType orient)> getVarFunc,
+            std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const
+    {
+        NumType lambda = *_lambda;
+        NumType symAxis = op::conv<CoordType, NumType>(getVarFunc(_symGrpIdx, Orient2DType::NONE));
+        for (IndexType symPairIdx = 0; symPairIdx < _pairCells.size(); ++symPairIdx)
+        {
+            IndexType cellI = _pairCells[symPairIdx][0];
+            IndexType cellJ = _pairCells[symPairIdx][1];
+            NumType xi = op::conv<CoordType, NumType>(getVarFunc(cellI, Orient2DType::HORIZONTAL));
+            NumType yi = op::conv<CoordType, NumType>(getVarFunc(cellI, Orient2DType::VERTICAL));
+            NumType w = _pairWidths[symPairIdx];
+            NumType xj = op::conv<CoordType, NumType>(getVarFunc(cellJ, Orient2DType::HORIZONTAL));
+            NumType yj = op::conv<CoordType, NumType>(getVarFunc(cellJ, Orient2DType::VERTICAL));
+
+            NumType partialX = 2.0 * (xi + xj + w - 2 * symAxis) * lambda;
+            accumulateGradFunc(partialX, cellI, Orient2DType::HORIZONTAL);
+            accumulateGradFunc(partialX, cellJ, Orient2DType::HORIZONTAL);
+            accumulateGradFunc( -2 *partialX, _symGrpIdx, Orient2DType::NONE);
+
+            NumType partialYI = 2.0 * (yi - yj) * lambda;
+            accumulateGradFunc(partialYI, cellI, Orient2DType::VERTICAL);
+            accumulateGradFunc(- partialYI, cellJ, Orient2DType::VERTICAL);
+        }
+        for (IndexType ssIdx = 0; ssIdx < _selfSymCells.size(); ++ssIdx)
+        {
+            NumType x = op::conv<CoordType, NumType>(getVarFunc(_selfSymCells[ssIdx], Orient2DType::HORIZONTAL));
+            NumType w = _selfSymWidths[ssIdx];
+
+            NumType partial = 2.0 * (x + w /2 - symAxis) * lambda;
+
+            accumulateGradFunc(partial, _selfSymCells[ssIdx], Orient2DType::HORIZONTAL);
+            accumulateGradFunc(partial, _symGrpIdx, Orient2DType::NONE);
+
+        }
+    }
+
+    IndexType _symGrpIdx;
+    std::vector<std::array<IndexType, 2>> _pairCells;
+    std::vector<NumType> _pairWidths;
+    std::vector<IndexType> _selfSymCells;
+    std::vector<NumType> _selfSymWidths;
+    NumType *_lambda = nullptr;
+};
+
+template <typename NumType, typename CoordType>
+struct is_placement_differentiable_concept<AsymmetryDifferentiable<NumType, CoordType>>
+{
+    typedef std::true_type  is_placement_differentiable_concept_type;
+};
 
 PROJECT_NAMESPACE_END
 

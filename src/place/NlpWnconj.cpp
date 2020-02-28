@@ -379,10 +379,10 @@ bool NlpWnconj::nlpKernel()
     this->initOperators();
 
     // Iteratively solving NLP
-    while (_iter < _maxIter)
+    while (_iter < _maxIter * 100)
     {
         _innerIter = 0;
-        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 50);
+        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         if (_toughModel && _iter >= _maxIter / 5)
         {
@@ -426,6 +426,7 @@ void NlpWnconj::initOperators()
     {
         const auto &net = _db.net(netIdx);
         _hpwlOps.emplace_back(nlp_hpwl_type(&_alpha, &_lambda3));
+        _ops.emplace_back(OpIdxType( _hpwlOps.size() - 1, OpEnumType::hpwl));
         auto &op = _hpwlOps.back();
         op.setWeight(net.weight());
         for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
@@ -459,6 +460,7 @@ void NlpWnconj::initOperators()
                         &_alpha,
                         &_lambda1
                         ));
+            _ops.emplace_back(OpIdxType(_ovlOps.size() - 1, OpEnumType::ovl));
         }
     }
     // Out of boundary
@@ -473,6 +475,26 @@ void NlpWnconj::initOperators()
                     &_alpha,
                     &_lambda2
                     ));
+        _ops.emplace_back(OpIdxType(_oobOps.size() - 1, OpEnumType::oob));
+    }
+    // Asym
+    for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
+    {
+        const auto &symGrp = _db.symGroup(symGrpIdx);
+        _asymOps.emplace_back(nlp_asym_type(symGrpIdx, &_lambda4));
+        _ops.emplace_back(OpIdxType(_asymOps.size() - 1, OpEnumType::asym));
+        for (const auto &symPair : symGrp.vSymPairs())
+        {
+            IndexType cellIdxI = symPair.firstCell();
+            IndexType cellIdxJ = symPair.secondCell();
+            RealType widthI = _db.cell(cellIdxI).cellBBox().xLen() * _scale;
+            _asymOps.back().addSymPair(cellIdxI, cellIdxJ, widthI);
+        }
+        for (const auto &ssCellIdx : symGrp.vSelfSyms())
+        {
+            RealType width = _db.cell(ssCellIdx).cellBBox().xLen() * _scale;
+            _asymOps.back().addSelfSym(ssCellIdx, width);
+        }
     }
 }
 
