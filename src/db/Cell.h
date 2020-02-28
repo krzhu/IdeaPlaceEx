@@ -106,6 +106,9 @@ class Cell
         }
         void forceExtendToGrid(LocType gridStep)
         {
+            assert(_cellBBox.xLen() % gridStep == 0);
+            assert(_cellBBox.yLen() % gridStep == 0);
+            return;
             auto ceilDif = [&](LocType n, LocType gridStep)
             {
                 return gridStep - (std::abs(n % gridStep));

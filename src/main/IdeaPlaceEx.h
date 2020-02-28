@@ -29,14 +29,14 @@ class IdeaPlaceEx
         bool parseFileBased(int argc, char** argv);
         /// @brief run the placement algorithm
         /// @return whether the placement is successful
-        bool solve(LocType gridSize = -1);
+        LocType solve(LocType gridSize = -1);
         /// @brief the file-based output
         /// @param the system arguments
         /// @return if the writing is successful
         bool outputFileBased(int argc, char** argv);
         /// @brief align the placement to grid
         /// @param grid stepsize
-        void alignToGrid(LocType gridStepSize);
+        LocType alignToGrid(LocType gridStepSize);
         /*------------------------------*/ 
         /* File-based input interface   */
         /*------------------------------*/ 

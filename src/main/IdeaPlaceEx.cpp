@@ -111,7 +111,7 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
     return true;
 }
 
-bool IdeaPlaceEx::solve(LocType gridStep)
+LocType IdeaPlaceEx::solve(LocType gridStep)
 {
     // Start message printer timer
     MsgPrinter::startTimer();
@@ -156,12 +156,12 @@ bool IdeaPlaceEx::solve(LocType gridStep)
         CGLegalizer legalizer2(_db);
         legalizer2.legalize();
     }
-
+    LocType symAxis(0);
     if (gridStep > 0)
     {
-        alignToGrid(gridStep);
+        symAxis = alignToGrid(gridStep);
     }
-    return true;
+    return symAxis;
 }
 
 bool IdeaPlaceEx::outputFileBased(int argc, char **argv)
@@ -183,7 +183,7 @@ IndexType IdeaPlaceEx::cellIdxName(const std::string name)
     return cellIdx;
 }
 
-void IdeaPlaceEx::alignToGrid(LocType gridStepSize)
+LocType IdeaPlaceEx::alignToGrid(LocType gridStepSize)
 {
     GridAligner align(_db);
     align.align(gridStepSize);
@@ -192,6 +192,7 @@ void IdeaPlaceEx::alignToGrid(LocType gridStepSize)
     _db.drawCellBlocks("./debug/after_alignment.gds");
 #endif //DEBUG_DRAW
 #endif
+    return align.findCurrentSymAxis();
 }
 
 PROJECT_NAMESPACE_END

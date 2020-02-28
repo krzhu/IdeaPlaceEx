@@ -22,11 +22,11 @@ class GridAligner
         /// @brief solve the alignment problem
         /// @param the grid step. Assume uniform in both x and y
         void align(LocType stepSize);
+        LocType findCurrentSymAxis();
     private:
         void naiveAlign();
         void bettherThanNaiveAlign();
         void adjustOffset(const XY<LocType> &offset);
-        LocType findCurrentSymAxis();
         void adjustSymPair(const SymPair &symPair, LocType symAxis);
         void adjustSelfSym(IndexType cellIdx, LocType symAxis);
     private:
