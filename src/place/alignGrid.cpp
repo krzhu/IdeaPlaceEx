@@ -50,14 +50,14 @@ void GridAligner::align(LocType stepSize)
         const auto &cell = _db.cell(cellIdx);
         LocType xLo = cell.xLo();
         LocType yLo = cell.yLo();
-        if (xLo % _stepSize == 0)
+        if (xLo % _stepSize != 0)
         {
-            ERR("Ideaplace: align to grid failed \n");
+            ERR("Ideaplace: align to grid failed xLo %d \n", xLo);
             Assert(0);
         }
-        if(yLo % _stepSize == 0)
+        if(yLo % _stepSize != 0)
         {
-            ERR("Ideaplace: align to grid failed \n");
+            ERR("Ideaplace: align to grid failed yLo %d  \n");
             Assert(0);
         }
     }
@@ -102,6 +102,8 @@ void GridAligner::adjustSymPair(const SymPair &symPair, LocType symAxis)
     _db.cell(leftCellIdx).setXLoc(_db.cell(leftCellIdx).xLoc() - floorDif(_db.cell(leftCellIdx).xLo(), _stepSize));
     LocType rightXLo = 2 * symAxis - _db.cell(leftCellIdx).xHi();
     _db.cell(rightCellIdx).setXLoc(_db.cell(rightCellIdx).xLoc() + rightXLo - _db.cell(rightCellIdx).xLo());
+    assert(_db.cell(leftCellIdx).xLo() % _stepSize == 0);
+    assert(_db.cell(rightCellIdx).xLo() % _stepSize == 0);
 }
 
 void GridAligner::adjustSelfSym(IndexType cellIdx, LocType symAxis)
@@ -109,6 +111,7 @@ void GridAligner::adjustSelfSym(IndexType cellIdx, LocType symAxis)
     auto &cell = _db.cell(cellIdx);
     LocType center = cell.xCenter(); 
     cell.setXLoc(cell.xLoc() -  center + symAxis);
+    assert(cell.xLo() % _stepSize == 0);
     Assert(cell.xCenter() == symAxis);
 }
 
@@ -258,6 +261,12 @@ void GridAligner::bettherThanNaiveAlign()
             {
                 continue;
             }
+            if (spacing % _stepSize != 0)
+            {
+              DBG("spacing left %d", spacing);
+              DBG("This cell xLo %d ylo %d \n", _db.cell(cellIdx).xLo(), _db.cell(cellIdx).xHi());
+              DBG("target %d %d \n", _db.cell(target).xLo(), _db.cell(target).xHi());
+            }
             _db.cell(target).setXLoc(_db.cell(target).xLoc() - spacing);
             xDecided.at(target) = true;
             if (inHeap.at(target))
@@ -293,6 +302,12 @@ void GridAligner::bettherThanNaiveAlign()
                 continue;
             }
             //Assert(!_db.cell(source).hasSym());
+            if (spacing % _stepSize != 0)
+            {
+              DBG("spacing right %d", spacing);
+              DBG("This cell xLo %d ylo %d \n", _db.cell(cellIdx).xLo(), _db.cell(cellIdx).xHi());
+              DBG("source %d %d \n", _db.cell(source).xLo(), _db.cell(source).xHi());
+            }
             _db.cell(source).setXLoc(_db.cell(source).xLoc() + spacing);
             xDecided.at(source) = true;
             if (inHeap.at(source))

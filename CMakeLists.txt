@@ -228,11 +228,11 @@ target_link_libraries(${PROJECT_NAME}
     )
 #
 ## Add modules to pybind
-#pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})
-#target_link_libraries("IdeaPlaceExPy" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES}
-#    ${WNLIB_LIBRARIES}
-#    ${LPSOLVE_LIBRARIES}
-#)
+pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})
+target_link_libraries("IdeaPlaceExPy" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES}
+    ${WNLIB_LIBRARIES}
+    ${LPSOLVE_LIBRARIES}
+)
 #
 ##Install
 #install (TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX_DIR}/bin)
