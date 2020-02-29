@@ -49,16 +49,6 @@ else()
 endif()
 unset (LIMBO_DIR CACHE)
 
-# Find the directory for sparsehash. If cache variable SPARSEHASH_DIR is defined, use it as the path to SPARSEHASH, otherwise use the system SPARSEHASH_DIR
-if (SPARSEHASH_DIR)
-    set(SPARSEHASH_ROOT_DIR ${SPARSEHASH_DIR})
-    message(STATUS "Use SPARSEHASH: ${SPARSEHASH_ROOT_DIR}")
-else()
-    set(SPARSEHASH_ROOT_DIR $ENV{SPARSE_HASH_DIR})
-    message(STATUS "Use system SPARSEHASH ${SPARSEHASH_ROOT_DIR}")
-endif()
-unset (SPARSEHASH_DIR CACHE)
-
 find_package(Boost 1.6 COMPONENTS system graph iostreams)
 find_package( ZLIB REQUIRED )
 
