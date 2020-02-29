@@ -398,10 +398,10 @@ struct CellPairOverlapPenaltyDifferentiable
 
 
         // accumulate the computed partials
-        accumulateGradFunc(dxi * (*_lambda), _cellIdxI, Orient2DType::HORIZONTAL);
-        accumulateGradFunc(dxj * (*_lambda), _cellIdxJ, Orient2DType::HORIZONTAL);
-        accumulateGradFunc(dyi * (*_lambda), _cellIdxI, Orient2DType::VERTICAL);
-        accumulateGradFunc(dyj * (*_lambda), _cellIdxJ, Orient2DType::VERTICAL);
+        accumulateGradFunc(dxi , _cellIdxI, Orient2DType::HORIZONTAL);
+        accumulateGradFunc(dxj , _cellIdxJ, Orient2DType::HORIZONTAL);
+        accumulateGradFunc(dyi , _cellIdxI, Orient2DType::VERTICAL);
+        accumulateGradFunc(dyj , _cellIdxJ, Orient2DType::VERTICAL);
     }
 
     IndexType _cellIdxI;

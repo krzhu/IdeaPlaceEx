@@ -337,9 +337,9 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
 
 #ifdef DEBUG_GR
 #ifdef DEBUG_DRAW
-    std::stringstream ss;
-    ss<< "./debug/gr_iter_" << _iter  << "_"<< _innerIter << ".gds";
-    drawCurrentLayout(ss.str(), values);
+    //std::stringstream ss;
+    //ss<< "./debug/gr_iter_" << _iter  << "_"<< _innerIter << ".gds";
+    //drawCurrentLayout(ss.str(), values);
 #endif
 #endif
     

@@ -249,7 +249,6 @@ bool NlpWnconj::initVars()
     // Total cell area
     RealType totalCellArea = static_cast<double>(_db.calculateTotalCellArea());
     _scale = sqrt(100 / (totalCellArea));
-    DBG("scale %f \n", _scale);
     //_totalCellArea = static_cast<double>(_db.calculateTotalCellArea()) * _scale * _scale;
     _totalCellArea = 100;
 

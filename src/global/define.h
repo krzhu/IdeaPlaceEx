@@ -11,8 +11,8 @@
 //#define NODEBUG
 
 #define DEBUG_DRAW
-//#define DEBUG_GR
-//#define DEBUG_LEGALIZE
+#define DEBUG_GR
+#define DEBUG_LEGALIZE
 
 //#define MULTI_SYM_GROUP
 
