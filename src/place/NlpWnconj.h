@@ -180,7 +180,6 @@ class NlpWnconj
         RealType _lambda3; ///< The coefficient for wire length penalty
         RealType _lambda4; ///< The coefficient for asymmetry penalty
         RealType _maxWhiteSpace;
-        RealType _lambdaMaxOverlap;
         RealType _alpha; ///< Used in objective function
         Box<RealType> _boundary; ///< The boundary constraint for the placement
         RealType _overlapThreshold = NLP_WN_CONJ_OVERLAP_THRESHOLD; ///< Threshold for whether increase penalty for overlapping penalty
@@ -191,7 +190,6 @@ class NlpWnconj
         RealType _fOOB = 0;
         RealType _fHpwl = 0;
         RealType _fAsym = 0;
-        RealType _fMaxOver = 0;
         RealType _epsilon = NLP_WN_CONJ_EPISLON;///< For updating penalty multipliers
         IndexType _iter = 0; ///< Current iteration
         RealType _tao = 0.5; ///< The exponential decay factor for step size
@@ -237,10 +235,10 @@ inline RealType NlpWnconj::objFunc(RealType *values)
     _fOOB = 0;
     _fHpwl = 0;
     _fAsym = 0;
-    _fMaxOver = 0;
 
-    for (const auto & opIdx : _ops)
+    for (IndexType idx = 0; idx < _ops.size(); ++idx)
     {
+        const auto &opIdx = _ops[idx];
         nlp_numerical_type cost;
         switch (opIdx.type)
         {
@@ -267,7 +265,6 @@ inline RealType NlpWnconj::objFunc(RealType *values)
         }
     }
 
-    
     return result;
 }
 
@@ -316,8 +313,9 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
     }
     _innerIter++;
 
-    for (const auto & opIdx : _ops)
+    for (IndexType idx = 0; idx < _ops.size(); ++idx)
     {
+        const auto &opIdx = _ops[idx];
         switch (opIdx.type)
         {
             case OpEnumType::ovl :  // overlap

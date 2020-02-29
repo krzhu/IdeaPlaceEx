@@ -95,10 +95,6 @@ bool NlpWnconj::updateMultipliers()
 #ifdef DEBUG_GR
     DBG("\n\niter %d after mu %f lambda1 %f lambda2 %f lambda4 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4);
 #endif
-    if (0)
-    {
-        _lambdaMaxOverlap += mu ;
-    }
     return false;
 }
 
@@ -142,10 +138,6 @@ bool NlpWnconj::updateMultipliers2()
     if (_lambda4 >= 256)
     {
         alignSym();
-    }
-    if (_curOvlRatio > _overlapThreshold && 0)
-    {
-        _lambdaMaxOverlap += mu ;
     }
     if (_lambda1 + _lambda2 + _lambda4 > NLP_WN_MAX_PENALTY)
     {
@@ -226,7 +218,6 @@ bool NlpWnconj::initVars()
     _lambda2 = LAMBDA_2Init;
     _lambda3 = LAMBDA_3Init;
     _lambda4 = LAMBDA_4Init;
-    _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
 
     // max white space
     _maxWhiteSpace = NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE;
@@ -238,7 +229,6 @@ bool NlpWnconj::initVars()
         _lambda2 = 1;
         _lambda3 = 4;
         _lambda4 = 32;
-        _lambdaMaxOverlap = LAMBDA_MAX_OVERLAP_Init;
         _maxWhiteSpace = 8;
         _maxIter = 48;
     }
