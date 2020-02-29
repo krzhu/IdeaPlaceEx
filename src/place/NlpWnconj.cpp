@@ -249,6 +249,7 @@ bool NlpWnconj::initVars()
     // Total cell area
     RealType totalCellArea = static_cast<double>(_db.calculateTotalCellArea());
     _scale = sqrt(100 / (totalCellArea));
+    DBG("scale %f \n", _scale);
     //_totalCellArea = static_cast<double>(_db.calculateTotalCellArea()) * _scale * _scale;
     _totalCellArea = 100;
 
@@ -379,7 +380,7 @@ bool NlpWnconj::nlpKernel()
     this->initOperators();
 
     // Iteratively solving NLP
-    while (_iter < _maxIter * 100)
+    while (_iter < _maxIter)
     {
         _innerIter = 0;
         wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);

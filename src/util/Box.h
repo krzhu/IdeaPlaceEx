@@ -28,7 +28,7 @@ public:
     const XY<T> &    ur() const                      { return _ur; }
     const XY<T>      center() const                  { return XY<T>((_ll.x() + _ur.x()) / 2 , (_ll.y() + _ur.y()) / 2); }
     bool             valid() const                   { return _ll.x() <= _ur.x() && _ll.y() <= _ur.y(); }
-    T                area() const                    { return (_ur.x() - _ll.x()) * (_ur.y() - _ll.y()); }
+    double                area() const                    { return (_ur.x() - _ll.x()) * (_ur.y() - _ll.y()); }
 
     // Setters
     void            set(T xLo, T yLo, T xHi, T yHi)  { _ll.setXY(xLo, yLo); _ur.setXY(xHi, yHi); }

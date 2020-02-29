@@ -136,7 +136,7 @@ class Database
         /*------------------------------*/ 
         /// @brief calcuate the total cell area
         /// @return the total cell area
-        LocType calculateTotalCellArea() const;
+        RealType calculateTotalCellArea() const;
         /// @brief calculate and return the HPWL
         /// @return HPWL
         LocType hpwl() const;
@@ -168,9 +168,9 @@ class Database
         Parameters _para; ///< The parameters for the placement engine
 };
 
-inline LocType Database::calculateTotalCellArea() const
+inline RealType Database::calculateTotalCellArea() const
 {
-    LocType area = 0;
+    RealType area = 0;
     for (const auto &cell : _cellArray)
     {
         area += cell.cellBBox().area();

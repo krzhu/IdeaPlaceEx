@@ -230,6 +230,7 @@ inline double NlpWnconj::objFunc(double *values)
 #endif
         }
     };
+
     // Initial the objective to be 0 and add the non-zero to it
     double result = 0;
     _fOverlap = 0;

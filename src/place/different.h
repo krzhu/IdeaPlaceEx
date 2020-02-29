@@ -12,6 +12,42 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+
+class ObjIsNanExcpetion : public std::exception 
+{
+    public:
+    virtual const char* what() const throw()
+    {
+        return "Obj is Nan";
+    }
+};
+
+class ObjIsInfExcpetion : public std::exception 
+{
+    public:
+    virtual const char* what() const throw()
+    {
+        return "Obj is inf";
+    }
+};
+
+class GradIsNanExcpetion : public std::exception 
+{
+    public:
+    virtual const char* what() const throw()
+    {
+        return "Grad is Nan";
+    }
+};
+
+class GradIsInfExcpetion : public std::exception 
+{
+    public:
+    virtual const char* what() const throw()
+    {
+        return "Grad is inf";
+    }
+};
 struct placement_differentiable_concept {};
 
 template <typename ConceptType>
@@ -352,12 +388,14 @@ struct CellPairOverlapPenaltyDifferentiable
         NumType wj = op::conv<CoordType, NumType>(_cellWidthJ);
         NumType hj = op::conv<CoordType, NumType>(_cellHeightJ);
         NumType alpha = (*_alpha);
+        NumType lambda = (*_lambda);
 
-        NumType dxi = (alpha * alpha *log(1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(exp(-(wi + xi - xj)/alpha)/alpha - exp(-(wj - xi + xj)/alpha)/alpha))/((1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*pow(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha), 2));
+        NumType dxi = (alpha * alpha *log(1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(exp(-(wi + xi - xj)/alpha)/alpha - exp(-(wj - xi + xj)/alpha)/alpha))/((1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*pow(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha), 2)) * lambda;
          NumType dxj = -dxi;
 
-        NumType dyi = (alpha * alpha *log(1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*(exp(-(hi + yi - yj)/alpha)/alpha - exp(-(hj - yi + yj)/alpha)/alpha))/((1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(pow(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha), 2)));
+        NumType dyi = (alpha * alpha *log(1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*(exp(-(hi + yi - yj)/alpha)/alpha - exp(-(hj - yi + yj)/alpha)/alpha))/((1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(pow(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha), 2))) * lambda;
         NumType dyj = -dyi;
+
 
         // accumulate the computed partials
         accumulateGradFunc(dxi * (*_lambda), _cellIdxI, Orient2DType::HORIZONTAL);
@@ -514,7 +552,6 @@ struct AsymmetryDifferentiable
 
             asym += pow(yi - yj, 2.0);
             asym += pow(xi + xj + w - 2 *symAxis, 2.0);
-            //DBG("new cellI %d cellJ %d add %f \n", cellI, cellJ, pow(xi + xj + w - 2 *symAxis, 2.0));
         }
         for (IndexType ssIdx = 0; ssIdx < _selfSymCells.size(); ++ssIdx)
         {
