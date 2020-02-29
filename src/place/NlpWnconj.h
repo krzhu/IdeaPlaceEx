@@ -1,6 +1,6 @@
 /**
  * @file NlpWnconj.h
- * @brief The "global placement" solver with non-linear optimization + wnlib conjugated gradient
+ * @brief The global placement solver with non-linear optimization + wnlib conjugated gradient
  * @author Keren Zhu
  * @date 10/12/2019
  */
@@ -11,6 +11,8 @@
 #include "db/Database.h"
 #include "wnconj.h"
 #include <math.h>
+#include <numeric>
+#include <functional>
 #include "pinassign/VirtualPinAssigner.h"
 #include "different.h"
 
@@ -205,6 +207,7 @@ class NlpWnconj
         std::vector<nlp_ovl_type> _ovlOps; ///< The cell pair overlapping penalty operators
         std::vector<nlp_oob_type> _oobOps; ///< The cell out of boundary penalty operators 
         std::vector<nlp_asym_type> _asymOps; ///< The asymmetric penalty operators
+
 };
 
 inline RealType NlpWnconj::objFunc(RealType *values)
@@ -230,40 +233,48 @@ inline RealType NlpWnconj::objFunc(RealType *values)
     };
 
     // Initial the objective to be 0 and add the non-zero to it
-    RealType result = 0;
+    nlp_numerical_type result = 0;
     _fOverlap = 0;
     _fOOB = 0;
     _fHpwl = 0;
     _fAsym = 0;
+    std::vector<nlp_numerical_type> ovl, oob, hpwl, asym;
+    ovl.resize(_ovlOps.size());
+    oob.resize(_oobOps.size());
+    hpwl.resize(_hpwlOps.size());
+    asym.resize(_asymOps.size());
 
+
+    #pragma omp parallel for schedule(static)
     for (IndexType idx = 0; idx < _ops.size(); ++idx)
     {
         const auto &opIdx = _ops[idx];
-        nlp_numerical_type cost;
-        switch (opIdx.type)
+        const auto &type = opIdx.type;
+        if (type == OpEnumType::ovl)
         {
-            case OpEnumType::ovl :  // overlap
-                cost = placement_differentiable_traits<nlp_ovl_type>::evaluate(_ovlOps[opIdx.idx], getVarFunc);
-                result += cost;
-                _fOverlap += cost;
-                break;
-            case OpEnumType::oob: // out of boundary
-                cost = placement_differentiable_traits<nlp_oob_type>::evaluate(_oobOps[opIdx.idx], getVarFunc);
-                result += cost;
-                _fOOB += cost;
-                break;
-            case OpEnumType::hpwl: // hpwl
-                cost = placement_differentiable_traits<nlp_hpwl_type>::evaluate(_hpwlOps[opIdx.idx], getVarFunc);
-                result += cost;
-                _fHpwl += cost;
-                break;
-            case OpEnumType::asym: // asymmetry
-                cost = placement_differentiable_traits<nlp_asym_type>::evaluate(_asymOps[opIdx.idx], getVarFunc);
-                result += cost;
-                _fAsym += cost;
-                break;
+            ovl[opIdx.idx] = placement_differentiable_traits<nlp_ovl_type>::evaluate(_ovlOps[opIdx.idx], getVarFunc);
+        }
+        else if (type == OpEnumType::oob)
+        {
+            oob[opIdx.idx] = placement_differentiable_traits<nlp_oob_type>::evaluate(_oobOps[opIdx.idx], getVarFunc);
+        }
+        else if (type == OpEnumType::hpwl)
+        {
+            hpwl[opIdx.idx] = placement_differentiable_traits<nlp_hpwl_type>::evaluate(_hpwlOps[opIdx.idx], getVarFunc);
+        }
+        else
+        {
+            asym[opIdx.idx] = placement_differentiable_traits<nlp_asym_type>::evaluate(_asymOps[opIdx.idx], getVarFunc);
         }
     }
+
+    _fOverlap = std::accumulate(ovl.begin(), ovl.end(), 0.0);
+    _fOOB = std::accumulate(oob.begin(), oob.end(), 0.0);
+    _fHpwl = std::accumulate(hpwl.begin(), hpwl.end(), 0.0);
+    _fAsym = std::accumulate(asym.begin(), asym.end(), 0.0);
+
+    result = _fOverlap + _fOOB + _fHpwl + _fAsym;
+
 
     return result;
 }
@@ -289,47 +300,77 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
 #endif
         }
     };
-
-    auto accumulateGradFunc = [&] (nlp_numerical_type value, IndexType cellIdx, Orient2DType orient)
+    
+    struct Partial
     {
-        if (orient == Orient2DType::HORIZONTAL)
-        {
-            grad[2 * cellIdx] +=  value;
-        }
-        else if (orient == Orient2DType::VERTICAL)
-        {
-            grad[2 * cellIdx + 1] += value;
-        }
-#ifdef MULTI_SYM_GROUP
-        else
-        {
-            grad[2 * _db.numCells() + cellIdx] += value;
-        }
-#endif
+        Partial() { value = 0.0; idx = 0; }
+        Partial(nlp_numerical_type val, IndexType i) : value(val), idx(i) {}
+        nlp_numerical_type value;
+        IndexType idx;
     };
+
+    struct OpGrad
+    {
+        OpGrad() { _ds.resize(0); }
+        void addPartial(nlp_numerical_type value, IndexType cellIdx, Orient2DType orient)
+        {
+            if (orient == Orient2DType::HORIZONTAL)
+            {
+                _ds.emplace_back(Partial(value, 2 * cellIdx));
+            }
+            else if (orient == Orient2DType::VERTICAL)
+            {
+                _ds.emplace_back(Partial(value, 2 * cellIdx + 1));
+            }
+#ifdef MULTI_SYM_GROUP
+            else
+            {
+                _ds.emplace_back(Partial(value, 2 * _db.numCells() + cellIdx));
+            }
+#endif
+        }
+        std::vector<Partial> _ds;
+    };
+
+    std::vector<OpGrad> _grads(_ops.size());
+
     if (_innerIter % 500 == 0)
     {
         this->assignPin();
     }
     _innerIter++;
 
+    #pragma omp parallel for schedule(static)
     for (IndexType idx = 0; idx < _ops.size(); ++idx)
     {
+        auto f = 
+            std::bind(&OpGrad::addPartial, &(_grads[idx]), 
+                    std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
         const auto &opIdx = _ops[idx];
-        switch (opIdx.type)
+        const auto &type = opIdx.type;
+        if (type == OpEnumType::ovl)
         {
-            case OpEnumType::ovl :  // overlap
-                placement_differentiable_traits<nlp_ovl_type>::accumlateGradient(_ovlOps[opIdx.idx], getVarFunc, accumulateGradFunc);
-                break;
-            case OpEnumType::oob: // out of boundary
-                placement_differentiable_traits<nlp_oob_type>::accumlateGradient(_oobOps[opIdx.idx], getVarFunc, accumulateGradFunc);
-                break;
-            case OpEnumType::hpwl: // hpwl
-                placement_differentiable_traits<nlp_hpwl_type>::accumlateGradient(_hpwlOps[opIdx.idx], getVarFunc, accumulateGradFunc);
-                break;
-            case OpEnumType::asym: // asymmetry
-                placement_differentiable_traits<nlp_asym_type>::accumlateGradient(_asymOps[opIdx.idx], getVarFunc, accumulateGradFunc);
-                break;
+            placement_differentiable_traits<nlp_ovl_type>::accumlateGradient(_ovlOps[opIdx.idx], getVarFunc, f);
+        }
+        else if (type == OpEnumType::oob)
+        {
+            placement_differentiable_traits<nlp_oob_type>::accumlateGradient(_oobOps[opIdx.idx], getVarFunc, f);
+        }
+        else if (type == OpEnumType::hpwl)
+        {
+            placement_differentiable_traits<nlp_hpwl_type>::accumlateGradient(_hpwlOps[opIdx.idx], getVarFunc, f);
+        }
+        else
+        {
+            placement_differentiable_traits<nlp_asym_type>::accumlateGradient(_asymOps[opIdx.idx], getVarFunc, f);
+        }
+    }
+
+    for (const auto & part : _grads)
+    {
+        for (const auto &partial : part._ds)
+        {
+            grad[partial.idx] += partial.value;
         }
     }
 
