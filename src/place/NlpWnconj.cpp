@@ -132,12 +132,12 @@ bool NlpWnconj::updateMultipliers2()
     if (_curOOBRatio > _oobThreshold)
     {
         //_lambda2 *= 2;
-        _lambda2 += mu * _fOOB / violate; // Double
+        _lambda2 += mu * _fOOB / violate; // RealType
     }
     if (_curAsymDist > _asymThreshold)
     {
         //_lambda4 *= 2;
-        _lambda4 +=  mu * _fAsym / violate; // Double
+        _lambda4 +=  mu * _fAsym / violate; // RealType
     }
     if (_lambda4 >= 256)
     {
@@ -219,7 +219,7 @@ bool NlpWnconj::initVars()
     // The number of nlp problem variables
     _len = 2 * static_cast<int>(_db.numCells()) + static_cast<int>(_db.numSymGroups());
     // Allocate the soluction vec
-    _solutionVect = (double*)malloc(sizeof(double) * _len);
+    _solutionVect = (RealType*)malloc(sizeof(RealType) * _len);
 
     // The penalty coefficients
     _lambda1 = LAMBDA_1Init;
@@ -247,9 +247,9 @@ bool NlpWnconj::initVars()
     _alpha = NLP_WN_CONJ_ALPHA;
 
     // Total cell area
-    RealType totalCellArea = static_cast<double>(_db.calculateTotalCellArea());
+    RealType totalCellArea = static_cast<RealType>(_db.calculateTotalCellArea());
     _scale = sqrt(100 / (totalCellArea));
-    //_totalCellArea = static_cast<double>(_db.calculateTotalCellArea()) * _scale * _scale;
+    //_totalCellArea = static_cast<RealType>(_db.calculateTotalCellArea()) * _scale * _scale;
     _totalCellArea = 100;
 
     // Placement Boundary
@@ -257,19 +257,19 @@ bool NlpWnconj::initVars()
     {
         // If the constraint is set in the database, follow it.
         const auto &bb = _db.parameters().boundaryConstraint();
-        _boundary.setXLo(static_cast<double>(bb.xLo()) * _scale);
-        _boundary.setYLo(static_cast<double>(bb.yLo()) * _scale);
-        _boundary.setXHi(static_cast<double>(bb.xHi()) * _scale);
-        _boundary.setYHi(static_cast<double>(bb.yHi()) * _scale);
+        _boundary.setXLo(static_cast<RealType>(bb.xLo()) * _scale);
+        _boundary.setYLo(static_cast<RealType>(bb.yLo()) * _scale);
+        _boundary.setXHi(static_cast<RealType>(bb.xHi()) * _scale);
+        _boundary.setYHi(static_cast<RealType>(bb.yHi()) * _scale);
     }
     else
     {
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
-        double aspectRatio = 1;
-        double xLo = 0; double yLo = 0; 
-        double tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
-        double xHi = std::sqrt(tolerentArea * aspectRatio);
-        double yHi = tolerentArea / xHi;
+        RealType aspectRatio = 1;
+        RealType xLo = 0; RealType yLo = 0; 
+        RealType tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
+        RealType xHi = std::sqrt(tolerentArea * aspectRatio);
+        RealType yHi = tolerentArea / xHi;
         _boundary.set(xLo , yLo , xHi , yHi );
         INF("NlpWnconj::%s: automatical set boundary to be %s \n", __FUNCTION__, _boundary.toStr().c_str());
         /*
@@ -300,7 +300,7 @@ bool NlpWnconj::initVars()
     // Biying mark a FIXME here
     for (IntType idx = 0; idx < _len; ++idx)
     {
-        _solutionVect[idx] = static_cast<double>(std::rand() %20);
+        _solutionVect[idx] = static_cast<RealType>(std::rand() %20);
     }
 
     // Ensure the initial coordinate are different for symmetric pairs and shape coordinate
@@ -313,8 +313,8 @@ bool NlpWnconj::initVars()
     {
         for (IndexType idx = 0; idx < _db.numCells() * 2; ++idx)
         {
-            //double value = (static_cast<double>(idx ) * _boundary.xHi() + _boundary.xLo()) / static_cast<double>(_len);
-            double ratio;
+            //RealType value = (static_cast<RealType>(idx ) * _boundary.xHi() + _boundary.xLo()) / static_cast<RealType>(_len);
+            RealType ratio;
             if (idx %2 == 0)
             {
                 ratio = _boundary.xHi() / _db.numCells();
@@ -323,7 +323,7 @@ bool NlpWnconj::initVars()
             {
                 ratio = _boundary.yHi() / _db.numCells();
             }
-            double value = (rand() % _db.numCells() ) * ratio;
+            RealType value = (rand() % _db.numCells() ) * ratio;
             _solutionVect[idx] = value;
             //_solutionVect[idx] = (value - _defaultSymAxis) /2 + _defaultSymAxis;
         }
@@ -350,12 +350,12 @@ bool NlpWnconj::initVars()
 // The following is a trick to avoid using static member functions
 // The wnlib using functional pointer to obj function and grad function, which needs to be static if naively implemented
 extern NlpWnconj *nlpPtr;
-double objFuncWrapper(double *vec)
+RealType objFuncWrapper(RealType *vec)
 {
     return nlpPtr->objFunc(vec);
 }
 
-void gradFuncWrapper(double *vec1, double *vec2)
+void gradFuncWrapper(RealType *vec1, RealType *vec2)
 {
     return nlpPtr->gradFunc(vec1, vec2);
 }
@@ -366,8 +366,8 @@ bool NlpWnconj::nlpKernel()
     _iter = 0; // Current number of iterations
 
 
-    double *initial_coord_x0s;
-    initial_coord_x0s = (double*)malloc(sizeof(double) * _len);
+    RealType *initial_coord_x0s;
+    initial_coord_x0s = (RealType*)malloc(sizeof(RealType) * _len);
     for (int i = 0; i < _len; ++i)
     {
         initial_coord_x0s[i] = 1.0;
@@ -410,7 +410,7 @@ bool NlpWnconj::nlpKernel()
                 break;
             }
         }
-        double objective = objFunc(_solutionVect);
+        RealType objective = objFunc(_solutionVect);
 #ifdef DEBUG_GR
         DBG("NlpWnconj::%s: objective %f at iter %d \n", __FUNCTION__, objective, _iter);
 #endif
@@ -437,9 +437,9 @@ void NlpWnconj::initOperators()
             IndexType cellIdx = pin.cellIdx();
             const auto &cell = _db.cell(cellIdx);
             // Get the cell location from the input arguments
-            XY<double> midLoc = XY<double>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-            XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
-            XY<double> pinLoc = midLoc - cellLoLoc;
+            XY<RealType> midLoc = XY<RealType>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
+            XY<RealType> cellLoLoc = XY<RealType>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+            XY<RealType> pinLoc = midLoc - cellLoLoc;
             op.addVar(cellIdx, pinLoc.x(), pinLoc.y());
         }
     }
@@ -510,7 +510,7 @@ bool NlpWnconj::cleanup()
 PROJECT_NAMESPACE_END
 #include "writer/gdsii/WriteGds.h"
 PROJECT_NAMESPACE_BEGIN
-void NlpWnconj::drawCurrentLayout(const std::string &filename, double * values)
+void NlpWnconj::drawCurrentLayout(const std::string &filename, RealType * values)
 {
     auto wg = std::make_shared<WriteGds>(filename);
     if (!wg->initWriter())

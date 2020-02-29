@@ -12,42 +12,6 @@
 
 PROJECT_NAMESPACE_BEGIN
 
-
-class ObjIsNanExcpetion : public std::exception 
-{
-    public:
-    virtual const char* what() const throw()
-    {
-        return "Obj is Nan";
-    }
-};
-
-class ObjIsInfExcpetion : public std::exception 
-{
-    public:
-    virtual const char* what() const throw()
-    {
-        return "Obj is inf";
-    }
-};
-
-class GradIsNanExcpetion : public std::exception 
-{
-    public:
-    virtual const char* what() const throw()
-    {
-        return "Grad is Nan";
-    }
-};
-
-class GradIsInfExcpetion : public std::exception 
-{
-    public:
-    virtual const char* what() const throw()
-    {
-        return "Grad is inf";
-    }
-};
 struct placement_differentiable_concept {};
 
 template <typename ConceptType>

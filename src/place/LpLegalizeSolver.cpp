@@ -279,7 +279,7 @@ void LpLegalizeSolver::addIlpConstraints()
                 const auto &pin = _db.pin(pinIdx);
                 const auto &cell = _db.cell(pin.cellIdx());
                 auto midLoc = pin.midLoc();
-                XY<double> cellLoLoc = XY<double>(cell.cellBBox().xLo(), cell.cellBBox().yLo());
+                XY<RealType> cellLoLoc = XY<RealType>(cell.cellBBox().xLo(), cell.cellBBox().yLo());
                 midLoc -= cellLoLoc;
                 if (_isHor)
                 {

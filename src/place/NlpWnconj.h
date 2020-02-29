@@ -66,10 +66,10 @@ class NlpWnconj
         /*------------------------------*/ 
         /// @brief calculate the total overlap area
         /// @return the total overlap area
-        double totalOvlArea(double *values);
+        RealType totalOvlArea(RealType *values);
         /// @brief get total asymmetric distance
         /// @return the total asymmetric distance
-        double totalAsymDist() { return 0; }
+        RealType totalAsymDist() { return 0; }
         /// @brief evalute the current solution. Specifically, calculating _curOvlRatio, _curOOBRatio, _curAsymDist
         void evaluteSolution();
     public:
@@ -79,11 +79,11 @@ class NlpWnconj
         /// @brief the objective function
         /// @param the pointer to the current variables
         /// @return the evaluated objective function
-        double objFunc(double *values);
+        RealType objFunc(RealType *values);
         /// @brief the gradient function
         /// @param first: the pointer to the gradients
         /// @param second: the pointer to the values
-        void gradFunc(double *grad, double *values);
+        void gradFunc(RealType *grad, RealType *values);
     private:
         /*------------------------------*/ 
         /* Update penalty multiplier    */
@@ -103,8 +103,8 @@ class NlpWnconj
             if (!_db.parameters().ifUsePinAssignment()) { return; }
             auto cellLocQueryFunc = [&] (IndexType cellIdx)
             {
-                double x = _solutionVect[cellIdx * 2];
-                double y = _solutionVect[cellIdx * 2 + 1];
+                RealType x = _solutionVect[cellIdx * 2];
+                RealType y = _solutionVect[cellIdx * 2 + 1];
                 LocType xLoc = ::klib::autoRound<LocType>(x / _scale);
                 LocType yLoc = ::klib::autoRound<LocType>(y / _scale);
                 return XY<LocType>(xLoc, yLoc);
@@ -147,7 +147,7 @@ class NlpWnconj
                     const auto &net = _db.net(netIdx);
                     if (net.isValidVirtualPin())
                     {
-                        XY<double> virtualPinLoc = XY<double>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                        XY<RealType> virtualPinLoc = XY<RealType>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
                         virtualPinLoc *= _scale;
                         _hpwlOps[netIdx].setVirtualPin(virtualPinLoc.x(), virtualPinLoc.y());
                     }
@@ -157,7 +157,7 @@ class NlpWnconj
 
 #ifdef DEBUG_GR
 #ifdef DEBUG_DRAW
-        void drawCurrentLayout(const std::string &filename, double * values);
+        void drawCurrentLayout(const std::string &filename, RealType * values);
 #endif
 #endif
 
@@ -168,25 +168,25 @@ class NlpWnconj
     private:
         Database &_db; ///< The placement engine database
         int _code = -1; ///< The wnlib status of the completed search. WN_SUCCESS WN_SUBOPTIMAL WN_UNBOUNDED
-        double _valMin = 0; ///< The wnlib objective function value at the final solution
-        double *_solutionVect = nullptr; ///< Loaded as beginning points and return containing the final solution
+        RealType _valMin = 0; ///< The wnlib objective function value at the final solution
+        RealType *_solutionVect = nullptr; ///< Loaded as beginning points and return containing the final solution
         int _len = -1; ///< The number of variables in "_solutionVect"
-        double _totalCellArea = 0; ///< The total cell area
-        double _curOvlRatio = 1; ///< The current overlapping ratio
-        double _curOOBRatio = 1; ///< The current out of boundry ratio
-        double _curAsymDist = 1; ///< The current asymmetric distance
-        double _lambda1; ///< The coefficient for x and y overlap penalty 
-        double _lambda2; ///< The cofficient for out of boundry penalty
-        double _lambda3; ///< The coefficient for wire length penalty
-        double _lambda4; ///< The coefficient for asymmetry penalty
+        RealType _totalCellArea = 0; ///< The total cell area
+        RealType _curOvlRatio = 1; ///< The current overlapping ratio
+        RealType _curOOBRatio = 1; ///< The current out of boundry ratio
+        RealType _curAsymDist = 1; ///< The current asymmetric distance
+        RealType _lambda1; ///< The coefficient for x and y overlap penalty 
+        RealType _lambda2; ///< The cofficient for out of boundry penalty
+        RealType _lambda3; ///< The coefficient for wire length penalty
+        RealType _lambda4; ///< The coefficient for asymmetry penalty
         RealType _maxWhiteSpace;
         RealType _lambdaMaxOverlap;
-        double _alpha; ///< Used in objective function
-        Box<double> _boundary; ///< The boundary constraint for the placement
-        double _overlapThreshold = NLP_WN_CONJ_OVERLAP_THRESHOLD; ///< Threshold for whether increase penalty for overlapping penalty
-        double _oobThreshold = NLP_WN_CONJ_OOB_THRESHOLD; ///< The threshold for wehther increasing the penalty for out of boundry
-        double _asymThreshold = NLP_WN_CONJ_ASYM_THRESHOLD; ///< The threshold for whether increasing the penalty for asymmetry
-        double _scale = 0.01;
+        RealType _alpha; ///< Used in objective function
+        Box<RealType> _boundary; ///< The boundary constraint for the placement
+        RealType _overlapThreshold = NLP_WN_CONJ_OVERLAP_THRESHOLD; ///< Threshold for whether increase penalty for overlapping penalty
+        RealType _oobThreshold = NLP_WN_CONJ_OOB_THRESHOLD; ///< The threshold for wehther increasing the penalty for out of boundry
+        RealType _asymThreshold = NLP_WN_CONJ_ASYM_THRESHOLD; ///< The threshold for whether increasing the penalty for asymmetry
+        RealType _scale = 0.01;
         RealType _fOverlap = 0;
         RealType _fOOB = 0;
         RealType _fHpwl = 0;
@@ -194,7 +194,7 @@ class NlpWnconj
         RealType _fMaxOver = 0;
         RealType _epsilon = NLP_WN_CONJ_EPISLON;///< For updating penalty multipliers
         IndexType _iter = 0; ///< Current iteration
-        double _tao = 0.5; ///< The exponential decay factor for step size
+        RealType _tao = 0.5; ///< The exponential decay factor for step size
         IndexType _maxIter = NLP_WN_CONJ_DEFAULT_MAX_ITER; ///< The maximum iterations
         IndexType _innerIter = 0; ///< The iteration in the inner non-linear optimization problem
         RealType _defaultSymAxis = 0;
@@ -209,7 +209,7 @@ class NlpWnconj
         std::vector<nlp_asym_type> _asymOps; ///< The asymmetric penalty operators
 };
 
-inline double NlpWnconj::objFunc(double *values)
+inline RealType NlpWnconj::objFunc(RealType *values)
 {
     auto getVarFunc = [&] (IndexType cellIdx, Orient2DType orient)
     {
@@ -232,7 +232,7 @@ inline double NlpWnconj::objFunc(double *values)
     };
 
     // Initial the objective to be 0 and add the non-zero to it
-    double result = 0;
+    RealType result = 0;
     _fOverlap = 0;
     _fOOB = 0;
     _fHpwl = 0;
@@ -271,7 +271,7 @@ inline double NlpWnconj::objFunc(double *values)
     return result;
 }
 
-inline void NlpWnconj::gradFunc(double *grad, double *values)
+inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
 {
     auto getVarFunc = [&] (IndexType cellIdx, Orient2DType orient)
     {
@@ -345,11 +345,11 @@ inline void NlpWnconj::gradFunc(double *grad, double *values)
     
 }
 
-inline double NlpWnconj::totalOvlArea(double *values)
+inline RealType NlpWnconj::totalOvlArea(RealType *values)
 {
     // naive implementation
     // TODO: better implementation
-    double area = 0;
+    RealType area = 0;
     for (IndexType cellIdxI = 0; cellIdxI < _db.numCells(); ++cellIdxI)
     {
         const auto &bboxI = _db.cell(cellIdxI).cellBBox();
@@ -357,19 +357,19 @@ inline double NlpWnconj::totalOvlArea(double *values)
         {
             const auto &bboxJ = _db.cell(cellIdxJ).cellBBox();
             // Values arrangement x0, y0, x1, y1...
-            double xLoI = values[2 * cellIdxI]; double xHiI = xLoI + bboxI.xLen() * _scale;
-            double xLoJ = values[2 * cellIdxJ]; double xHiJ = xLoJ + bboxJ.xLen() * _scale;
-            double yLoI = values[2 * cellIdxI + 1]; double yHiI = yLoI + bboxI.yLen() * _scale;
-            double yLoJ = values[2 * cellIdxJ + 1]; double yHiJ = yLoJ + bboxJ.yLen() * _scale;
+            RealType xLoI = values[2 * cellIdxI]; RealType xHiI = xLoI + bboxI.xLen() * _scale;
+            RealType xLoJ = values[2 * cellIdxJ]; RealType xHiJ = xLoJ + bboxJ.xLen() * _scale;
+            RealType yLoI = values[2 * cellIdxI + 1]; RealType yHiI = yLoI + bboxI.yLen() * _scale;
+            RealType yLoJ = values[2 * cellIdxJ + 1]; RealType yHiJ = yLoJ + bboxJ.yLen() * _scale;
             // max (min(xHiI - xLoJ, xHiJ - xLoI), 0)
-            double var1X = xHiI - xLoJ;
-            double var2X = xHiJ - xLoI;
-            double overlapX = std::min(var1X, var2X);
+            RealType var1X = xHiI - xLoJ;
+            RealType var2X = xHiJ - xLoI;
+            RealType overlapX = std::min(var1X, var2X);
             overlapX = std::max(overlapX, 0.0);
             // max (min(yHiI - yLoJ, yHiJ - yLoI), 0)
-            double var1Y = yHiI - yLoJ;
-            double var2Y = yHiJ - yLoI;
-            double overlapY = std::min(var1Y, var2Y);
+            RealType var1Y = yHiI - yLoJ;
+            RealType var2Y = yHiJ - yLoI;
+            RealType overlapY = std::min(var1Y, var2Y);
             overlapY = std::max(overlapY, 0.0);
             if (overlapX * overlapY >= 0.000001)
             area +=  overlapX * overlapY;
@@ -381,28 +381,28 @@ inline double NlpWnconj::totalOvlArea(double *values)
 /// @brief evalute the current solution. Specifically, calculating _curOvlRatio, _curOOBRatio, _curAsymDist
 inline void NlpWnconj::evaluteSolution()
 {
-    double totalOvlArea = this->totalOvlArea(_solutionVect);
+    RealType totalOvlArea = this->totalOvlArea(_solutionVect);
     _curOvlRatio = totalOvlArea / (_totalCellArea );//* _scale * _scale);
     // out of boundary
-    double totalOOBarea = 0.0;
+    RealType totalOOBarea = 0.0;
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         const auto &bbox = _db.cell(cellIdx).cellBBox();
-        double xLo = _solutionVect[2 * cellIdx]; double xHi = xLo + bbox.xLen() * _scale;
-        double yLo = _solutionVect[2 * cellIdx + 1]; double yHi = yLo + bbox.yLen() * _scale;
+        RealType xLo = _solutionVect[2 * cellIdx]; RealType xHi = xLo + bbox.xLen() * _scale;
+        RealType yLo = _solutionVect[2 * cellIdx + 1]; RealType yHi = yLo + bbox.yLen() * _scale;
         /*
-        double varX = 0;
+        RealType varX = 0;
         varX += std::max(-xLo + _boundary.xLo(), 0.0);
         varX += std::max(xHi - _boundary.xHi(), 0.0);
-        double varY = 0;
+        RealType varY = 0;
         varY += std::max(_boundary.yLo() - yLo, 0.0);
         varY += std::max(yHi - _boundary.yHi(), 0.0);
         totalOOBarea +=  varX * varY;
         */
-        double varX = 0;
+        RealType varX = 0;
         varX += std::max(-xLo + _boundary.xLo(), 0.0);
         varX += std::max(xHi - _boundary.xHi(), 0.0);
-        double varY = 0;
+        RealType varY = 0;
         varY += std::max(_boundary.yLo() - yLo, 0.0);
         varY += std::max(yHi - _boundary.yHi(), 0.0);
         totalOOBarea +=  (varX - _boundary.xLen()) * (varY - _boundary.yLen());

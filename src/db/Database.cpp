@@ -181,7 +181,8 @@ void Database::drawCellBlocks(const std::string &filename)
         XY<LocType> cellLoc = XY<LocType>(cell.xLoc(), cell.yLoc());
         cellBox.offsetBy(cellLoc);
         wg->writeRectangle(cellBox, cellIdx, 0);
-        // Also wrute pins
+#if 0
+        // Also write pins
         for (IndexType pinIdxInCell = 0; pinIdxInCell < cell.numPinIdx(); ++pinIdxInCell)
         {
             const auto &pin = this->pin(cell.pinIdx(pinIdxInCell));
@@ -189,6 +190,7 @@ void Database::drawCellBlocks(const std::string &filename)
             pinBox.offsetBy(cellLoc);
             wg->writeRectangle(pinBox, 100 + cellIdx, 0);
         }
+#endif
     }
     // net virtual pins
     for (IndexType netIdx = 0; netIdx < numNets(); ++netIdx)

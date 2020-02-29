@@ -28,7 +28,7 @@ public:
     const XY<T> &    ur() const                      { return _ur; }
     const XY<T>      center() const                  { return XY<T>((_ll.x() + _ur.x()) / 2 , (_ll.y() + _ur.y()) / 2); }
     bool             valid() const                   { return _ll.x() <= _ur.x() && _ll.y() <= _ur.y(); }
-    double                area() const                    { return (_ur.x() - _ll.x()) * (_ur.y() - _ll.y()); }
+    float                area() const                    { return (_ur.x() - _ll.x()) * (_ur.y() - _ll.y()); }
 
     // Setters
     void            set(T xLo, T yLo, T xHi, T yHi)  { _ll.setXY(xLo, yLo); _ur.setXY(xHi, yHi); }
@@ -188,8 +188,8 @@ namespace klib {
             else 
             {
                 // If no parallel run and two shapes are disjointed, then count the spacing as the distance between one _ur and one _ll
-                double xDif = std::min(lhs.xHi(), rhs.xHi()) - std::max(lhs.xLo(), rhs.xLo());
-                double yDif = std::min(lhs.yHi(), rhs.yHi()) - std::max(lhs.yLo(), rhs.yLo());
+                float xDif = std::min(lhs.xHi(), rhs.xHi()) - std::max(lhs.xLo(), rhs.xLo());
+                float yDif = std::min(lhs.yHi(), rhs.yHi()) - std::max(lhs.yLo(), rhs.yLo());
                 return static_cast<T>(std::hypot(xDif, yDif));
             }
         }
