@@ -65,9 +65,8 @@ bool LpLegalizeSolver::solveLp()
     }
 }
 
-void LpLegalizeSolver::configureObjFunc()
+void LpLegalizeSolver::addWirelengthObj()
 {
-    // Wirelength
     if (_optHpwl == 1)
     {
         bool hasAtLeastOneNet = false;
@@ -91,20 +90,43 @@ void LpLegalizeSolver::configureObjFunc()
             Assert(false);
         }
     }
-    // Area
+}
+
+void LpLegalizeSolver::addAreaObj()
+{
     if (_optArea == 1)
     {
         _obj += _dim;
     }
 }
 
-void LpLegalizeSolver::addIlpVars()
+void LpLegalizeSolver::configureObjFunc()
 {
-    // Calculate how many variables are there in the ILP model
-    numVars = _db.numCells() + _db.numNets() * 2 * _optHpwl + 1 * _optArea;
-    // Reserve the variables in the model
-    _ilpModel.reserveVariables(numVars);
-    // add coordinate variables
+    // Wirelength
+    this->addWirelengthObj();
+    // Area
+    this->addAreaObj();
+}
+
+IndexType LpLegalizeSolver::numVars() const
+{
+    auto numLocVars = _db.numCells();
+    auto numHpwlVars = _db.numNets() * 2 * _optHpwl;
+    auto numBoundaryVars = 1 * _optArea;
+    IndexType numSymVars;
+    if (_isMultipleSymGrp)
+    {
+        numSymVars = _db.numSymGroups();
+    }
+    else
+    {
+        numSymVars = 1;
+    }
+    return numLocVars + numHpwlVars + numBoundaryVars + numSymVars;
+}
+
+void LpLegalizeSolver::addLocVars()
+{
     // NOTE: the _locs variables here are general location variables
     _locs.resize(_db.numCells());
     for (IndexType i = 0; i < _db.numCells(); ++i)
@@ -113,12 +135,15 @@ void LpLegalizeSolver::addIlpVars()
                                                 limbo::solvers::CONTINUOUS, 
                                                 "loc_" + std::to_string(i));
     }
-    // Add wire length variables
-    _wlL.resize(_db.numNets());
-    _wlR.resize(_db.numNets());
+}
+
+void LpLegalizeSolver::addWirelengthVars()
+{
     // add HPWL variables
     if (_optHpwl == 1)
     {
+        _wlL.resize(_db.numNets());
+        _wlR.resize(_db.numNets());
         for (IndexType i =0; i < _db.numNets(); ++i)
         {
             AT(_wlL, i) = _ilpModel.addVariable(0, std::numeric_limits<RealType>::max(),
@@ -129,27 +154,62 @@ void LpLegalizeSolver::addIlpVars()
                                                 "wlr_" + std::to_string(i));
         }
     }
+}
+
+void LpLegalizeSolver::addAreaVars()
+{
     if (_optArea == 1)
     {
         _dim = _ilpModel.addVariable(0, std::numeric_limits<RealType>::max(),
                                     limbo::solvers::CONTINUOUS,
                                     "dim");
     }
-    // Symmetric group axis variables
-    _symLocs.resize(_db.numSymGroups());
-    for (IndexType i = 0; i < _db.numSymGroups(); ++i)
+}
+
+void LpLegalizeSolver::addSymVars()
+{
+    if (_isMultipleSymGrp)
     {
-        AT(_symLocs, i) = _ilpModel.addVariable(0,
-                std::numeric_limits<RealType>::max(),
-                limbo::solvers::CONTINUOUS,
-                "symLoc_"+std::to_string(i));
+        // Symmetric group axis variables
+        _symLocs.resize(_db.numSymGroups());
+        for (IndexType i = 0; i < _db.numSymGroups(); ++i)
+        {
+            AT(_symLocs, i) = _ilpModel.addVariable(0,
+                    std::numeric_limits<RealType>::max(),
+                    limbo::solvers::CONTINUOUS,
+                    "symLoc_"+std::to_string(i));
+        }
     }
+    else
+    {
+        _symLocs.resize(1);
+        _symLocs[0] = _ilpModel.addVariable(0,
+                    std::numeric_limits<RealType>::max(),
+                    limbo::solvers::CONTINUOUS,
+                    "symLoc_"+std::to_string(0));
+    }
+}
+
+void LpLegalizeSolver::addIlpVars()
+{
+    // Calculate how many variables are there in the ILP model
+    auto numVars = this->numVars();
+    // Reserve the variables in the model
+    _ilpModel.reserveVariables(numVars);
+
+    // add coordinate variables
+    this->addLocVars();
+    // Add wire length variables
+    this->addWirelengthVars();
+    // Add area variables
+    this->addAreaVars();
+    // Add symmetric variables
+    this->addSymVars();
 
 }
 
-void LpLegalizeSolver::addIlpConstraints()
+void LpLegalizeSolver::addBoundaryConstraints()
 {
-    // Add boundary constraint
     for (IndexType i = 0;  i < _db.numCells(); ++i)
     {
         if (_optArea == 0)
@@ -183,8 +243,10 @@ void LpLegalizeSolver::addIlpConstraints()
             }
         }
     }
+}
 
-    // Add topology constraints
+void LpLegalizeSolver::addTopologyConstraints()
+{
     for (auto & edge : _constrains.edges())
     {
         IndexType sourceIdx = edge.source();
@@ -220,13 +282,25 @@ void LpLegalizeSolver::addIlpConstraints()
 #endif
     }
 
-    // Add symmetric constraints
+}
+
+void LpLegalizeSolver::addSymmetryConstraints()
+{
     if (_isHor)
     {
         // Force them to be symmetric along an axis
         for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
         {
             const auto &symGrp = _db.symGroup(symGrpIdx);
+            LpModelType::variable_type *symVar;
+            if (_isMultipleSymGrp)
+            {
+                symVar = &_symLocs[symGrpIdx];
+            }
+            else
+            {
+                symVar = &_symLocs[0];
+            }
 
             for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs(); ++symPairIdx)
             {
@@ -238,7 +312,7 @@ void LpLegalizeSolver::addIlpConstraints()
 #endif
                 _ilpModel.addConstraint(AT(_locs, symPair.firstCell()) 
                         + AT(_locs, symPair.secondCell()) 
-                        - 2*AT(_symLocs, symGrpIdx) 
+                        - 2 * (*symVar) 
                         == 
                         -_db.cell(symPair.firstCell()).cellBBox().xLen()); // Two cells are equal in width <- assumption
                 AssertMsg(_db.cell(symPair.firstCell()).cellBBox().xLen() == _db.cell(symPair.secondCell()).cellBBox().xLen(), "cell %s and cell %s \n", _db.cell(symPair.firstCell()).name().c_str(),  _db.cell(symPair.secondCell()).name().c_str());
@@ -247,7 +321,7 @@ void LpLegalizeSolver::addIlpConstraints()
             {
                 IndexType ssCellIdx = symGrp.selfSym(selfSymIdx);
                 // x1 + width + x2 = 2 * symAxis
-                _ilpModel.addConstraint(2 * AT(_locs, ssCellIdx) - 2 * AT(_symLocs, symGrpIdx)
+                _ilpModel.addConstraint(2 * AT(_locs, ssCellIdx) - 2 * (*symVar)
                         == - _db.cell(ssCellIdx).cellBBox().xLen());
             }
         }
@@ -266,8 +340,10 @@ void LpLegalizeSolver::addIlpConstraints()
             }
         }
     }
+}
 
-    // Add HPWL constraints
+void LpLegalizeSolver::addHpwlConstraints()
+{
     if (_optHpwl)
     {
         for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
@@ -332,6 +408,18 @@ void LpLegalizeSolver::addIlpConstraints()
             }
         }
     }
+}
+
+void LpLegalizeSolver::addIlpConstraints()
+{
+    // Add boundary constraint
+    addBoundaryConstraints();
+    // Add topology constraints
+    addTopologyConstraints();
+    // Add symmetric constraints
+    addSymmetryConstraints();
+    // Add HPWL constraints
+    addHpwlConstraints();
 }
 
 PROJECT_NAMESPACE_END

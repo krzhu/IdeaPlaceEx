@@ -135,14 +135,39 @@ class LpLegalizeSolver
         /// @param the maximum width or height in the hpwl optimization problem
         void setWStar(RealType wStar) { _wStar = wStar; }
     private:
-        /// @brief add ILP variables
-        void addIlpVars();
-        /// @brief add constraints
-        void addIlpConstraints();
-        /// @brief set the objective function
-        void configureObjFunc();
         /// @brief solve the LP
         bool solveLp();
+        /* Varibles functions */
+        /// @brief add ILP variables
+        void addIlpVars();
+        /// @brief calculate the number of variables32
+        IndexType numVars() const;
+        /// @brief add location variables
+        void addLocVars();
+        /// @brief add wirelegth variables
+        void addWirelengthVars();
+        /// @brief add area variables
+        void addAreaVars();
+        /// @brief add sym group varibales
+        void addSymVars();
+        /* Obj functions */
+        /// @brief set the objective function
+        void configureObjFunc();
+        /// @brief add wire length objective
+        void addWirelengthObj();
+        /// @brief add area objective
+        void addAreaObj();
+        /* Constraint functions */
+        /// @brief add constraints
+        void addIlpConstraints();
+        /// @brief add area constraints
+        void addBoundaryConstraints();
+        /// @brief add topology constraints
+        void addTopologyConstraints();
+        /// @brief add symmetry constraints
+        void addSymmetryConstraints();
+        /// @brief add hpwl constraints
+        void addHpwlConstraints();
     private:
         /* Configurations - Inputs */
         Database &_db; ///< The database for the Ideaplace
@@ -153,13 +178,17 @@ class LpLegalizeSolver
         /* Optimization supporting variables */
         LpModelType _ilpModel; ///< The ILP model
         LpModelType::expression_type _obj; ///< The objective function of the ILP model
-        IndexType numVars = INDEX_TYPE_MAX; ///< The number of variables in the ILP model
         std::vector<LpModelType::variable_type> _locs; ///< The location variables of the ILP model
         std::vector<LpModelType::variable_type> _wlL; ///< The left wirelength variables of the ILP model
         std::vector<LpModelType::variable_type> _wlR; ///< The right wirelength variables of the ILP model
         LpModelType::variable_type _dim; ///< The variable for area optimization
         RealType _wStar = 0; ///< The optimal W found in legalization step
         std::vector<LpModelType::variable_type> _symLocs; ///< The variable for symmetric group axises
+#ifdef MULTI_SYM_GROUP
+        bool _isMultipleSymGrp = true;
+#else
+        bool _isMultipleSymGrp = false;
+#endif 
         //SolverType _solver; ///< Solver
         /*  Optimization Results */
         limbo::solvers::SolverProperty _optimStatus; ///< The resulting status
