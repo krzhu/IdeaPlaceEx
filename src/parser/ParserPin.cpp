@@ -47,15 +47,15 @@ bool ParserPin::read(const std::string &filename)
         {
             // Create a new cell
             cellIdx = _db.allocateCell();
-            _db.cell(cellIdx).setName(AT(words, 0));
+            _db.cell(cellIdx).setName(words.at(0));
         }
         else if (words.size() == 2)
         {
             Assert(cellIdx !=  INDEX_TYPE_MAX);
             pinIdx = _db.allocatePin();
-            _db.pin(pinIdx).setName(AT(words, 0));
+            _db.pin(pinIdx).setName(words.at(0));
             _db.cell(cellIdx).addPin(pinIdx); // Add pin to the cell
-            numShapes = ::atoi(AT(words, 1).c_str()); // The second one denotes how many shapes there is in the pin
+            numShapes = ::atoi(words.at(1).c_str()); // The second one denotes how many shapes there is in the pin
         }
         else if (words.size() > 2)
         {
@@ -65,14 +65,14 @@ bool ParserPin::read(const std::string &filename)
             // Shapes are always rectagnles
             for (IndexType idx = 0; idx < numShapes; ++idx)
             {
-                //IndexType gdsLayer = ::atoi(AT(words, idx * 5).c_str());
-                RealType real = stripShape(AT(words, idx *5 + 1)) * _db.tech().dbu();
+                //IndexType gdsLayer = ::atoi(words.at(idx * 5).c_str());
+                RealType real = stripShape(words.at(idx *5 + 1)) * _db.tech().dbu();
                 LocType xLo = ::klib::autoRound<LocType>(real);
-                real = stripShape(AT(words, idx *5 + 2)) * _db.tech().dbu();
+                real = stripShape(words.at(idx *5 + 2)) * _db.tech().dbu();
                 LocType yLo = ::klib::autoRound<LocType>(real);
-                real = stripShape(AT(words, idx *5 + 3)) * _db.tech().dbu();
+                real = stripShape(words.at(idx *5 + 3)) * _db.tech().dbu();
                 LocType xHi = ::klib::autoRound<LocType>(real);
-                real = stripShape(AT(words, idx *5 + 4)) * _db.tech().dbu();
+                real = stripShape(words.at(idx *5 + 4)) * _db.tech().dbu();
                 LocType yHi = ::klib::autoRound<LocType>(real);
                 pin.shape().unionBox(Box<LocType>(xLo, yLo, xHi, yHi));
             }

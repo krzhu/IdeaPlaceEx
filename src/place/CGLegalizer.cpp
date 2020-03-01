@@ -217,8 +217,8 @@ void CGLegalizer::generateConstraints()
             // overlapAny part
             if (cellBox1.overlap(cellBox2))
             {
-                AT(overlapAny, idx1) = true;
-                AT(overlapAny, idx2) = true;
+                overlapAny.at(idx1) = true;
+                overlapAny.at(idx2) = true;
             }
             else
             {
@@ -679,7 +679,7 @@ void CGLegalizer::dfsGraph(Vector2D<IntType>& dpTab, std::vector<IntType> &visit
     IndexType targetIdx = sourceIdx + 1;
     if (nodeIdx < sourceIdx)
     {
-        AT(visited, nodeIdx) = 1;
+        visited.at(nodeIdx) = 1;
         dpTab.at(nodeIdx, nodeIdx) = 1;
     }
     auto neighbors = boost::adjacent_vertices(boost::vertex(nodeIdx, cg.boostGraph()), cg.boostGraph());
@@ -690,7 +690,7 @@ void CGLegalizer::dfsGraph(Vector2D<IntType>& dpTab, std::vector<IntType> &visit
         {
             continue;
         }
-        if (AT(visited, neiNode) == 0)
+        if (visited.at(neiNode) == 0)
         {
             dfsGraph(dpTab, visited, neiNode, cg, idxMap);
         }
@@ -861,17 +861,17 @@ void CGLegalizer::initIrredundantEdgesInsert(bool isHor , std::vector<IndexType>
         }
         if (it2 == orders.end())
         {
-            AT(cand, cellIdx) = cand.size() - 1; // Point to virtual target
+            cand.at(cellIdx) = cand.size() - 1; // Point to virtual target
         }
         else
         {
             IndexType cellIdx2 = *it2;
-            AT(cand, cellIdx) = cellIdx2;
+            cand.at(cellIdx) = cellIdx2;
         }
     } 
     else // it != orders.end() - 1
     {
-        AT(cand, cellIdx) = cand.size() - 1; // Point to virtual target
+        cand.at(cellIdx) = cand.size() - 1; // Point to virtual target
     }
     // Then check the ingoing node
     if (it != orders.begin())
@@ -891,17 +891,17 @@ void CGLegalizer::initIrredundantEdgesInsert(bool isHor , std::vector<IndexType>
         }
         if (it2 + 1 == orders.begin())
         {
-            AT(cand, cand.size() - 1) = cellIdx; // Point virtual source to this cell
+            cand.at(cand.size() - 1) = cellIdx; // Point virtual source to this cell
         }
         else
         {
             IndexType cellIdx2 = *it2;
-            AT(cand, cellIdx2) = cellIdx; // Point it2 to it
+            cand.at(cellIdx2) = cellIdx; // Point it2 to it
         }
     }
     else // it != orders.begin()
     {
-        AT(cand, cand.size() - 1) = cellIdx; // Point virtual source to this cell
+        cand.at(cand.size() - 1) = cellIdx; // Point virtual source to this cell
     }
 }
 
@@ -929,7 +929,7 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
         if (it2 == orders.end())
         {
             // Point to the virtual target
-            if (AT(cand, cellIdx) == targetIdx)
+            if (cand.at(cellIdx) == targetIdx)
             {
                 if (!isHor)
                 {
@@ -947,8 +947,8 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
         {
             IndexType cellIdx2 = *it2;
             auto cellBox2 = _db.cell(*it2).cellBBoxOff();
-            if (AT(cand, cellIdx) == static_cast<IntType>(cellIdx2) 
-                    || AT(cand, cellIdx) == targetIdx
+            if (cand.at(cellIdx) == static_cast<IntType>(cellIdx2) 
+                    || cand.at(cellIdx) == targetIdx
                     || (!horizontalOverlapping(cellBox1, cellBox2) && !verticalOverlapping(cellBox1, cellBox2))
                     )
             {
@@ -963,10 +963,10 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
                     _vConstraints.addConstraintEdge(cellIdx, cellIdx2, weight);
                 }
             }
-            else // AT(cand, cellIdx) ...
+            else // cand.at(cellIdx) ...
             {
                 while (it2 != orders.end()
-                        && AT(overlapAny, cellIdx2)
+                        && overlapAny.at(cellIdx2)
                         && ! (horizontalOverlapping(cellBox1, cellBox2) && verticalOverlapping(cellBox1, cellBox2)))
                 {
                     if (isHor)
@@ -993,7 +993,7 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
     {
         const auto & cellBox1 = _db.cell(cellIdx).cellBBoxOff();
         // Point to the virtual target
-        if (AT(cand, cellIdx) == targetIdx)
+        if (cand.at(cellIdx) == targetIdx)
         {
             if (isHor)
             {
@@ -1026,8 +1026,8 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
         if (it2 + 1 == orders.begin())
         {
             // Virtual source point to it
-            if (AT(cand, sourceIdx) == static_cast<IntType>(cellIdx) 
-                    || AT(overlapAny, cellIdx))
+            if (cand.at(sourceIdx) == static_cast<IntType>(cellIdx) 
+                    || overlapAny.at(cellIdx))
             {
                 // Add both h and v constraints
                 // Weight = 0
@@ -1063,7 +1063,7 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
             while (it2 != orders.begin())
             {
                 auto cellBox2 = _db.cell(*it2).cellBBoxOff();
-                if (!AT(overlapAny, *it2))
+                if (!overlapAny.at(*it2))
                 {
                     --it2;
                     continue;
@@ -1090,7 +1090,7 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
     else
     {
         // Virtual source point to it
-        if (AT(cand, sourceIdx) == static_cast<IntType>(cellIdx) || AT(overlapAny, cellIdx))
+        if (cand.at(sourceIdx) == static_cast<IntType>(cellIdx) || overlapAny.at(cellIdx))
         {
             // Weight = 0
             if (isHor)

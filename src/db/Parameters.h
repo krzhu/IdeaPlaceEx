@@ -30,6 +30,8 @@ class Parameters
         void openVirtualPinAssignment() { _ifUsePinAssignment = true; }
         /// @brief close the functionality of virtual pin assignment 
         void closeVirtualPinAssignment() { _ifUsePinAssignment = false; }
+        /// @brief set the number of threads
+        void setNumThreads(IndexType numThreads) { _numThreads = numThreads; }
         /*------------------------------*/ 
         /* Query the parameters         */
         /*------------------------------*/ 
@@ -41,9 +43,12 @@ class Parameters
         const Box<LocType> & boundaryConstraint() const { return _boundaryConstraint; }
         /// @brief get whether to use the virtual pin assignment functionality
         bool ifUsePinAssignment() const { return _ifUsePinAssignment; }
+        /// @brief get the number of thread
+        IndexType numThreads() const { return _numThreads; }
     private:
         Box<LocType> _boundaryConstraint = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
         bool _ifUsePinAssignment = false; ///< If do pin assignment
+        IndexType _numThreads = 10;
 };
 
 PROJECT_NAMESPACE_END

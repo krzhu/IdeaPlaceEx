@@ -60,6 +60,10 @@ class IdeaPlaceEx
         /// @param second: the cell index. if INDEX_TYPE_MAX, then will try to match the gds cellname
         void readGdsLayout(const std::string &gdsFile, IndexType cellIdx=INDEX_TYPE_MAX);
         /*------------------------------*/ 
+        /* paramters                    */
+        /*------------------------------*/ 
+        void setNumThreads(IndexType numThreads);
+        /*------------------------------*/ 
         /* tech input interface         */
         /*------------------------------*/ 
         /// @brief add gds layer

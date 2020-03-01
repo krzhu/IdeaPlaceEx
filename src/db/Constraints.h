@@ -64,7 +64,7 @@ class SymGroup
         /// @brief get one cell index of the self symmetric constraint in this group
         /// @param the index of self symmetric constraint in this group
         /// @return a cell index
-        IndexType selfSym(IndexType idx) const { return AT(_selfSyms, idx); }
+        IndexType selfSym(IndexType idx) const { return _selfSyms.at(idx); }
         /// @brief add symmetric pair. The parameters order does not matter
         /// @param one cell index
         /// @param another cell index
@@ -75,7 +75,7 @@ class SymGroup
         /// @brief get a symmetric pair in this group
         /// @param the index of the pair in this group
         /// @return a symmetric pair
-        const SymPair & symPair(IndexType idx) const { return AT(_symPairs, idx); }
+        const SymPair & symPair(IndexType idx) const { return _symPairs.at(idx); }
         IndexType numConstraints() const { return numSelfSyms() + numSymPairs(); }
         const std::vector<SymPair> & vSymPairs() const { return _symPairs; }
         const std::vector<IndexType> & vSelfSyms() const { return _selfSyms; }
@@ -107,4 +107,4 @@ class ProximityGroup
 
 PROJECT_NAMESPACE_END
 
-#endif //IDEAPLACE_DATABASE_CONSTRAINTS_H_
+#endif //IDEAPLACE_DBASE_CONSTRAINTS_H.at(

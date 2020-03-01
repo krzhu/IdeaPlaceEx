@@ -77,7 +77,7 @@ class Cell
         /// @brief get the database pin index
         /// @param the index of pin array
         /// @return the databse pin index
-        IndexType pinIdx(IndexType idx) const { return AT(_pinIdxArray, idx); }
+        IndexType pinIdx(IndexType idx) const { return _pinIdxArray.at(idx); }
         const std::vector<IndexType> & pins() const { return _pinIdxArray; }
         std::vector<IndexType> & pins() { return _pinIdxArray; }
         /// @brief allocate the bounding box array with the size of layers
@@ -89,18 +89,18 @@ class Cell
         }
         /// @brief check whether there is shape in the layer
         /// @return whether the layer has shape
-        bool layerHasShape(IndexType layerIdx) const { return AT(_bboxArray, layerIdx).valid(); }
+        bool layerHasShape(IndexType layerIdx) const { return _bboxArray.at(layerIdx).valid(); }
         /// @brief union a bounding box in a layer
         /// @param first: the layer index
         /// @param second: the shape bounding box
-        void unionBBox(IndexType layerIdx, const Box<LocType> & bbox) { AT(_bboxArray, layerIdx).unionBox(bbox); } 
+        void unionBBox(IndexType layerIdx, const Box<LocType> & bbox) { _bboxArray.at(layerIdx).unionBox(bbox); } 
         /// @brief get the bounding box of shapes in a layer
         /// @param first: the layer index
         /// @return the bounding box of the layer before offseted
         const Box<LocType> & bbox(IndexType layerIdx) const
         {
             Assert(this->layerHasShape(layerIdx)); 
-            return AT(_bboxArray, layerIdx); 
+            return _bboxArray.at(layerIdx); 
         }
         /// @brief get the actual bounding box (after being offsetted by the location) of shapes in a layer
         /// @param first: the layer index
@@ -108,7 +108,7 @@ class Cell
         const Box<LocType> bboxOff(IndexType layerIdx) const
         {
             Assert(this->layerHasShape(layerIdx)); 
-            return AT(_bboxArray, layerIdx).offsetBox(_loc);
+            return _bboxArray.at(layerIdx).offsetBox(_loc);
         }
         void forceExtendToGrid(LocType gridStep)
         {

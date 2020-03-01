@@ -18,12 +18,6 @@
 
 //#define NODEBUG
 
-#ifdef NODEBUG
-#define AT(vec, idx) vec[idx]
-#else
-#define AT(vec, idx) vec.at(idx)
-#endif /// NODEBUG
-
 #define PIN_ASSIGN_IN_GP
 #define PIN_ASSIGN_IN_LG
 

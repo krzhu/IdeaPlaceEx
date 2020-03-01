@@ -60,7 +60,7 @@ class Pin
         /// @brief get one net index that this pin has
         /// @param the index in the net indices array
         /// @return one net index in database
-        IndexType netIdx(IndexType idx) const { return AT(_netIdxArray, idx); }
+        IndexType netIdx(IndexType idx) const { return _netIdxArray.at(idx); }
         /*------------------------------*/ 
         /* Utils                        */
         /*------------------------------*/ 

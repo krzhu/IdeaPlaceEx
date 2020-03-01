@@ -18,7 +18,7 @@ bool Database::initCells()
 bool Database::initCell(IndexType cellIdx)
 {
     IndexType numLayers = this->tech().numLayers();
-    AT(_cellArray, cellIdx).allocateLayers(numLayers);
+    _cellArray.at(cellIdx).allocateLayers(numLayers);
     return true;
 }
 
@@ -37,10 +37,10 @@ LocType Database::hpwl() const
         LocType yMin = LOC_TYPE_MAX;
         for (IndexType pinIdx : net.pinIdxArray())
         {
-            const auto &pin = AT(_pinArray, pinIdx);
+            const auto &pin = _pinArray.at(pinIdx);
             auto pinLoc = pin.midLoc();
             IndexType cellIdx = pin.cellIdx();
-            const auto &cell = AT(_cellArray, cellIdx);
+            const auto &cell = _cellArray.at(cellIdx);
             auto cellLoc = cell.loc();
             auto pinFinalLoc = pinLoc + cellLoc;
             xMax = std::max(xMax, pinFinalLoc.x());
@@ -68,10 +68,10 @@ LocType Database::hpwlWithVitualPins() const
         LocType yMin = LOC_TYPE_MAX;
         for (IndexType pinIdx : net.pinIdxArray())
         {
-            const auto &pin = AT(_pinArray, pinIdx);
+            const auto &pin = _pinArray.at(pinIdx);
             auto pinLoc = pin.midLoc();
             IndexType cellIdx = pin.cellIdx();
-            const auto &cell = AT(_cellArray, cellIdx);
+            const auto &cell = _cellArray.at(cellIdx);
             auto cellLoc = cell.loc();
             auto pinFinalLoc = pinLoc + cellLoc;
             xMax = std::max(xMax, pinFinalLoc.x());

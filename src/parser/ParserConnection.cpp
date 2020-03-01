@@ -29,13 +29,13 @@ bool ParserConnection::read(const std::string &filename)
             return false;
         }
         IndexType netIdx = _db.allocateNet();
-        _db.net(netIdx).setName(AT(words, 0));
+        _db.net(netIdx).setName(words.at(0));
         std::vector<std::string> cells; 
         std::vector<std::string> pins;
         for (IndexType idx = 0; idx < (words.size() - 1)/2; ++idx)
         {
-            std::string cellName = AT(words, 1 + idx * 2);
-            std::string pinName = AT(words, 1 + idx * 2 + 1);
+            std::string cellName = words.at(1 + idx * 2);
+            std::string pinName = words.at(1 + idx * 2 + 1);
             if (pinName == "B" || pinName == "BULK")
             {
                 WRN("ParserConnection::%s: ignore the bulk connection \n", __FUNCTION__);
@@ -47,8 +47,8 @@ bool ParserConnection::read(const std::string &filename)
         // Find the corresponding pins in the database
         for (IndexType cellsIdx = 0; cellsIdx < cells.size(); ++cellsIdx)
         {
-            const auto &cellName = AT(cells, cellsIdx);
-            const auto &pinName = AT(pins, cellsIdx);
+            const auto &cellName = cells.at(cellsIdx);
+            const auto &pinName = pins.at(cellsIdx);
             IndexType cellIdx = INDEX_TYPE_MAX;
             for (IndexType idx = 0; idx < _db.numCells(); ++idx)
             {

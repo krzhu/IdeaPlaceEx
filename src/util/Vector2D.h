@@ -62,8 +62,8 @@ class Vector2D
         T &                                       at(IndexType x, IndexType y)                           { return this->atIdx(xyToIndex(x, y)); }
         const T &                                 at(XY<IndexType> xy) const                             { return this->at(xyToIndex(xy)); }
         T &                                       at(XY<IndexType> xy)                                   { return this->at(xyToIndex(xy)); }
-        const T &                                 atIdx(IndexType idx) const                             { return AT(_vec, idx); }
-        T &                                       atIdx(IndexType idx)                                   { return AT(_vec, idx); }
+        const T &                                 atIdx(IndexType idx) const                             { return _vec.at(idx); }
+        T &                                       atIdx(IndexType idx)                                   { return _vec.at(idx); }
 
         /// Iterator
         typename std::vector<T>::iterator         begin()                                                { return _vec.begin(); }

@@ -37,11 +37,11 @@ class Tech
         /// @brief set the width rule for a layer
         /// @param first: the layer index
         /// @param second: the width rule for the layer
-        void setWidthRule(IndexType layerIdx, LocType width) { AT(_widthRule, layerIdx) = width; }
+        void setWidthRule(IndexType layerIdx, LocType width) { _widthRule.at(layerIdx) = width; }
         /// @brief set the area rule for a layer
         /// @param first: the layer index
         /// @param second: the area rule for the layer
-        void setAreaRule(IndexType layerIdx, LocType area) { AT(_areaRule, layerIdx) = area; }
+        void setAreaRule(IndexType layerIdx, LocType area) { _areaRule.at(layerIdx) = area; }
         /// @brief set the spacing rule for a intra-layer
         /// @param first: the layer 
         void setSpacingRule(IndexType layerIdx, LocType spacing) { _spacingRule.at(layerIdx, layerIdx) = spacing; }
@@ -68,26 +68,26 @@ class Tech
         /// @brief get whether there is width rule in the given layer
         /// @param the layer index
         /// @return where there is width rule defined in the given layer
-        bool hasWidthRule(IndexType layerIdx) const { return AT(_widthRule, layerIdx) != -1; }
+        bool hasWidthRule(IndexType layerIdx) const { return _widthRule.at(layerIdx) != -1; }
         /// @brief get the width rule of the given layer
         /// @param the layer index
         /// @return the width rule
         LocType widthRule(IndexType layerIdx) const 
         {
             Assert(this->hasWidthRule(layerIdx));
-            return AT(_widthRule, layerIdx);
+            return _widthRule.at(layerIdx);
         }
         /// @brief get whether there is area rule defined in the given layer
         /// @param the layer index
         /// @return where there is area rule defined in the given layer
-        bool hasAreaRule(IndexType layerIdx) const { return AT(_areaRule, layerIdx) != -1; }
+        bool hasAreaRule(IndexType layerIdx) const { return _areaRule.at(layerIdx) != -1; }
         /// @brief get the area rule of the given layer
         /// @param the layer index
         /// @return the area rule
         LocType areaRule(IndexType layerIdx) const 
         {
             Assert(this->hasAreaRule(layerIdx));
-            return AT(_areaRule, layerIdx);
+            return _areaRule.at(layerIdx);
         }
         /// @brief get whether there is intra spacing rules. The intralayer version
         /// @param first: the layer index 

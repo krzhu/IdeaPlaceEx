@@ -12,6 +12,7 @@
 #include "place/ProximityMgr.h"
 /* Post-Processing */
 #include "place/alignGrid.h"
+#include <omp.h>
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -116,6 +117,7 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
 
 LocType IdeaPlaceEx::solve(LocType gridStep)
 {
+    omp_set_num_threads(_db.parameters().numThreads());
     // Start message printer timer
     MsgPrinter::startTimer();
     // Solve cleaning up tasks for safe...
@@ -217,4 +219,10 @@ LocType IdeaPlaceEx::alignToGrid(LocType gridStepSize)
     return align.findCurrentSymAxis();
 }
 
+
+void IdeaPlaceEx::setNumThreads(IndexType numThreads)
+{
+    _db.parameters().setNumThreads(numThreads);
+    omp_set_num_threads(numThreads);
+}
 PROJECT_NAMESPACE_END

@@ -48,8 +48,8 @@ bool ParserSymFile::read(const std::string &filename)
         }
         if (words.size() == 2)
         {
-            std::string cellName1 = AT(words, 0);
-            std::string cellName2 = AT(words, 1);
+            std::string cellName1 = words.at(0);
+            std::string cellName2 = words.at(1);
             // Low efficency implementation
             IndexType cellIdx1 = cellIdx(cellName1);
             IndexType cellIdx2 = cellIdx(cellName2);
@@ -71,7 +71,7 @@ bool ParserSymFile::read(const std::string &filename)
         }
         if (words.size() == 1)
         {
-            std::string cellName = AT(words, 0);
+            std::string cellName = words.at(0);
             // Low efficency implementation
             IndexType cellId = cellIdx(cellName);
             if (cellId == INDEX_TYPE_MAX)

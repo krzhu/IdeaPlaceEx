@@ -68,18 +68,18 @@ class Database
         /// @brief get one cell from the array
         /// @param the index of the cell
         /// @return the cell of the index
-        const Cell & cell(IndexType cellIdx) const { return AT(_cellArray, cellIdx); }
+        const Cell & cell(IndexType cellIdx) const { return _cellArray.at(cellIdx); }
         /// @brief get one cell from the array
         /// @param the index of the cell
         /// @return the cell of the index
-        Cell & cell(IndexType cellIdx) { return AT(_cellArray, cellIdx); }
+        Cell & cell(IndexType cellIdx) { return _cellArray.at(cellIdx); }
         /// @brief allocate a new cell in the array
         /// @return the index of the new cell
         IndexType allocateCell() { _cellArray.emplace_back(Cell()); return _cellArray.size() - 1; }
         /// @brief set name of cell
         /// @param first: cellIdx
         /// @param second: cellName
-        void setCellName(IndexType cellIdx, const std::string name) { AT(_cellArray, cellIdx).setName(name); }
+        void setCellName(IndexType cellIdx, const std::string name) { _cellArray.at(cellIdx).setName(name); }
         /// @brief get the number of nets
         /// @param the index of the nets
         /// @return the net of the index
@@ -87,11 +87,11 @@ class Database
         /// @brief get one net from the array
         /// @param the index of the net
         /// @return the net of the index
-        const Net & net(IndexType netIdx) const { return AT(_netArray, netIdx); }
+        const Net & net(IndexType netIdx) const { return _netArray.at(netIdx); }
         /// @brief get one net from the array
         /// @param the index of the net
         /// @return the net of the index
-        Net & net(IndexType netIdx) { return AT(_netArray, netIdx); }
+        Net & net(IndexType netIdx) { return _netArray.at(netIdx); }
         /// @brief allocate a new net in the array
         /// @return index of the new net
         IndexType allocateNet() { _netArray.emplace_back(Net()); return _netArray.size() -1; }
@@ -103,11 +103,11 @@ class Database
         /// @brief get one pin from the array
         /// @param the index of the pin
         /// @return the pin of the index
-        const Pin & pin(IndexType pinIdx) const { return AT(_pinArray, pinIdx); }
+        const Pin & pin(IndexType pinIdx) const { return _pinArray.at(pinIdx); }
         /// @brief get one pin from the array
         /// @param the index of the pin
         /// @return the pin of the index
-        Pin & pin(IndexType pinIdx) { return AT(_pinArray, pinIdx); }
+        Pin & pin(IndexType pinIdx) { return _pinArray.at(pinIdx); }
         const std::vector<Pin> & pins() const { return _pinArray; }
         std::vector<Pin> &pins() { return _pinArray; }
         /// @brief allocate a new pin in the array

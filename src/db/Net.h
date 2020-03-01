@@ -67,7 +67,7 @@ class Net
         /// @brief get the database pin index
         /// @param the index of pin array
         /// @return the databse pin index
-        IndexType pinIdx(IndexType idx) const { return AT(_pinIdxArray, idx); }
+        IndexType pinIdx(IndexType idx) const { return _pinIdxArray.at(idx); }
         const std::vector<IndexType> & pinIdxArray() const { return _pinIdxArray; }
     private:
         std::string _name = ""; ///< The name for the net
