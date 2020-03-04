@@ -73,7 +73,7 @@ class Net
         std::string _name = ""; ///< The name for the net
         std::vector<IndexType> _pinIdxArray; ///< The index to the pins belonging to the net
         IntType _weight = 1; ///< The weight of this net
-        bool _isIo = true; ///< Whether thisnet is an IO net 
+        bool _isIo = false; ///< Whether thisnet is an IO net 
         XY<LocType> _virtualPin = XY<LocType>(LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The virtual pin location
         bool _isDummy = false; ///< Whether this is a dummy net
 };

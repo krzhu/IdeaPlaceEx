@@ -43,6 +43,12 @@ void initIdeaPlaceExAPI(py::module &m)
         .def("pinIdx", &PROJECT_NAMESPACE::IdeaPlaceEx::pinIdx, "Get the index based on pin name")
         .def("openVirtualPinAssignment", &PROJECT_NAMESPACE::IdeaPlaceEx::openVirtualPinAssignment, "Open the virtual pin assignment functionality")
         .def("closeVirtualPinAssignment", &PROJECT_NAMESPACE::IdeaPlaceEx::closeVirtualPinAssignment, "Close the virtual pin assignment functionality")
+        .def("setIoPinBoundaryExtension", &PROJECT_NAMESPACE::IdeaPlaceEx::setIoPinBoundaryExtension, "Set the extension of io pin locations to the boundary of cell placements")
+        .def("setIoPinInterval", &PROJECT_NAMESPACE::IdeaPlaceEx::setIoPinInterval, "Set the minimum interval of io pins")
+        .def("markIoNet", &PROJECT_NAMESPACE::IdeaPlaceEx::markAsIoNet, "Mark a net as IO net")
+        .def("revokeIoNet", &PROJECT_NAMESPACE::IdeaPlaceEx::revokeIoNet, "Revoke IO net flag on a net")
+        .def("iopinX", &PROJECT_NAMESPACE::IdeaPlaceEx::iopinX, "Get the x coordinate of a net")
+        .def("iopinY", &PROJECT_NAMESPACE::IdeaPlaceEx::iopinY, "Get the y coordinate of a net")
         .def("xCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::xCellLoc, "Get x coordinate of a cell location")
         .def("yCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::yCellLoc, "Get y coordinate of a cell location");
 }

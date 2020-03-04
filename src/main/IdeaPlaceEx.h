@@ -63,6 +63,8 @@ class IdeaPlaceEx
         /* paramters                    */
         /*------------------------------*/ 
         void setNumThreads(IndexType numThreads);
+        void setIoPinBoundaryExtension(LocType ext) { _db.parameters().setVirtualBoundaryExtension(ext); }
+        void setIoPinInterval(LocType interval) { _db.parameters().setVirtualPinInterval(interval); }
         /*------------------------------*/ 
         /* tech input interface         */
         /*------------------------------*/ 
@@ -183,6 +185,14 @@ class IdeaPlaceEx
         void openVirtualPinAssignment() { _db.parameters().openVirtualPinAssignment(); }
         /// @brief close the functionality of virtual pin assignment 
         void closeVirtualPinAssignment() { _db.parameters().closeVirtualPinAssignment(); }
+        /// @brief set net to be io pin
+        void markAsIoNet(IndexType netIdx) { _db.net(netIdx).setIsIo(true); }
+        /// @brief remove io net mark
+        void revokeIoNet(IndexType netIdx) { _db.net(netIdx).setIsIo(false); }
+        /// @brief get the x coordinate of io net
+        LocType iopinX(IndexType netIdx) { return _db.net(netIdx).virtualPinLoc().x(); }
+        /// @brief get the y coordinate of io net
+        LocType iopinY(IndexType netIdx) { return _db.net(netIdx).virtualPinLoc().y(); }
         /*------------------------------*/ 
         /* Standard output interface    */
         /*------------------------------*/ 

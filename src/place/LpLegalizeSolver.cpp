@@ -15,11 +15,11 @@ void LpLegalizeSolver::exportSolution()
         // convert to cell original location
         if (_isHor)
         {
-            _db.cell(cellIdx).setXLo(static_cast<LocType>(var) + LAYOUT_OFFSET);
+            _db.cell(cellIdx).setXLo(static_cast<LocType>(var) + _db.parameters().layoutOffset());
         }
         else
         {
-            _db.cell(cellIdx).setYLo(static_cast<LocType>(var) + LAYOUT_OFFSET);
+            _db.cell(cellIdx).setYLo(static_cast<LocType>(var) + _db.parameters().layoutOffset());
         }
     }
 }

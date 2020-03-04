@@ -112,8 +112,17 @@ class Cell
         }
         void forceExtendToGrid(LocType gridStep)
         {
-            assert(_cellBBox.xLen() % gridStep == 0);
-            assert(_cellBBox.yLen() % gridStep == 0);
+            if (_cellBBox.xLen() % gridStep != 0 or _cellBBox.yLen() % gridStep != 0)
+            {
+                WRN("IdeaPlaceEx: cell %s %s is not of multiples of grid step %d\n", this->name().c_str(),
+                        _cellBBox.toStr().c_str(), gridStep);
+                LocType xDif = gridStep - (_cellBBox.xLen() % gridStep);
+                LocType yDif = gridStep - (_cellBBox.yLen() % gridStep);
+                _cellBBox.setXLo(_cellBBox.xLo() - xDif / 2);
+                _cellBBox.setXHi(_cellBBox.xHi() + xDif / 2);
+                _cellBBox.setYLo(_cellBBox.yLo() - yDif / 2);
+                _cellBBox.setYHi(_cellBBox.yHi() + yDif / 2);
+            }
             // auto ceilDif = [&](LocType n, LocType gridStep)
             // {
             //     return gridStep - (std::abs(n % gridStep));
@@ -136,10 +145,10 @@ class Cell
                _cellBBox.setXLo(xLo);
                _cellBBox.setXHi(xHi);
            }
-           if ((_cellBBox.yLen()) % (2 * gridStep) == 0 )
-           {               
-               _cellBBox.setYLo(_cellBBox.yLo() - gridStep);
-           }
+           //if ((_cellBBox.yLen()) % (2 * gridStep) == 0 )
+           //{               
+           //    _cellBBox.setYLo(_cellBBox.yLo() - gridStep);
+           //}
            assert(_cellBBox.xLen() % gridStep == 0);
            assert(_cellBBox.yLen() % gridStep == 0);
         }

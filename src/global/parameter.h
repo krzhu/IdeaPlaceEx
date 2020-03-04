@@ -29,11 +29,6 @@ constexpr RealType NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE = 0.8; ///< The default e
 constexpr RealType NLP_WN_MAX_PENALTY = 1024;
 constexpr RealType NLP_WN_REDUCE_PENALTY = 512 / NLP_WN_MAX_PENALTY ;
 
-/* Pin assignment */
-constexpr LocType VIRTUAL_BOUNDARY_EXTENSION = 1000; ///< The extension of current virtual boundary to the bounding box of placement
-constexpr LocType VIRTUAl_PIN_INTERVAL = 1000; ///< The interval between each virtual pin
-
-constexpr LocType LAYOUT_OFFSET = 2 * VIRTUAL_BOUNDARY_EXTENSION;
 PROJECT_NAMESPACE_END
 
 #endif ///IDEAPLACE_PARAMETER_H_

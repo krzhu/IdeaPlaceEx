@@ -8,19 +8,8 @@
 #ifndef IDEAPLACE_CONSTRAINT_GRAPH_H_
 #define IDEAPLACE_CONSTRAINT_GRAPH_H_
 
-/* Boost libraries. Just copied from Biying's include */
-
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
-//#include <boost/graph/bellman_ford_shortest_paths.hpp>
-//#include <boost/property_map/property_map.hpp>
-// 
-//#include <boost/graph/bron_kerbosch_all_cliques.hpp>
-//#include <boost/dynamic_bitset.hpp>
-//#include <boost/timer/timer.hpp>
-//
-//#include <boost/geometry/geometries/geometries.hpp>
-//#include <boost/geometry/index/rtree.hpp>
 
 #include "global/global.h"
 

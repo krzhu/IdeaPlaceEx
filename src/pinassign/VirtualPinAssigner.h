@@ -12,12 +12,34 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+class VirtualPin
+{
+    public:
+        VirtualPin() = default;
+        VirtualPin(const XY<LocType> &loc) : _loc(loc) {}
+        const XY<LocType> & loc() const { return _loc; }
+        XY<LocType> & loc() { return _loc; }
+        LocType x() const { return _loc.x(); }
+        LocType y() const { return _loc.y(); }
+        IndexType cellIdx() const { return _cellIdx; }
+        bool assigned() const { return _cellIdx !=  INDEX_TYPE_MAX; }
+        void free() { _cellIdx = INDEX_TYPE_MAX; }
+        void assign(IndexType cellIdx) { _cellIdx = cellIdx; }
+    private:
+        XY<LocType> _loc;
+        IndexType _cellIdx = INDEX_TYPE_MAX;
+};
+
 /// @class IDEAPLACE::VirtualPinAssigner
 /// @brief The kernel for assigning virtual pins
 class VirtualPinAssigner
 {
     public:
-        explicit VirtualPinAssigner(Database &db) : _db(db) {}
+        explicit VirtualPinAssigner(Database &db) : _db(db) 
+        {
+            _virtualPinInterval = db.parameters().virtualPinInterval();
+            _virtualBoundaryExtension = db.parameters().virtualBoundaryExtension();
+        }
         /* Kernal interface */
         /// @brief cnfigure the virtual boundary based on databse
         void reconfigureVirtualPinLocationFromDB();
@@ -36,11 +58,16 @@ class VirtualPinAssigner
         /// @brief set the interval between pins
         void setVirtualPinInterval(LocType in) { _virtualPinInterval = in; }
     private:
+        bool symPinAssign(std::function<XY<LocType>(IndexType)> cellLocQueryFunc,
+                std::function<LocType(IndexType, IndexType)> edgeCostFunc);
+    private:
         Database &_db; ///< The placement database
         Box<LocType> _boundary; ///< The virtual boundary of the placement
-        std::vector<XY<LocType>> _virtualPins; ///< The locations for virtual pins
-        LocType _virtualBoundaryExtension = VIRTUAL_BOUNDARY_EXTENSION; ///< The extension to placement cell bounding box
-        LocType _virtualPinInterval = VIRTUAl_PIN_INTERVAL; ///< The interval between virtual pins
+        std::vector<VirtualPin> _virtualPins; ///< The locations for virtual pins
+        LocType _virtualBoundaryExtension = -1; ///< The extension to placement cell bounding box
+        LocType _virtualPinInterval = -1; ///< The interval between virtual pins
+        std::vector<IndexType> _leftVirtualPins;
+        std::vector<IndexType> _rightVirtualPins;
 };
 
 PROJECT_NAMESPACE_END

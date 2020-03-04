@@ -131,6 +131,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
 
     if (gridStep > 0)
     {
+        _db.parameters().setGridStep(gridStep);
         _db.expandCellToGridSize(gridStep);
     }
 
@@ -216,6 +217,8 @@ LocType IdeaPlaceEx::alignToGrid(LocType gridStepSize)
     _db.drawCellBlocks("./debug/after_alignment.gds");
 #endif //DEBUG_DRAW
 #endif
+    VirtualPinAssigner pinAssigner(_db);
+    pinAssigner.solveFromDB();
     return align.findCurrentSymAxis();
 }
 

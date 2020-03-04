@@ -32,31 +32,77 @@ bool VirtualPinAssigner::pinAssignmentFromDB()
     return pinAssignment(cellLocQueryFunc);
 }
 
+IntType gcd(IntType a, IntType b)
+{
+    for (;;)
+    {
+        if (a == 0) return b;
+        b %= a;
+        if (b == 0) return a;
+        a %= b;
+    }
+}
+
+IntType lcm(IntType a, IntType b)
+{
+    IntType temp = gcd(a, b);
+    return temp ? (a / temp * b) : 0;
+}
+
 void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cellsBBox)
 {
+    _virtualPinInterval = _db.parameters().virtualPinInterval();
+    _virtualBoundaryExtension = _db.parameters().virtualBoundaryExtension();
     _boundary = cellsBBox;
     _boundary.enlargeBy(_virtualBoundaryExtension);
+    LocType pinInterval = _virtualPinInterval;
+    // Align to grid
+    if (_db.parameters().hasGridStep())
+    {
+        LocType gridStep = _db.parameters().gridStep();
+        LocType center = _boundary.center().x();
+        LocType targetCenter = (center / gridStep) * gridStep + gridStep / 2;
+        LocType targetWidth = std::max(_boundary.xHi() - targetCenter, targetCenter - _boundary.xLo());
+        targetWidth = targetWidth + gridStep - (targetWidth % gridStep);
+        _boundary.setXLo(targetCenter - targetWidth);
+        _boundary.setYLo(_boundary.yLo() - (_boundary.yLo() % gridStep));
+        _boundary.setXHi(targetCenter + targetWidth);
+        _boundary.setYHi(_boundary.yHi() + gridStep -  (_boundary.yHi() % gridStep));
+        pinInterval = lcm(pinInterval, gridStep);
+    }
     // generate the virtual pin locations
     _virtualPins.clear();
-    for (LocType x = _boundary.xLo() + _virtualPinInterval;  x < _boundary.xHi() - _virtualPinInterval; x += _virtualPinInterval)
+    for (LocType x = _boundary.xLo() + pinInterval;  x < _boundary.center().x() - pinInterval / 2 ; x += pinInterval)
     {
+        // left
+        _leftVirtualPins.emplace_back(_virtualPins.size());
         _virtualPins.emplace_back(XY<LocType>(x, _boundary.yLo()));
+        _leftVirtualPins.emplace_back(_virtualPins.size());
         _virtualPins.emplace_back(XY<LocType>(x, _boundary.yHi()));
+        // right 
+        _rightVirtualPins.emplace_back(_virtualPins.size());
+        _virtualPins.emplace_back(XY<LocType>(2 *x - _boundary.center().x(), _boundary.yLo()));
+        _rightVirtualPins.emplace_back(_virtualPins.size());
+        _virtualPins.emplace_back(XY<LocType>(2 *x - _boundary.center().x(), _boundary.yHi()));
     }
-    for (LocType y = _boundary.yLo() + _virtualPinInterval;  y < _boundary.yHi() - _virtualPinInterval; y += _virtualPinInterval)
+    for (LocType y = _boundary.yLo() + pinInterval;  y < _boundary.yHi() - pinInterval; y += pinInterval)
     {
+        _leftVirtualPins.emplace_back(_virtualPins.size());
         _virtualPins.emplace_back(XY<LocType>(_boundary.xLo(), y));
+        _rightVirtualPins.emplace_back(_virtualPins.size());
         _virtualPins.emplace_back(XY<LocType>(_boundary.xHi(), y));
     }
 }
 bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
 {
     std::vector<IndexType> ioNets; // The net indices that are IOs 
+    std::unordered_map<IndexType, IndexType> netIdxMap;
     ioNets.reserve(_db.numNets());
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
         if (_db.net(netIdx).isIo())
         {
+            netIdxMap[ioNets.size()] = netIdx;
             ioNets.emplace_back(netIdx);
         }
     }
@@ -64,10 +110,6 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     // Build the network
     IndexType numNets = ioNets.size();
     IndexType numSites = _virtualPins.size();
-    if (numSites <= numNets)
-    {
-        return false;
-    }
 
     // Calculate the current HPWLs without virtual pin
     std::vector<Box<LocType>> curNetBBox;
@@ -103,8 +145,10 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     lemon::ListDigraph::ArcMap<IntType> costMap(graph); // Cost map
 
     // Calculate the added HPWL if adding the virtual pin
-    auto pinCostFunc = [&](const XY<LocType> &virtualPinLoc, IndexType ioNetIdx)
+    auto pinCostFunc = [&](IndexType virtualPinIdx, IndexType netIdx)
     {
+        const auto &virtualPinLoc = _virtualPins.at(virtualPinIdx);
+        auto ioNetIdx = netIdxMap[netIdx];
         auto difX = std::max(virtualPinLoc.x() - curNetBBox.at(ioNetIdx).xHi(), curNetBBox.at(ioNetIdx).xLo() - virtualPinLoc.x());
         difX = std::max(difX, 0);
         auto difY = std::max(virtualPinLoc.y() - curNetBBox.at(ioNetIdx).yHi(), curNetBBox.at(ioNetIdx).yLo() - virtualPinLoc.y());
@@ -144,7 +188,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
             mArcPairs.emplace_back(l, r);
             capLo[mArcs.back()] = 0;
             capHi[mArcs.back()] = 1;
-            costMap[mArcs.back()] = pinCostFunc(_virtualPins[r], l);
+            costMap[mArcs.back()] = pinCostFunc(r, ioNets[l]);
         }
     }
 
@@ -160,7 +204,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         if (networkSimplex.flow(mArcs[i]))
         {
             const auto &pair = mArcPairs[i];
-            _db.net(ioNets.at(pair.first)).setVirtualPin(_virtualPins.at(pair.second));
+            _db.net(ioNets.at(pair.first)).setVirtualPin(_virtualPins.at(pair.second).loc());
         }
     }
 
