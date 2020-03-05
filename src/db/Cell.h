@@ -112,30 +112,29 @@ class Cell
         }
         void forceExtendToGrid(LocType gridStep)
         {
-            if (_cellBBox.xLen() % gridStep != 0 or _cellBBox.yLen() % gridStep != 0)
+            // Enlarge for temporary spacing rule fixing
+            _cellBBox.setXLo(_cellBBox.xLo() - gridStep);
+            _cellBBox.setXHi(_cellBBox.xHi() + gridStep);
+            _cellBBox.setYLo(_cellBBox.yLo() - gridStep);
+            _cellBBox.setYHi(_cellBBox.yHi() + gridStep);
+            if (_cellBBox.xLen() % gridStep != 0)
             {
                 WRN("IdeaPlaceEx: cell %s %s is not of multiples of grid step %d\n", this->name().c_str(),
                         _cellBBox.toStr().c_str(), gridStep);
                 LocType xDif = gridStep - (_cellBBox.xLen() % gridStep);
-                LocType yDif = gridStep - (_cellBBox.yLen() % gridStep);
                 _cellBBox.setXLo(_cellBBox.xLo() - xDif / 2);
                 _cellBBox.setXHi(_cellBBox.xHi() + xDif / 2);
+            }
+            if (_cellBBox.yLen() % gridStep != 0)
+            {
+                WRN("IdeaPlaceEx: cell %s %s is not of multiples of grid step %d\n", this->name().c_str(),
+                        _cellBBox.toStr().c_str(), gridStep);
+                LocType yDif = gridStep - (_cellBBox.yLen() % gridStep);
                 _cellBBox.setYLo(_cellBBox.yLo() - yDif / 2);
                 _cellBBox.setYHi(_cellBBox.yHi() + yDif / 2);
             }
-            // auto ceilDif = [&](LocType n, LocType gridStep)
-            // {
-            //     return gridStep - (std::abs(n % gridStep));
-            // };
-            // // first align to grid
-            // LocType dif = ceilDif(_cellBBox.xLo(), gridStep);
-            // _cellBBox.setXLo(_cellBBox.xLo() - dif);
-            // dif  = ceilDif(_cellBBox.xHi(), gridStep);
-            // _cellBBox.setXHi(_cellBBox.xHi() + dif);
-            // dif = ceilDif(_cellBBox.yLo(), gridStep);
-            // _cellBBox.setYLo(_cellBBox.yLo() - dif);
-            // dif  = ceilDif(_cellBBox.yHi(), gridStep);
-            // _cellBBox.setYHi(_cellBBox.yHi() + dif);
+           AssertMsg(_cellBBox.xLen() % gridStep == 0, "%s \n", _cellBBox.toStr().c_str());
+           AssertMsg(_cellBBox.yLen() % gridStep == 0, "%s \n", _cellBBox.toStr().c_str());
             // Force to be odd * gridStep
            if ((_cellBBox.xLen()) % (2 * gridStep) == 0 )
            {
@@ -145,12 +144,8 @@ class Cell
                _cellBBox.setXLo(xLo);
                _cellBBox.setXHi(xHi);
            }
-           //if ((_cellBBox.yLen()) % (2 * gridStep) == 0 )
-           //{               
-           //    _cellBBox.setYLo(_cellBBox.yLo() - gridStep);
-           //}
-           assert(_cellBBox.xLen() % gridStep == 0);
-           assert(_cellBBox.yLen() % gridStep == 0);
+           AssertMsg(_cellBBox.xLen() % gridStep == 0, "%s \n", _cellBBox.toStr().c_str());
+           AssertMsg(_cellBBox.yLen() % gridStep == 0, "%s \n", _cellBBox.toStr().c_str());
         }
         /*------------------------------*/ 
         /* Supporting functions         */

@@ -55,6 +55,15 @@ enum class Orient2DType
     NONE = 2
 };
 
+enum class Direction2DType
+{
+    WEST = 0,
+    EAST = 1,
+    SOUTH = 2,
+    NORTH  = 3,
+    NONE = 4
+};
+
 struct YesType
 {
     static const bool value = true;

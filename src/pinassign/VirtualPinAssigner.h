@@ -12,24 +12,6 @@
 
 PROJECT_NAMESPACE_BEGIN
 
-class VirtualPin
-{
-    public:
-        VirtualPin() = default;
-        VirtualPin(const XY<LocType> &loc) : _loc(loc) {}
-        const XY<LocType> & loc() const { return _loc; }
-        XY<LocType> & loc() { return _loc; }
-        LocType x() const { return _loc.x(); }
-        LocType y() const { return _loc.y(); }
-        IndexType cellIdx() const { return _cellIdx; }
-        bool assigned() const { return _cellIdx !=  INDEX_TYPE_MAX; }
-        void free() { _cellIdx = INDEX_TYPE_MAX; }
-        void assign(IndexType cellIdx) { _cellIdx = cellIdx; }
-    private:
-        XY<LocType> _loc;
-        IndexType _cellIdx = INDEX_TYPE_MAX;
-};
-
 /// @class IDEAPLACE::VirtualPinAssigner
 /// @brief The kernel for assigning virtual pins
 class VirtualPinAssigner

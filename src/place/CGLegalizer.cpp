@@ -6,8 +6,6 @@ PROJECT_NAMESPACE_BEGIN
 
 bool CGLegalizer::legalize()
 {
-    //SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
-    //sweepline.solve();
 
     VirtualPinAssigner pinAssigner(_db);
 
@@ -17,6 +15,7 @@ bool CGLegalizer::legalize()
     {
         return false;
     }
+    this->generateConstraints();
     _hStar = lpLegalization(false);
     if (_hStar < 0)
     {
@@ -48,45 +47,6 @@ bool CGLegalizer::legalize()
         return true;
     }
     return true;
-
-    this->generateConstraints();
-    _wStar = lpLegalization(true);
-    if (_wStar < 0)
-    {
-        return false;
-    }
-    _hStar = lpLegalization(false);
-    if (_hStar < 0)
-    {
-        return false;
-    }
-
-    xMin = LOC_TYPE_MAX;
-    xMax = LOC_TYPE_MIN;
-    yMin = LOC_TYPE_MAX;
-    yMax = LOC_TYPE_MIN;
-    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
-    {
-        auto cellBox = _db.cell(cellIdx).cellBBoxOff();
-        xMin = std::min(xMin, cellBox.xLo());
-        xMax = std::max(xMax, cellBox.xHi());
-        yMin = std::min(yMin, cellBox.yLo());
-        yMax = std::max(yMax, cellBox.yHi());
-    }
-    _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
-    _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
-    this->generateConstraints();
-    if (_db.parameters().ifUsePinAssignment())
-    {
-        pinAssigner.solveFromDB();
-    }
-    if (!lpDetailedPlacement())
-    {
-        INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output.  \n");
-        return true;
-    }
-
-
 
     INF("CG Legalizer: legalization finished\n");
     return true;
@@ -189,6 +149,9 @@ void CGLegalizer::generateConstraints()
     _vConstraints.clear();
     // Init the irredundant constraint edges
     
+    SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
+    sweepline.solve();
+    return;
     // Sort the edges of cells
     std::vector<BoxEdge> hBoxEdges, vBoxEdges;
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
@@ -1151,6 +1114,7 @@ RealType CGLegalizer::lpLegalization(bool isHor)
 
 bool CGLegalizer::lpDetailedPlacement()
 {
+    this->generateConstraints();
     // Horizontal
     INF("CG legalizer: detailed placement horizontal LP...\n");
     auto horSolver = LpLegalizeSolver(_db, _hConstraints, true, 1, 0);
@@ -1169,6 +1133,7 @@ bool CGLegalizer::lpDetailedPlacement()
     }
     //_db.drawCellBlocks("./debug/after_dp_hor.gds");
     // Vertical
+    this->generateConstraints();
     INF("CG legalizer: detailed placement vertical LP...\n");
     auto verSolver = LpLegalizeSolver(_db, _vConstraints, false, 1, 0);
     verSolver.setWStar(_hStar);

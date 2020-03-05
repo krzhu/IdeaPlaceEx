@@ -193,6 +193,10 @@ class IdeaPlaceEx
         LocType iopinX(IndexType netIdx) { return _db.net(netIdx).virtualPinLoc().x(); }
         /// @brief get the y coordinate of io net
         LocType iopinY(IndexType netIdx) { return _db.net(netIdx).virtualPinLoc().y(); }
+        /// @brief get whether the io pin is on top or bottom
+        /// @return true: top or bottom
+        /// @return false: left or right
+        bool isIopinVertical(IndexType netIdx) const { return _db.net(netIdx).iopinVertical(); }
         /*------------------------------*/ 
         /* Standard output interface    */
         /*------------------------------*/ 

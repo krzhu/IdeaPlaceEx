@@ -12,6 +12,32 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+
+class VirtualPin
+{
+    public:
+        VirtualPin() = default;
+        VirtualPin(const XY<LocType> &loc) : _loc(loc) {}
+        const XY<LocType> & loc() const { return _loc; }
+        XY<LocType> & loc() { return _loc; }
+        LocType x() const { return _loc.x(); }
+        LocType y() const { return _loc.y(); }
+        IndexType cellIdx() const { return _cellIdx; }
+        bool assigned() const { return _cellIdx !=  INDEX_TYPE_MAX; }
+        void free() { _cellIdx = INDEX_TYPE_MAX; }
+        void assign(IndexType cellIdx) { _cellIdx = cellIdx; }
+        void setDirection(Direction2DType dir) { _dir = dir; }
+        Direction2DType direction() const { return _dir; }
+
+        bool operator<(const VirtualPin &pin) const 
+        {
+            return _loc < pin._loc;
+        }
+    private:
+        XY<LocType> _loc;
+        IndexType _cellIdx = INDEX_TYPE_MAX;
+        Direction2DType _dir; ///< The location on the placement boundary
+};
 /// @class IDEAPLACE::Net
 /// @brief the net class
 class Net
@@ -32,12 +58,16 @@ class Net
         bool isIo() const { return _isIo; }
         /// @brief get the virtual pin location
         /// @return the location for the virtual pin
-        const XY<LocType> &virtualPinLoc() const { return _virtualPin; }
+        const XY<LocType> &virtualPinLoc() const { return _virtualPin.loc(); }
         /// @brief get whether need to consider the virtual pin: If not IO net, or if no vitual pin assigned
-        bool isValidVirtualPin() const { return _isIo && _virtualPin.x() != LOC_TYPE_MIN; }
+        bool isValidVirtualPin() const { return _isIo && _virtualPin.assigned(); }
         /// @brief get whether this net is a dummy net
         /// @return whether this net is a dummy net
         bool isDummyNet() const { return _isDummy; }
+        /// @brief get whether the io pin is on top or bottom
+        /// @return true: top or bottom
+        /// @return false: left or right
+        bool iopinVertical() const { return _virtualPin.direction() == Direction2DType::NORTH or _virtualPin.direction() == Direction2DType::SOUTH; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
@@ -50,9 +80,9 @@ class Net
         /// @brief set whether this net is an IO net
         void setIsIo(bool isIo) { _isIo =isIo; }
         /// @brief set the virtual pin location of this net
-        void setVirtualPin(const XY<LocType> &virtualPinLocation) { _virtualPin = virtualPinLocation; }
+        void setVirtualPin(const VirtualPin &virtualPinLocation) { _virtualPin = virtualPinLocation; }
         /// @brief invalidate the virtual pin
-        void invalidateVirtualPin() { _virtualPin = XY<LocType>(LOC_TYPE_MIN, LOC_TYPE_MIN); }
+        void invalidateVirtualPin() { _virtualPin.free(); }
         /// @brief mark this net as a dummy net
         void markAsDummyNet() { _isDummy = true; }
         /*------------------------------*/ 
@@ -74,7 +104,7 @@ class Net
         std::vector<IndexType> _pinIdxArray; ///< The index to the pins belonging to the net
         IntType _weight = 1; ///< The weight of this net
         bool _isIo = false; ///< Whether thisnet is an IO net 
-        XY<LocType> _virtualPin = XY<LocType>(LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The virtual pin location
+        VirtualPin _virtualPin; ///< The virtual pin location
         bool _isDummy = false; ///< Whether this is a dummy net
 };
 

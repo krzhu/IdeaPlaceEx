@@ -74,23 +74,41 @@ void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cell
     _virtualPins.clear();
     for (LocType x = _boundary.xLo() + pinInterval;  x < _boundary.center().x() - pinInterval / 2 ; x += pinInterval)
     {
+        LocType rightX = 2 * x - _boundary.center().x();
+        if (rightX <= x)
+        {
+            continue;
+        }
         // left
         _leftVirtualPins.emplace_back(_virtualPins.size());
         _virtualPins.emplace_back(XY<LocType>(x, _boundary.yLo()));
+        _virtualPins.back().setDirection(Direction2DType::SOUTH);
         _leftVirtualPins.emplace_back(_virtualPins.size());
         _virtualPins.emplace_back(XY<LocType>(x, _boundary.yHi()));
+        _virtualPins.back().setDirection(Direction2DType::NORTH);
         // right 
         _rightVirtualPins.emplace_back(_virtualPins.size());
-        _virtualPins.emplace_back(XY<LocType>(2 *x - _boundary.center().x(), _boundary.yLo()));
+        _virtualPins.emplace_back(XY<LocType>(rightX, _boundary.yLo()));
+        _virtualPins.back().setDirection(Direction2DType::SOUTH);
         _rightVirtualPins.emplace_back(_virtualPins.size());
-        _virtualPins.emplace_back(XY<LocType>(2 *x - _boundary.center().x(), _boundary.yHi()));
+        _virtualPins.emplace_back(XY<LocType>(rightX, _boundary.yHi()));
+        _virtualPins.back().setDirection(Direction2DType::NORTH);
     }
     for (LocType y = _boundary.yLo() + pinInterval;  y < _boundary.yHi() - pinInterval; y += pinInterval)
     {
         _leftVirtualPins.emplace_back(_virtualPins.size());
         _virtualPins.emplace_back(XY<LocType>(_boundary.xLo(), y));
+        _virtualPins.back().setDirection(Direction2DType::WEST);
         _rightVirtualPins.emplace_back(_virtualPins.size());
         _virtualPins.emplace_back(XY<LocType>(_boundary.xHi(), y));
+        _virtualPins.back().setDirection(Direction2DType::NORTH);
+    }
+    std::set<VirtualPin> pinSet;
+    for (const auto & vp : _virtualPins)
+    {
+        auto findIter = pinSet.find(vp);
+        Assert(findIter == pinSet.end());
+        pinSet.insert(vp);
     }
 }
 bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
@@ -204,7 +222,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         if (networkSimplex.flow(mArcs[i]))
         {
             const auto &pair = mArcPairs[i];
-            _db.net(ioNets.at(pair.first)).setVirtualPin(_virtualPins.at(pair.second).loc());
+            _db.net(ioNets.at(pair.first)).setVirtualPin(_virtualPins.at(pair.second));
         }
     }
 

@@ -49,6 +49,7 @@ void initIdeaPlaceExAPI(py::module &m)
         .def("revokeIoNet", &PROJECT_NAMESPACE::IdeaPlaceEx::revokeIoNet, "Revoke IO net flag on a net")
         .def("iopinX", &PROJECT_NAMESPACE::IdeaPlaceEx::iopinX, "Get the x coordinate of a net")
         .def("iopinY", &PROJECT_NAMESPACE::IdeaPlaceEx::iopinY, "Get the y coordinate of a net")
+        .def("isIoPinVertical", &PROJECT_NAMESPACE::IdeaPlaceEx::isIopinVertical, "true if io pins are on top or bottom")
         .def("xCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::xCellLoc, "Get x coordinate of a cell location")
         .def("yCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::yCellLoc, "Get y coordinate of a cell location");
 }
