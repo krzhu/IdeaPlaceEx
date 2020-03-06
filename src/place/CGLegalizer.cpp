@@ -1071,38 +1071,30 @@ void CGLegalizer::initIrredundantEdgesDelete(bool isHor, std::vector<IndexType> 
 
 RealType CGLegalizer::lpLegalization(bool isHor)
 {
+    Constraints *con = isHor ?  &_hConstraints: &_vConstraints;
+    cg_lp_solver_type solver(_db, *con);
     RealType obj;
     if (isHor)
     {
         INF("CG legalizer: legalize horizontal LP...\n");
-        auto solver = LpLegalizeSolver(_db, _hConstraints, isHor);
-        bool optimal = solver.solve();
-        if (optimal)
-        {
-            solver.exportSolution();
-        }
-        else
-        {
-            return -1;
-        }
-        obj = solver.evaluateObj();
-        //_db.drawCellBlocks("./debug/after_legalization_hor.gds");
+        lp_trait_type::setHor(solver);
     }
     else
     {
         INF("CG legalizer: legalize vertical LP...\n");
-        auto solver = LpLegalizeSolver(_db, _vConstraints, isHor);
-        bool optimal = solver.solve();
-        if (optimal)
-        {
-            solver.exportSolution();
-        }
-        else
-        {
-            return -1;
-        }
-        obj = solver.evaluateObj();
+        lp_trait_type::setVer(solver);
     }
+    lp_trait_type::enableOptArea(solver); 
+    bool optimal = lp_trait_type::solve(solver);
+    if (optimal)
+    {
+        lp_trait_type::exportSolutions(solver);
+    }
+    else
+    {
+        return -1;
+    }
+    obj = lp_trait_type::evaluateObjective(solver);
 #ifdef DEBUG_LEGALIZE
 #ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_legalization.gds");
@@ -1117,15 +1109,17 @@ bool CGLegalizer::lpDetailedPlacement()
     this->generateConstraints();
     // Horizontal
     INF("CG legalizer: detailed placement horizontal LP...\n");
-    auto horSolver = LpLegalizeSolver(_db, _hConstraints, true, 1, 0);
+    auto horSolver = cg_lp_solver_type(_db, _hConstraints);
+    lp_trait_type::enableOptHpwl(horSolver); 
+    lp_trait_type::setHor(horSolver);
 #ifdef DEBUG_LEGALIZE
     DBG("wstar for width %f \n", _wStar);
 #endif
-    horSolver.setWStar(_wStar);
-    bool horpass = horSolver.solve();
+    lp_trait_type::setMaxWidth(horSolver, _wStar);
+    bool horpass = lp_trait_type::solve(horSolver);
     if (horpass)
     {
-        horSolver.exportSolution();
+        lp_trait_type::exportSolutions(horSolver);
     }
     else
     {
@@ -1135,12 +1129,14 @@ bool CGLegalizer::lpDetailedPlacement()
     // Vertical
     this->generateConstraints();
     INF("CG legalizer: detailed placement vertical LP...\n");
-    auto verSolver = LpLegalizeSolver(_db, _vConstraints, false, 1, 0);
-    verSolver.setWStar(_hStar);
-    bool verpass =verSolver.solve();
+    auto verSolver = cg_lp_solver_type(_db, _vConstraints);
+    lp_trait_type::enableOptHpwl(verSolver); 
+    lp_trait_type::setVer(verSolver);
+    lp_trait_type::setMaxWidth(verSolver, _hStar);
+    bool verpass = lp_trait_type::solve(verSolver);
     if (verpass)
     {
-        verSolver.exportSolution();
+        lp_trait_type::exportSolutions(verSolver);
     }
     else
     {
