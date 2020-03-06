@@ -15,11 +15,11 @@ void LpLegalizeSolver::exportSolution()
         // convert to cell original location
         if (_isHor)
         {
-            _db.cell(cellIdx).setXLo(static_cast<LocType>(var) + _db.parameters().layoutOffset());
+            _db.cell(cellIdx).setXLo(::klib::autoRound<LocType>(var) + _db.parameters().layoutOffset());
         }
         else
         {
-            _db.cell(cellIdx).setYLo(static_cast<LocType>(var) + _db.parameters().layoutOffset());
+            _db.cell(cellIdx).setYLo(::klib::autoRound<LocType>(var) + _db.parameters().layoutOffset());
         }
     }
 }
@@ -100,12 +100,21 @@ void LpLegalizeSolver::addAreaObj()
     }
 }
 
+void LpLegalizeSolver::addSymObj()
+{
+    AssertMsg(false, "Not implemented \n");
+}
+
 void LpLegalizeSolver::configureObjFunc()
 {
     // Wirelength
     this->addWirelengthObj();
     // Area
     this->addAreaObj();
+    if (_relaxEqualityConstraint)
+    {
+        addSymObj();
+    }
 }
 
 IndexType LpLegalizeSolver::numVars() const
@@ -284,7 +293,47 @@ void LpLegalizeSolver::addTopologyConstraints()
 
 }
 
+
 void LpLegalizeSolver::addSymmetryConstraints()
+{
+    if (_relaxEqualityConstraint)
+    {
+        addSymmetryConstraintsRex();
+    }
+    else
+    {
+        addSymmetryConstraintsWithEqu();
+    }
+}
+
+void LpLegalizeSolver::addSymmetryConstraintsRex()
+{
+    if (_isHor)
+    {
+    }
+    else
+    {
+        // Force they have the same y coordinate
+        for (IndexType symGroupIdx = 0;  symGroupIdx < _db.numSymGroups(); ++symGroupIdx)
+        {
+            const auto & symGroup = _db.symGroup(symGroupIdx);
+            for (IndexType symPairIdx = 0; symPairIdx < symGroup.numSymPairs(); ++symPairIdx)
+            {
+                const auto &symPair = symGroup.symPair(symPairIdx);
+                IndexType bCellIdx = symPair.firstCell();
+                IndexType tCellIdx = symPair.secondCell();
+                if (_db.cell(bCellIdx).yLoc() > _db.cell(tCellIdx).yLoc())
+                {
+                    std::swap(tCellIdx, bCellIdx);
+                }
+                // y_b - y_t <= 0
+                _ilpModel.addConstraint(_locs.at(bCellIdx) - _locs.at(tCellIdx) <= 0.0);
+            }
+        }
+    }
+}
+
+void LpLegalizeSolver::addSymmetryConstraintsWithEqu()
 {
     if (_isHor)
     {

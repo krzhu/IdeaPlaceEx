@@ -41,6 +41,7 @@ bool NlpWnconj::solve()
 
 bool NlpWnconj::writeOut()
 {
+    this->alignSym();
     // find the min value
     RealType minX =1e10; 
     RealType minY = 1e10;

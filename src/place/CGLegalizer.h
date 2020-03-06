@@ -157,6 +157,8 @@ class LpLegalizeSolver
         void addWirelengthObj();
         /// @brief add area objective
         void addAreaObj();
+        /// @brief add relaxed symmetric penalty
+        void addSymObj();
         /* Constraint functions */
         /// @brief add constraints
         void addIlpConstraints();
@@ -166,6 +168,8 @@ class LpLegalizeSolver
         void addTopologyConstraints();
         /// @brief add symmetry constraints
         void addSymmetryConstraints();
+        void addSymmetryConstraintsWithEqu();
+        void addSymmetryConstraintsRex();
         /// @brief add hpwl constraints
         void addHpwlConstraints();
     private:
@@ -189,10 +193,12 @@ class LpLegalizeSolver
 #else
         bool _isMultipleSymGrp = false;
 #endif 
+        bool _relaxEqualityConstraint = false;
         //SolverType _solver; ///< Solver
         /*  Optimization Results */
         limbo::solvers::SolverProperty _optimStatus; ///< The resulting status
         limbo::solvers::LPSolveParameters _params;
+        RealType _largeNum = 100000.0; ///< A large number
 
 };
 

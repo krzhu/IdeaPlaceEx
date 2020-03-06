@@ -101,7 +101,7 @@ void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cell
         _virtualPins.back().setDirection(Direction2DType::WEST);
         _rightVirtualPins.emplace_back(_virtualPins.size());
         _virtualPins.emplace_back(XY<LocType>(_boundary.xHi(), y));
-        _virtualPins.back().setDirection(Direction2DType::NORTH);
+        _virtualPins.back().setDirection(Direction2DType::EAST);
     }
     std::set<VirtualPin> pinSet;
     for (const auto & vp : _virtualPins)
