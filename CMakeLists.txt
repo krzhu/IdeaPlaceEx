@@ -63,6 +63,16 @@ endif()
 message(STATUS "Find Lemon: ${LEMON_ROOT_DIR}")
 unset(LEMON_DIR CACHE)
 
+
+# Find Eigen
+if (EIGEN_DIR)
+    set(EIGEN_ROOT_DIR ${EIGEN_DIR})
+else()
+    set(EIGEN_ROOT_DIR $ENV{EIGEN_INC})
+endif()
+message(STATUS "Find Eigen: ${EIGEN_ROOT_DIR}")
+unset(LEMON_DIR CACHE)
+
 # Find the directory for WNLIB. If cache variable WNLIB_DIR is defined, use it as the path to WNLIB, otherwise use the system WNLIB_DIR
 if (WNLIB_DIR)
     set(WNLIB_ROOT_DIR ${WNLIB_DIR})
@@ -182,12 +192,9 @@ ELSE()
     set(CMAKE_BUILD_TYPE Release)
 ENDIF()
 #set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
-set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -march=native -fopenmp ")
+set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -fopenmp ")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline ")
-#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -fno-inline") 
-#set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-#set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -frename-registers -fprofile-use -fprofile-correction") 
-set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_PROFILE "-O3 -pg -Winline")
 #set(CMAKE_EXE_LINKER_FLAGS "-pthread -static-libgcc -static-libstdc++ -static")
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
@@ -206,6 +213,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${PYTHON_INCLUDE_DIRS}
     ${PYBIND11_ROOT_DIR}/include
     ${LEMON_ROOT_DIR}/include
+    ${EIGEN_ROOT_DIR}
 )
 
 target_link_libraries(${PROJECT_NAME} 
