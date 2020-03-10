@@ -1,6 +1,6 @@
 /**
  * @file NlpWnconj.h
- * @brief The global placement solver with non-linear optimization + wnlib conjugated gradient
+ * @brief The global placement solver with non-linear optimization + wnlib conjugated gradient line search
  * @author Keren Zhu
  * @date 10/12/2019
  */
