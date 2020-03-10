@@ -10,7 +10,7 @@
 
 #include "ConstraintGraph.h"
 #include "db/Database.h"
-#include <limbo/solvers/api/LPSolveApi.h>
+#include "lp_limbo_lpsolve.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -115,12 +115,11 @@ class Constraints
 /// @brief The LP solver for legalization
 class LpLegalizeSolver
 {
+        typedef LimboLpsolve<RealType> lp_solver_type;
+        typedef linear_programming_trait<lp_solver_type> lp_trait;
+        typedef lp_trait::variable_type lp_variable_type;
+        typedef lp_trait::expr_type lp_expr_type;
     public:
-        typedef limbo::solvers::LinearModel<RealType, RealType> LpModelType;
-        typedef limbo::solvers::LPSolveLinearApi
-            <LpModelType::coefficient_value_type, 
-            LpModelType::variable_value_type>
-                SolverType;
         explicit LpLegalizeSolver(Database &db, Constraints &constraints, bool isHor=true,
                 IntType optHpwl=0, IntType optArea=1)
             : _db(db), _constrains(constraints), _isHor(isHor), _optHpwl(optHpwl), _optArea(optArea)
@@ -180,14 +179,14 @@ class LpLegalizeSolver
         IntType _optHpwl = 0; ///< Whether optimizing HPWL in ILP problems
         IntType _optArea = 1; ///< Whether optimizing area in ILP problems
         /* Optimization supporting variables */
-        LpModelType _ilpModel; ///< The ILP model
-        LpModelType::expression_type _obj; ///< The objective function of the ILP model
-        std::vector<LpModelType::variable_type> _locs; ///< The location variables of the ILP model
-        std::vector<LpModelType::variable_type> _wlL; ///< The left wirelength variables of the ILP model
-        std::vector<LpModelType::variable_type> _wlR; ///< The right wirelength variables of the ILP model
-        LpModelType::variable_type _dim; ///< The variable for area optimization
+        lp_solver_type _solver; ///<  LP sovler
+        lp_expr_type _obj; ///< The objective function of the ILP model
+        std::vector<lp_variable_type> _locs; ///< The location variables of the ILP model
+        std::vector<lp_variable_type> _wlL; ///< The left wirelength variables of the ILP model
+        std::vector<lp_variable_type> _wlR; ///< The right wirelength variables of the ILP model
+        lp_variable_type _dim; ///< The variable for area optimization
         RealType _wStar = 0; ///< The optimal W found in legalization step
-        std::vector<LpModelType::variable_type> _symLocs; ///< The variable for symmetric group axises
+        std::vector<lp_variable_type> _symLocs; ///< The variable for symmetric group axises
 #ifdef MULTI_SYM_GROUP
         bool _isMultipleSymGrp = true;
 #else
@@ -196,8 +195,6 @@ class LpLegalizeSolver
         bool _relaxEqualityConstraint = false;
         //SolverType _solver; ///< Solver
         /*  Optimization Results */
-        limbo::solvers::SolverProperty _optimStatus; ///< The resulting status
-        limbo::solvers::LPSolveParameters _params;
         RealType _largeNum = 100000.0; ///< A large number
 
 };
