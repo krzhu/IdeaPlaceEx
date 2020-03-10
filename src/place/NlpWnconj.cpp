@@ -368,7 +368,6 @@ bool NlpWnconj::nlpKernel()
     // Init the opeartors
     this->initOperators();
 
-    this->assignPin();
     // Iteratively solving NLP
     while (_iter < _maxIter)
     {

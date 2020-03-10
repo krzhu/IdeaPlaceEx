@@ -59,6 +59,9 @@ class IdeaPlaceEx
         /// @param first: the filename for gds layout file
         /// @param second: the cell index. if INDEX_TYPE_MAX, then will try to match the gds cellname
         void readGdsLayout(const std::string &gdsFile, IndexType cellIdx=INDEX_TYPE_MAX);
+        /// @brief read the symnet file
+        /// @param the filename for the symnet file
+        void readSymNetFile(const std::string &symnetFile);
         /*------------------------------*/ 
         /* paramters                    */
         /*------------------------------*/ 
@@ -117,6 +120,10 @@ class IdeaPlaceEx
         {
             return _db.allocateNet();
         }
+        /// @brief set the name of a net
+        /// @param first: the index of the net
+        /// @param second: the net name
+        void setNetName(IndexType netIdx, const std::string &netName) { _db.net(netIdx).setName(netName); }
         /// @brief add pin to net
         /// @param first: the pin index
         /// @param second: the net index
@@ -181,6 +188,16 @@ class IdeaPlaceEx
         {
             _db.proximityGrp(proximityGrpIdx).addCell(cellIdx);
         }
+        /// @brief set a pair of symmetric nets
+        /// @param first and second: two net indices. The order does not matter
+        void addSymNetPair(IndexType netIdx1, IndexType netIdx2)
+        {
+            _db.net(netIdx1).setSymNet(netIdx2);
+            _db.net(netIdx2).setSymNet(netIdx1);
+        }
+        /// @brief mark a net as self-symmmetric
+        /// @param the net index
+        void markSelfSymNet(IndexType netIdx) { _db.net(netIdx).markSelfSym(); }
         /// @brief open the functionality of virtual pin assignment
         void openVirtualPinAssignment() { _db.parameters().openVirtualPinAssignment(); }
         /// @brief close the functionality of virtual pin assignment 
