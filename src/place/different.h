@@ -77,36 +77,31 @@ namespace op
 
     namespace conv_details
     {
-        template<typename RhsType, typename LhsType>
-        struct conv_t
+        template<typename, typename, bool>
+        struct conv_t {};
+        template<typename LhsType, typename RhsType>
+        struct conv_t<LhsType, RhsType, true>
         {
             static constexpr LhsType conv(RhsType rhs)
-            {
-                if (std::is_same<RhsType, LhsType>::value)
-                {
-                    return rhs;
-                }
-                else
-                {
-                    return static_cast<LhsType>(rhs);
-                }
-            }
-        };
-        template<>
-        struct conv_t<RealType, RealType>
-        {
-            static constexpr RealType conv(RealType rhs)
             {
                 return rhs;
             }
         };
+        template<typename LhsType, typename RhsType>
+        struct conv_t<LhsType, RhsType, false>
+        {
+            static constexpr LhsType conv(RhsType rhs)
+            {
+                return static_cast<LhsType>(rhs);
+            }
+        };
     } // namespace conv_details
 
-    /// @brief convertor rhs type to lhs type
-    template<typename RhsType, typename LhsType>
+    /// @brief convert rhs type to lhs type
+    template<typename LhsType, typename RhsType>
     constexpr LhsType conv(RhsType rhs)
     {
-        return conv_details::conv_t<RhsType, LhsType>::conv(rhs);
+        return conv_details::conv_t<RhsType, LhsType, std::is_same<RhsType, LhsType>::value>::conv(rhs);
     }
 };
 
@@ -149,10 +144,10 @@ struct LseHpwlDifferentiable
         NumType *pMax = &max_val.front(); 
         for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
         {
-            NumType x = op::conv<CoordType, NumType>(
+            NumType x = op::conv<NumType>(
                     getVarFunc(_cells[pinIdx], Orient2DType::HORIZONTAL) + _offsetX[pinIdx]
                     );
-            NumType y = op::conv<CoordType, NumType>(
+            NumType y = op::conv<NumType>(
                     getVarFunc(_cells[pinIdx], Orient2DType::VERTICAL) + _offsetY[pinIdx]
                     );
             pMax[0] += exp(x / alpha);
@@ -189,10 +184,10 @@ struct LseHpwlDifferentiable
         std::vector<std::array<NumType, 4>> exp_results(_cells.size());
         for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
         {
-            NumType x = op::conv<CoordType, NumType>(
+            NumType x = op::conv<NumType>(
                     getVarFunc(_cells[pinIdx], Orient2DType::HORIZONTAL) + _offsetX[pinIdx]
                     );
-            NumType y = op::conv<CoordType, NumType>(
+            NumType y = op::conv<NumType>(
                     getVarFunc(_cells[pinIdx], Orient2DType::VERTICAL) + _offsetY[pinIdx]
                     );
             exp_results[pinIdx][0] = exp(x / alpha);
@@ -278,8 +273,8 @@ struct CellPairOverlapPenaltyDifferentiable
             CoordType var1X = xHiI - xLoJ;
             CoordType var2X = xHiJ - xLoI;
             NumType overlapX = op::logSumExp(
-                op::conv<CoordType, NumType>(var1X),
-                op::conv<CoordType, NumType>(var2X),
+                op::conv<NumType>(var1X),
+                op::conv<NumType>(var2X),
                 - (*_alpha)
                 );
             overlapX = op::logSumExp0(
@@ -290,8 +285,8 @@ struct CellPairOverlapPenaltyDifferentiable
             CoordType var1Y = yHiI - yLoJ;
             CoordType var2Y = yHiJ - yLoI;
             NumType overlapY = op::logSumExp(
-                op::conv<CoordType, NumType>(var1Y),
-                op::conv<CoordType, NumType>(var2Y),
+                op::conv<NumType>(var1Y),
+                op::conv<NumType>(var2Y),
                 - (*_alpha)
                 );
             overlapY = op::logSumExp0(
@@ -343,14 +338,14 @@ struct CellPairOverlapPenaltyDifferentiable
             -(alpha * alpha*log(1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*(exp(-(hi + yi - yj)/alpha)/alpha - exp(-(hj - yi + yj)/alpha)/alpha))/((1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(pow((exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)), 2)))
          *
          */
-        NumType xi = op::conv<CoordType, NumType>(getVarFunc(_cellIdxI, Orient2DType::HORIZONTAL));
-        NumType yi = op::conv<CoordType, NumType>(getVarFunc(_cellIdxI, Orient2DType::VERTICAL));
-        NumType xj = op::conv<CoordType, NumType>(getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL));
-        NumType yj = op::conv<CoordType, NumType>(getVarFunc(_cellIdxJ, Orient2DType::VERTICAL));
-        NumType wi = op::conv<CoordType, NumType>(_cellWidthI);
-        NumType hi = op::conv<CoordType, NumType>(_cellHeightI);
-        NumType wj = op::conv<CoordType, NumType>(_cellWidthJ);
-        NumType hj = op::conv<CoordType, NumType>(_cellHeightJ);
+        NumType xi = op::conv<NumType>(getVarFunc(_cellIdxI, Orient2DType::HORIZONTAL));
+        NumType yi = op::conv<NumType>(getVarFunc(_cellIdxI, Orient2DType::VERTICAL));
+        NumType xj = op::conv<NumType>(getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL));
+        NumType yj = op::conv<NumType>(getVarFunc(_cellIdxJ, Orient2DType::VERTICAL));
+        NumType wi = op::conv<NumType>(_cellWidthI);
+        NumType hi = op::conv<NumType>(_cellHeightI);
+        NumType wj = op::conv<NumType>(_cellWidthJ);
+        NumType hj = op::conv<NumType>(_cellHeightJ);
         NumType alpha = (*_alpha);
         NumType lambda = (*_lambda);
 
@@ -410,18 +405,18 @@ struct CellOutOfBoundaryPenaltyDifferentiable
         CoordType yHi = yLo + _cellHeight;
         // Smooth abs xLo xHi
         NumType obXLo = op::logSumExp0(
-                op::conv<CoordType, NumType>(_boundary->xLo() - xLo),
+                op::conv<NumType>(_boundary->xLo() - xLo),
                 *_alpha);
         NumType obXHi = op::logSumExp0(
-                op::conv<CoordType, NumType>(xHi - _boundary->xHi()),
+                op::conv<NumType>(xHi - _boundary->xHi()),
                 *_alpha);
         // y
         NumType obYLo = op::logSumExp0(
-                op::conv<CoordType, NumType>(_boundary->yLo() - yLo),
+                op::conv<NumType>(_boundary->yLo() - yLo),
                 *_alpha
                 );
         NumType obYHi = op::logSumExp0(
-                op::conv<CoordType, NumType>(yHi - _boundary->yHi()),
+                op::conv<NumType>(yHi - _boundary->yHi()),
                 *_alpha
                 );
         return (obXLo + obXHi + obYLo + obYHi) * (*_lambda);
@@ -437,24 +432,24 @@ struct CellOutOfBoundaryPenaltyDifferentiable
         // max(lower - x/yLo, 0), max (x/yHi - upper, 0)
         NumType gradObX =
             - op::gradLogSumExp0( // negative comes from the derivative
-                    op::conv<CoordType, NumType>(_boundary->xLo() - xLo),
+                    op::conv<NumType>(_boundary->xLo() - xLo),
                     *_alpha
                     );
         gradObX +=
             op::gradLogSumExp0(
-                    op::conv<CoordType, NumType>(xHi - _boundary->xHi()),
+                    op::conv<NumType>(xHi - _boundary->xHi()),
                     *_alpha
                     );
         accumulateGradFunc(gradObX * (*_lambda), _cellIdx, Orient2DType::HORIZONTAL);
         // y
         NumType gradObY =
             - op::gradLogSumExp0( // negative comes from the derivative
-                    op::conv<CoordType, NumType>(_boundary->yLo() - yLo),
+                    op::conv<NumType>(_boundary->yLo() - yLo),
                     *_alpha
                     );
         gradObY +=
             op::gradLogSumExp0( 
-                    op::conv<CoordType, NumType>(yHi - _boundary->yHi()),
+                    op::conv<NumType>(yHi - _boundary->yHi()),
                     *_alpha
                     );
         accumulateGradFunc(gradObY * (*_lambda), _cellIdx, Orient2DType::VERTICAL);
@@ -492,34 +487,34 @@ struct AsymmetryDifferentiable
     void addSymPair(IndexType cellIdxI, IndexType cellIdxJ, CoordType width)
     {
         _pairCells.emplace_back(std::array<IndexType, 2>({cellIdxI, cellIdxJ}));
-        _pairWidths.emplace_back(op::conv<CoordType, NumType>(width));
+        _pairWidths.emplace_back(op::conv<NumType>(width));
     }
     void addSelfSym(IndexType cellIdx, CoordType width)
     {
         _selfSymCells.emplace_back(cellIdx);
-        _selfSymWidths.emplace_back(op::conv<CoordType, NumType>(width));
+        _selfSymWidths.emplace_back(op::conv<NumType>(width));
     }
 
     NumType evaluate( std::function<CoordType(IndexType, Orient2DType)> getVarFunc) const
     {
         NumType asym = 0;
-        NumType symAxis = op::conv<CoordType, NumType>(getVarFunc(_symGrpIdx, Orient2DType::NONE));
+        NumType symAxis = op::conv<NumType>(getVarFunc(_symGrpIdx, Orient2DType::NONE));
         for (IndexType symPairIdx = 0; symPairIdx < _pairCells.size(); ++symPairIdx)
         {
             IndexType cellI = _pairCells[symPairIdx][0];
             IndexType cellJ = _pairCells[symPairIdx][1];
-            NumType xi = op::conv<CoordType, NumType>(getVarFunc(cellI, Orient2DType::HORIZONTAL));
-            NumType yi = op::conv<CoordType, NumType>(getVarFunc(cellI, Orient2DType::VERTICAL));
+            NumType xi = op::conv<NumType>(getVarFunc(cellI, Orient2DType::HORIZONTAL));
+            NumType yi = op::conv<NumType>(getVarFunc(cellI, Orient2DType::VERTICAL));
             NumType w = _pairWidths[symPairIdx];
-            NumType xj = op::conv<CoordType, NumType>(getVarFunc(cellJ, Orient2DType::HORIZONTAL));
-            NumType yj = op::conv<CoordType, NumType>(getVarFunc(cellJ, Orient2DType::VERTICAL));
+            NumType xj = op::conv<NumType>(getVarFunc(cellJ, Orient2DType::HORIZONTAL));
+            NumType yj = op::conv<NumType>(getVarFunc(cellJ, Orient2DType::VERTICAL));
 
             asym += pow(yi - yj, 2.0);
             asym += pow(xi + xj + w - 2 *symAxis, 2.0);
         }
         for (IndexType ssIdx = 0; ssIdx < _selfSymCells.size(); ++ssIdx)
         {
-            NumType x = op::conv<CoordType, NumType>(getVarFunc(_selfSymCells[ssIdx], Orient2DType::HORIZONTAL));
+            NumType x = op::conv<NumType>(getVarFunc(_selfSymCells[ssIdx], Orient2DType::HORIZONTAL));
             NumType w = _selfSymWidths[ssIdx];
 
             asym += pow( x + w / 2 - symAxis, 2.0);
@@ -530,16 +525,16 @@ struct AsymmetryDifferentiable
             std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const
     {
         NumType lambda = *_lambda;
-        NumType symAxis = op::conv<CoordType, NumType>(getVarFunc(_symGrpIdx, Orient2DType::NONE));
+        NumType symAxis = op::conv<NumType>(getVarFunc(_symGrpIdx, Orient2DType::NONE));
         for (IndexType symPairIdx = 0; symPairIdx < _pairCells.size(); ++symPairIdx)
         {
             IndexType cellI = _pairCells[symPairIdx][0];
             IndexType cellJ = _pairCells[symPairIdx][1];
-            NumType xi = op::conv<CoordType, NumType>(getVarFunc(cellI, Orient2DType::HORIZONTAL));
-            NumType yi = op::conv<CoordType, NumType>(getVarFunc(cellI, Orient2DType::VERTICAL));
+            NumType xi = op::conv<NumType>(getVarFunc(cellI, Orient2DType::HORIZONTAL));
+            NumType yi = op::conv<NumType>(getVarFunc(cellI, Orient2DType::VERTICAL));
             NumType w = _pairWidths[symPairIdx];
-            NumType xj = op::conv<CoordType, NumType>(getVarFunc(cellJ, Orient2DType::HORIZONTAL));
-            NumType yj = op::conv<CoordType, NumType>(getVarFunc(cellJ, Orient2DType::VERTICAL));
+            NumType xj = op::conv<NumType>(getVarFunc(cellJ, Orient2DType::HORIZONTAL));
+            NumType yj = op::conv<NumType>(getVarFunc(cellJ, Orient2DType::VERTICAL));
 
             NumType partialX = 2.0 * (xi + xj + w - 2 * symAxis) * lambda;
             accumulateGradFunc(partialX, cellI, Orient2DType::HORIZONTAL);
@@ -552,7 +547,7 @@ struct AsymmetryDifferentiable
         }
         for (IndexType ssIdx = 0; ssIdx < _selfSymCells.size(); ++ssIdx)
         {
-            NumType x = op::conv<CoordType, NumType>(getVarFunc(_selfSymCells[ssIdx], Orient2DType::HORIZONTAL));
+            NumType x = op::conv<NumType>(getVarFunc(_selfSymCells[ssIdx], Orient2DType::HORIZONTAL));
             NumType w = _selfSymWidths[ssIdx];
 
             NumType partial = 2.0 * (x + w /2 - symAxis) * lambda;

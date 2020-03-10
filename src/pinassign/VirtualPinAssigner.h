@@ -40,16 +40,18 @@ class VirtualPinAssigner
         /// @brief set the interval between pins
         void setVirtualPinInterval(LocType in) { _virtualPinInterval = in; }
     private:
-        bool symPinAssign(std::function<XY<LocType>(IndexType)> cellLocQueryFunc,
-                std::function<LocType(IndexType, IndexType)> edgeCostFunc);
+        bool _networkSimplexPinAssignment(
+                std::function<bool(IndexType)> useNetFunc,
+                std::function<bool(IndexType)> usePinFunc,
+                std::function<LocType(IndexType, IndexType)> netToPinCostFunc,
+                std::function<void(IndexType, IndexType)> setNetToVirtualPinFunc);
     private:
         Database &_db; ///< The placement database
         Box<LocType> _boundary; ///< The virtual boundary of the placement
         std::vector<VirtualPin> _virtualPins; ///< The locations for virtual pins
         LocType _virtualBoundaryExtension = -1; ///< The extension to placement cell bounding box
         LocType _virtualPinInterval = -1; ///< The interval between virtual pins
-        std::vector<IndexType> _leftVirtualPins;
-        std::vector<IndexType> _rightVirtualPins;
+        std::map<IndexType, IndexType> _leftToRightMap; // _leftToRightMap[idx of left] = idx of right
 };
 
 PROJECT_NAMESPACE_END
