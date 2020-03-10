@@ -334,10 +334,6 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
 
     std::vector<OpGrad> _grads(_ops.size());
 
-    if (_innerIter % 500 == 0)
-    {
-        this->assignPin();
-    }
     _innerIter++;
 
     #pragma omp parallel for schedule(static)

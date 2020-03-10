@@ -22,10 +22,10 @@ class VirtualPin
         XY<LocType> & loc() { return _loc; }
         LocType x() const { return _loc.x(); }
         LocType y() const { return _loc.y(); }
-        IndexType cellIdx() const { return _cellIdx; }
-        bool assigned() const { return _cellIdx !=  INDEX_TYPE_MAX; }
-        void free() { _cellIdx = INDEX_TYPE_MAX; }
-        void assign(IndexType cellIdx) { _cellIdx = cellIdx; }
+        IndexType netIdx() const { return _netIdx; }
+        bool assigned() const { return _netIdx !=  INDEX_TYPE_MAX; }
+        void free() { _netIdx = INDEX_TYPE_MAX; }
+        void assign(IndexType netIdx) { _netIdx = netIdx; }
         void setDirection(Direction2DType dir) { _dir = dir; }
         Direction2DType direction() const { return _dir; }
 
@@ -33,9 +33,15 @@ class VirtualPin
         {
             return _loc < pin._loc;
         }
+        std::string toStr() const
+        {
+            std::stringstream ss;
+            ss << _loc.toStr() <<" net: " << _netIdx;
+            return ss.str();
+        }
     private:
         XY<LocType> _loc;
-        IndexType _cellIdx = INDEX_TYPE_MAX;
+        IndexType _netIdx = INDEX_TYPE_MAX;
         Direction2DType _dir; ///< The location on the placement boundary
 };
 /// @class IDEAPLACE::Net
@@ -68,6 +74,14 @@ class Net
         /// @return true: top or bottom
         /// @return false: left or right
         bool iopinVertical() const { return _virtualPin.direction() == Direction2DType::NORTH or _virtualPin.direction() == Direction2DType::SOUTH; }
+        /// @brief the net index that is sym pair of this one
+        /// @return the net index that is sym pair of this one
+        IndexType symNetIdx() const { return _symNetIdx; }
+        /// @brief get whether this net is self-symmetric
+        /// @return whether this net is self-symmetric
+        bool isSelfSym() const { return _isSelfSym; }
+        /// @brief get whether this net has symmetric net
+        bool hasSymNet() const { return _symNetIdx != INDEX_TYPE_MAX; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
@@ -85,6 +99,13 @@ class Net
         void invalidateVirtualPin() { _virtualPin.free(); }
         /// @brief mark this net as a dummy net
         void markAsDummyNet() { _isDummy = true; }
+        /// @brief set the symmetric pair net index of this one
+        /// @param the net index that this one should be symmetric to
+        void setSymNet(IndexType symNet) { _symNetIdx = symNet; }
+        /// @brief mark this net as self symmetric
+        void markSelfSym() { _isSelfSym = true; }
+        /// @brief revoke the mark of this net is self symmetric
+        void revokeSelfSym() { _isSelfSym = false; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -106,6 +127,8 @@ class Net
         bool _isIo = false; ///< Whether thisnet is an IO net 
         VirtualPin _virtualPin; ///< The virtual pin location
         bool _isDummy = false; ///< Whether this is a dummy net
+        IndexType _symNetIdx = INDEX_TYPE_MAX; ///< The symmetric pair of this net. If INDEX_TYPE_MAX, it does not have a sym pair
+        bool _isSelfSym = false; ///< Whether this net is self-symmetric
 };
 
 PROJECT_NAMESPACE_END

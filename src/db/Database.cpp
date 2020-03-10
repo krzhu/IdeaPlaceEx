@@ -181,7 +181,7 @@ void Database::drawCellBlocks(const std::string &filename)
         XY<LocType> cellLoc = XY<LocType>(cell.xLoc(), cell.yLoc());
         cellBox.offsetBy(cellLoc);
         wg->writeRectangle(cellBox, cellIdx, 0);
-#if 0
+#if 1
         // Also write pins
         for (IndexType pinIdxInCell = 0; pinIdxInCell < cell.numPinIdx(); ++pinIdxInCell)
         {

@@ -7,6 +7,7 @@
 #include "parser/ParserNetwgt.h"
 #include "parser/ParserGds.h"
 #include "parser/ParserSymFile.h"
+#include "parser/ParserSymNet.h"
 /* Placement */
 #include "pinassign/VirtualPinAssigner.h"
 #include "place/ProximityMgr.h"
@@ -27,11 +28,13 @@ void IdeaPlaceEx::readTechSimpleFile(const std::string &techsimple)
 
 void IdeaPlaceEx::readPinFile(const std::string &pinFile)
 {
+    WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
     ParserPin(_db).read(pinFile);
 }
 
 void IdeaPlaceEx::readConnectionFile(const std::string &connectionFile)
 {
+    WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
     ParserConnection(_db).read(connectionFile);
 
     // Init cells before read in the gds
@@ -44,16 +47,24 @@ void IdeaPlaceEx::readConnectionFile(const std::string &connectionFile)
 
 void IdeaPlaceEx::readNetWgtFile(const std::string &netWgtFile)
 {
+    WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
     ParserNetwgt(_db).read(netWgtFile);
 }
 
 void IdeaPlaceEx::readSymFile(const std::string &symFile)
 {
+    WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
     ParserSymFile(_db).read(symFile);
 }
 void IdeaPlaceEx::readGdsLayout(const std::string &gdsFile, IndexType cellIdx)
 {
+    WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
     ParserCellGds(_db).parseCellGds(gdsFile, cellIdx);
+}
+void IdeaPlaceEx::readSymNetFile(const std::string &symnetFile)
+{
+    WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
+    ParserSymNet(_db).read(symnetFile);
 }
 
 bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
