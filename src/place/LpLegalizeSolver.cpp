@@ -38,6 +38,7 @@ bool LpLegalizeSolver::solve()
 
 bool LpLegalizeSolver::solveLp()
 {
+    lp_trait::setNumThreads(_solver, _db.parameters().numThreads());
     lp_trait::setObjectiveMinimize(_solver);
     lp_trait::setObjective(_solver, _obj);
     lp_trait::solve(_solver);

@@ -93,6 +93,10 @@ struct linear_programming_trait
     {
         return status(solver).toStr();
     }
+    static void setNumThreads(solver_type &solver, IndexType numThreads)
+    {
+        solver.setNumThreads(numThreads);
+    }
 };
 
 PROJECT_NAMESPACE_END

@@ -1,7 +1,7 @@
 #include "VirtualPinAssigner.h"
 #include <lemon/list_graph.h>
 #include <lemon/network_simplex.h>
-#include "place/lp_limbo_lpsolve.h"
+#include "place/lp_limbo.h"
 #include "util/Vector2D.h"
 #include <chrono>
 
@@ -413,14 +413,13 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         std::function<void(IndexType, IndexType)> setOtherNetToPinFunc
         )
 {
-    using solver_type =  LimboLpsolve<RealType>;
-    using lp_type = linear_programming_trait<solver_type>;
+    using solver_type =  lp::LimboLpsolve;
+    using lp_type = lp::LimboLpsolveTrait;
     using variable_type = lp_type::variable_type;
     using expr_type = lp_type::expr_type;
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    DBG("start LP simplex \n");
 
     // Collect the problem
     std::vector<IndexType> symNets, otherNets, symPins, otherPins;
@@ -449,7 +448,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
             pinIdxToOtherPinIdxMap[pinIdx] = otherPins.size() - 1;
         }
     }
-    DBG("finish all nets pins \n");
     // Construct the conflict between pin pairs and other pins
     for (IndexType idx = 0; idx < symPins.size(); ++idx)
     {
@@ -458,7 +456,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         auto rightIdx = pinIdxToOtherPinIdxMap.at(rightPinIdx);
         conflictPins.emplace_back(idx, leftIdx);
         conflictPins.emplace_back(idx, rightIdx);
-        DBG("conflict pins %d -  %d %d \n", symPins[idx], symPins[idx], rightPinIdx);
     }
 
     IndexType m = symPins.size();
@@ -467,7 +464,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
     IndexType ns = symNets.size();
     Assert(2 * m == conflictPins.size());
 
-    DBG("finish collect \n");
     if (m < ns or 2 * m < ns + na)
     {
         AssertMsg(false, "Ideaplace: assign IO pins: Not enought pin candidates. Please implement the fixing routine.\n");
@@ -491,7 +487,7 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         for (IndexType y = 0; y < ns; ++y)
         {
             xs.at(x, y) = lp_type::addVar(solver);
-            lp_type::setVarInteger(solver, xs.at(x, y));
+            //lp_type::setVarInteger(solver, xs.at(x, y));
         }
     }
     for (IndexType x = 0; x < 2*m; ++x)
@@ -499,11 +495,10 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         for (IndexType y = 0; y < na; ++y)
         {
             ys.at(x, y) = lp_type::addVar(solver);
-            lp_type::setVarInteger(solver, ys.at(x, y));
+            //lp_type::setVarInteger(solver, ys.at(x, y));
         }
     }
     
-    DBG("finish add var \n");
 
     // configure the objective function
     // Sym nets to sym pins cost
@@ -526,7 +521,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
     lp_type::setObjective(solver, obj);
     lp_type::setObjectiveMinimize(solver);
 
-    DBG("finish add obj \n");
 
     // Add constraints
     // Assign all sym nets
@@ -539,7 +533,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         }
         lp_type::addConstr(solver, lhs == 1);
     }
-    DBG("constr 1 \n");
     // Assign all other nets
     for (IndexType j = 0; j < na; ++j)
     {
@@ -550,7 +543,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         }
         lp_type::addConstr(solver, lhs == 1);
     }
-    DBG("constr 2 \n");
     // Sym pin and other pin conflict
     for (const auto & confilctPair : conflictPins)
     {
@@ -568,12 +560,11 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         lp_type::addConstr(solver, lhs <= 1);
     }
 
-    DBG("start lp \n");
 
     // Solve the LP
+    lp_type::setNumThreads(solver, _db.parameters().numThreads());
     lp_type::solve(solver);
 
-    DBG("end lp %s %f \n", lp_type::statusStr(solver).c_str(), lp_type::evaluateExpr(solver, obj));
 
     bool failed = false;
 
@@ -615,6 +606,7 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
 endloop:
     if (failed)
     {
+        ERR("Ideaplace: io pin assignment: unexpected non-integer solutions. Now print the debugging info...\n");
         for (IndexType x = 0; x < m; ++x)
         {
             for (IndexType y = 0; y < ns; ++y)
@@ -639,7 +631,6 @@ endloop:
                 }
             }
         }
-        DBG("Print all costs \n");
         for (IndexType x = 0; x < m; ++x)
         {
             for (IndexType y = 0; y < ns; ++y)
@@ -667,7 +658,7 @@ endloop:
     }
 
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout<<"time "<< std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()<<std::endl;;
+    std::cout<<" io pin assignment time "<< std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() <<" us " <<std::endl;;
     return true;
 }
 
