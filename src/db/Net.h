@@ -124,7 +124,7 @@ class Net
         std::string _name = ""; ///< The name for the net
         std::vector<IndexType> _pinIdxArray; ///< The index to the pins belonging to the net
         IntType _weight = 1; ///< The weight of this net
-        bool _isIo = false; ///< Whether thisnet is an IO net 
+        bool _isIo = true; ///< Whether thisnet is an IO net 
         VirtualPin _virtualPin; ///< The virtual pin location
         bool _isDummy = false; ///< Whether this is a dummy net
         IndexType _symNetIdx = INDEX_TYPE_MAX; ///< The symmetric pair of this net. If INDEX_TYPE_MAX, it does not have a sym pair

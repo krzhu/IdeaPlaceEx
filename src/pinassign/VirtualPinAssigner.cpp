@@ -1,6 +1,9 @@
 #include "VirtualPinAssigner.h"
 #include <lemon/list_graph.h>
 #include <lemon/network_simplex.h>
+#include "place/lp_limbo_lpsolve.h"
+#include "util/Vector2D.h"
+#include <chrono>
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -224,6 +227,7 @@ bool VirtualPinAssigner::_networkSimplexPinAssignment(std::function<bool(IndexTy
 bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
 {
 
+    DBG("start pinAssignment \n");
     // Calculate the current HPWLs without virtual pin
     std::vector<Box<LocType>> curNetBBox;
     curNetBBox.resize(_db.numNets());
@@ -261,10 +265,14 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
 
     auto useASymNet = [&](IndexType netIdx)
     {
-        if (_db.net(netIdx).isSelfSym())
+        if (!_db.net(netIdx).isIo())
         {
             return false;
         }
+        //if (_db.net(netIdx).isSelfSym())
+        //{
+        //    return false;
+        //}
         if (_db.net(netIdx).hasSymNet())
         {
             return false;
@@ -283,6 +291,9 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
 
     auto directAssignNetToPinFunc = [&](IndexType netIdx, IndexType virtualPinIdx)
     {
+        DBG("Assign %d to %d \n", netIdx, virtualPinIdx);
+        AssertMsg(!_virtualPins[virtualPinIdx].assigned(), "Ideaplace: IO pin assignment: unexpected error: pin assignment conflict \n");
+
         _virtualPins[virtualPinIdx].assign(netIdx);
         _db.net(netIdx).setVirtualPin(_virtualPins[virtualPinIdx]);
     };
@@ -291,11 +302,11 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     auto symPairNetToPinCostFunc = [&](IndexType netIdx, IndexType leftPinIdx)
     {
         auto rightPinIdx = _leftToRightMap.at(leftPinIdx);
-        if (_db.net(netIdx).isSelfSym())
-        {
-            return calculateIncreasedHpwl(netIdx, leftPinIdx) + calculateIncreasedHpwl(netIdx, rightPinIdx);
-        }
-        else if (_db.net(netIdx).hasSymNet())
+        //if (_db.net(netIdx).isSelfSym())
+        //{
+        //    return calculateIncreasedHpwl(netIdx, leftPinIdx) + calculateIncreasedHpwl(netIdx, rightPinIdx);
+        //}
+        if (_db.net(netIdx).hasSymNet())
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
             auto netCost0 = calculateIncreasedHpwl(netIdx, leftPinIdx) + calculateIncreasedHpwl(otherNetIdx, rightPinIdx);
@@ -308,10 +319,14 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
 
     auto useSymNet = [&](IndexType netIdx)
     {
-        if (_db.net(netIdx).isSelfSym())
+        if (!_db.net(netIdx).isIo())
         {
-            return true;
+            return false;
         }
+        //if (_db.net(netIdx).isSelfSym())
+        //{
+        //    return true;
+        //}
         if (_db.net(netIdx).hasSymNet())
         {
             if (netIdx < _db.net(netIdx).symNetIdx())
@@ -338,24 +353,26 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     auto symPairAssignNetToPinFunc = [&](IndexType netIdx, IndexType leftPinIdx)
     {
         auto rightPinIdx = _leftToRightMap.at(leftPinIdx);
-        if (_db.net(netIdx).isSelfSym())
-        {
-            directAssignNetToPinFunc(netIdx, leftPinIdx);
-            // TODO: also add right pin
-        }
-        else if (_db.net(netIdx).hasSymNet())
+        //if (_db.net(netIdx).isSelfSym())
+        //{
+        //    directAssignNetToPinFunc(netIdx, leftPinIdx);
+        //    // TODO: also add right pin
+        //}
+        if (_db.net(netIdx).hasSymNet())
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
             auto netCost0 = calculateIncreasedHpwl(netIdx, leftPinIdx) + calculateIncreasedHpwl(otherNetIdx, rightPinIdx);
             auto netCost1 = calculateIncreasedHpwl(otherNetIdx, leftPinIdx) + calculateIncreasedHpwl(netIdx, rightPinIdx);
             if (netCost0 <= netCost1)
             {
+                DBG("assign sym %d to %d, %d to %d \n", netIdx, leftPinIdx, otherNetIdx, rightPinIdx);
                 // net -> left. other net -> right
                 directAssignNetToPinFunc(netIdx, leftPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, rightPinIdx);
             }
             else
             {
+                DBG("assign sym %d to %d, %d to %d \n", netIdx, rightPinIdx, otherNetIdx, leftPinIdx);
                 // net -> right. other net -> left
                 directAssignNetToPinFunc(netIdx, rightPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, leftPinIdx);
@@ -368,12 +385,290 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
 
     };
 
-    if (!_networkSimplexPinAssignment(useSymNet, useLeftPin, symPairNetToPinCostFunc, symPairAssignNetToPinFunc))
+    if (_fastMode)
     {
+        if (!_networkSimplexPinAssignment(useSymNet, useLeftPin, symPairNetToPinCostFunc, symPairAssignNetToPinFunc))
+        {
+            return false;
+        }
+
+        return _networkSimplexPinAssignment(useASymNet, useFreePin, directNetToPinCostFunc, directAssignNetToPinFunc);
+    }
+    return _lpSimplexPinAssignment(useSymNet, useLeftPin, 
+            useASymNet, useFreePin, 
+            symPairNetToPinCostFunc, directNetToPinCostFunc,
+            symPairAssignNetToPinFunc, directAssignNetToPinFunc);
+
+}
+
+
+bool VirtualPinAssigner::_lpSimplexPinAssignment(
+        std::function<bool(IndexType)> isSymNetFunc,
+        std::function<bool(IndexType)> isLeftPinFunc,
+        std::function<bool(IndexType)> isOtherNetFunc,
+        std::function<bool(IndexType)> isOtherPinFunc,
+        std::function<LocType(IndexType, IndexType)> symNetToPinCostFunc,
+        std::function<LocType(IndexType, IndexType)> otherNetToPinCostFunc,
+        std::function<void(IndexType, IndexType)> setSymNetPairToPinFunc,
+        std::function<void(IndexType, IndexType)> setOtherNetToPinFunc
+        )
+{
+    using solver_type =  LimboLpsolve<RealType>;
+    using lp_type = linear_programming_trait<solver_type>;
+    using variable_type = lp_type::variable_type;
+    using expr_type = lp_type::expr_type;
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    DBG("start LP simplex \n");
+
+    // Collect the problem
+    std::vector<IndexType> symNets, otherNets, symPins, otherPins;
+    std::unordered_map<IndexType, IndexType> pinIdxToOtherPinIdxMap;
+    std::vector<std::pair<IndexType, IndexType>> conflictPins; // .first = sym pair pin. .second = other pin
+    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+    {
+        if (isSymNetFunc(netIdx))
+        {
+            symNets.emplace_back(netIdx);
+        }
+        if (isOtherNetFunc(netIdx))
+        {
+            otherNets.emplace_back(netIdx);
+        }
+    }
+    for (IndexType pinIdx = 0; pinIdx < _virtualPins.size(); ++pinIdx)
+    {
+        if (isLeftPinFunc(pinIdx) && isOtherPinFunc(pinIdx))
+        {
+            symPins.emplace_back(pinIdx);
+        }
+        if (isOtherPinFunc(pinIdx))
+        {
+            otherPins.emplace_back(pinIdx);
+            pinIdxToOtherPinIdxMap[pinIdx] = otherPins.size() - 1;
+        }
+    }
+    DBG("finish all nets pins \n");
+    // Construct the conflict between pin pairs and other pins
+    for (IndexType idx = 0; idx < symPins.size(); ++idx)
+    {
+        IndexType rightPinIdx = _leftToRightMap.at(symPins[idx]);
+        auto leftIdx = pinIdxToOtherPinIdxMap.at(symPins[idx]);
+        auto rightIdx = pinIdxToOtherPinIdxMap.at(rightPinIdx);
+        conflictPins.emplace_back(idx, leftIdx);
+        conflictPins.emplace_back(idx, rightIdx);
+        DBG("conflict pins %d -  %d %d \n", symPins[idx], symPins[idx], rightPinIdx);
+    }
+
+    IndexType m = symPins.size();
+    Assert(2 * m == otherPins.size());
+    IndexType na = otherNets.size();
+    IndexType ns = symNets.size();
+    Assert(2 * m == conflictPins.size());
+
+    DBG("finish collect \n");
+    if (m < ns or 2 * m < ns + na)
+    {
+        AssertMsg(false, "Ideaplace: assign IO pins: Not enought pin candidates. Please implement the fixing routine.\n");
         return false;
     }
 
-    return _networkSimplexPinAssignment(useASymNet, useFreePin, directNetToPinCostFunc, directAssignNetToPinFunc);
+    if (na + ns == 0)
+    {
+        return true;
+    }
+
+    // Initalize the LP problem
+    solver_type solver;
+    expr_type obj;
+    Vector2D<variable_type> xs(m, ns); // m * ns x decision variables. xs[i, j] -> assign symPins[i] to symNets[j] 
+    Vector2D<variable_type> ys(2 * m,  na); // 2*m*na y decision variable. ys[i, j]->assign  otherPins[i] tootherNets[j]
+
+    // Add variables to the LP problem model
+    for (IndexType x = 0; x < m; ++x)
+    {
+        for (IndexType y = 0; y < ns; ++y)
+        {
+            xs.at(x, y) = lp_type::addVar(solver);
+            lp_type::setVarInteger(solver, xs.at(x, y));
+        }
+    }
+    for (IndexType x = 0; x < 2*m; ++x)
+    {
+        for (IndexType y = 0; y < na; ++y)
+        {
+            ys.at(x, y) = lp_type::addVar(solver);
+            lp_type::setVarInteger(solver, ys.at(x, y));
+        }
+    }
+    
+    DBG("finish add var \n");
+
+    // configure the objective function
+    // Sym nets to sym pins cost
+    for (IndexType x = 0; x < m; ++x)
+    {
+        for (IndexType y = 0; y < ns; ++y)
+        {
+            obj += xs.at(x, y) * (symNetToPinCostFunc(symNets[y], symPins[x]) + 0.0) ;
+        }
+    }
+    // Other
+    for (IndexType x = 0; x < 2 * m; ++x)
+    {
+        for (IndexType y = 0; y < na; ++y)
+        {
+            obj += ys.at(x, y) * ( otherNetToPinCostFunc(otherNets[y], otherPins[x]) + 0.0);
+        }
+    }
+
+    lp_type::setObjective(solver, obj);
+    lp_type::setObjectiveMinimize(solver);
+
+    DBG("finish add obj \n");
+
+    // Add constraints
+    // Assign all sym nets
+    for (IndexType j = 0; j < ns; ++j)
+    {
+        expr_type lhs;
+        for (IndexType i = 0; i < m; ++i)
+        {
+            lhs += xs.at(i, j);
+        }
+        lp_type::addConstr(solver, lhs == 1);
+    }
+    DBG("constr 1 \n");
+    // Assign all other nets
+    for (IndexType j = 0; j < na; ++j)
+    {
+        expr_type lhs;
+        for (IndexType i = 0; i < 2 * m; ++i)
+        {
+            lhs += ys.at(i, j);
+        }
+        lp_type::addConstr(solver, lhs == 1);
+    }
+    DBG("constr 2 \n");
+    // Sym pin and other pin conflict
+    for (const auto & confilctPair : conflictPins)
+    {
+        IndexType symPinIdx = confilctPair.first;
+        IndexType otherPinIdx = confilctPair.second;
+        expr_type lhs;
+        for (IndexType j = 0; j < ns; ++ j)
+        {
+            lhs += xs.at(symPinIdx, j);
+        }
+        for (IndexType j = 0; j < na; ++ j)
+        {
+            lhs +=  ys.at(otherPinIdx, j);
+        }
+        lp_type::addConstr(solver, lhs <= 1);
+    }
+
+    DBG("start lp \n");
+
+    // Solve the LP
+    lp_type::solve(solver);
+
+    DBG("end lp %s %f \n", lp_type::statusStr(solver).c_str(), lp_type::evaluateExpr(solver, obj));
+
+    bool failed = false;
+
+    for (IndexType x = 0; x < m; ++x)
+    {
+        for (IndexType y = 0; y < ns; ++y)
+        {
+            auto sol = lp_type::solution(solver, xs.at(x, y));
+            auto assigned = ::klib::autoRound<IntType>(sol);
+            if (sol < 0.99 && sol > 0.001)
+            {
+                failed = true;
+                goto endloop;
+            }
+            if (assigned == 1)
+            {
+                setSymNetPairToPinFunc(symNets.at(y), symPins.at(x));
+            }
+        }
+    }
+    for (IndexType x = 0; x < 2*m; ++x)
+    {
+        for (IndexType y = 0; y < na; ++y)
+        {
+            auto sol = lp_type::solution(solver, ys.at(x, y));
+            if (sol < 0.99 && sol > 0.001)
+            {
+                failed = true;
+                goto endloop;
+            }
+            auto assigned = ::klib::autoRound<IntType>(sol);
+            if (assigned == 1)
+            {
+                setOtherNetToPinFunc(otherNets.at(y), otherPins.at(x));
+            }
+        }
+    }
+
+endloop:
+    if (failed)
+    {
+        for (IndexType x = 0; x < m; ++x)
+        {
+            for (IndexType y = 0; y < ns; ++y)
+            {
+                auto sol = lp_type::solution(solver, xs.at(x, y));
+                if (sol < 0.99 && sol > 0.001)
+                {
+                    DBG("xs %d %d sol %f. eq to net %d to pin %d\n", x, y, sol, symNets.at(y), symPins.at(x));
+                    DBG("cost %d \n" , symNetToPinCostFunc(symNets[y], symPins[x]));
+                }
+            }
+        }
+        for (IndexType x = 0; x < 2*m; ++x)
+        {
+            for (IndexType y = 0; y < na; ++y)
+            {
+                auto sol = lp_type::solution(solver, ys.at(x, y));
+                if (sol < 0.99 && sol > 0.001)
+                {
+                    DBG("ys %d %d sol %f. eq to net %d to pin %d\n", x, y, sol, otherNets.at(y), otherPins.at(x));
+                    DBG("cost %d \n", otherNetToPinCostFunc(otherNets[y], otherPins[x]));
+                }
+            }
+        }
+        DBG("Print all costs \n");
+        for (IndexType x = 0; x < m; ++x)
+        {
+            for (IndexType y = 0; y < ns; ++y)
+            {
+                    DBG("xs %d %d . eq to net %d to pin %d\n", x, y, symNets.at(y), symPins.at(x));
+                    DBG("cost %d \n" , symNetToPinCostFunc(symNets[y], symPins[x]));
+            }
+        }
+        for (IndexType x = 0; x < 2*m; ++x)
+        {
+            for (IndexType y = 0; y < na; ++y)
+            {
+                DBG("ys %d %d . eq to net %d to pin %d\n", x, y, otherNets.at(y), otherPins.at(x));
+                DBG("cost %d \n", otherNetToPinCostFunc(otherNets[y], otherPins[x]));
+            }
+        }
+        Assert(false);
+    }
+    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+    {
+        if (_db.net(netIdx).isIo())
+        {
+            Assert(_db.net(netIdx).isValidVirtualPin());
+        }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout<<"time "<< std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()<<std::endl;;
+    return true;
 }
 
 PROJECT_NAMESPACE_END
