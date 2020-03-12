@@ -487,7 +487,7 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         for (IndexType y = 0; y < ns; ++y)
         {
             xs.at(x, y) = lp_type::addVar(solver);
-            //lp_type::setVarInteger(solver, xs.at(x, y));
+            lp_type::setVarInteger(solver, xs.at(x, y));
         }
     }
     for (IndexType x = 0; x < 2*m; ++x)
@@ -495,7 +495,7 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         for (IndexType y = 0; y < na; ++y)
         {
             ys.at(x, y) = lp_type::addVar(solver);
-            //lp_type::setVarInteger(solver, ys.at(x, y));
+            lp_type::setVarInteger(solver, ys.at(x, y));
         }
     }
     

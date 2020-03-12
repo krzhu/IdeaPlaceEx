@@ -253,6 +253,8 @@ class CGLegalizer
     private:
         /// @brief Generate the constraints (not optimal in number of constraints). Based on sweeping algorithm
         void generateConstraints();
+        void generateHorConstraints();
+        void generateVerConstraints();
         /// @brief construct constraint graph from two constraints
         void constructConstraintGraphs();
         /// @brief perform DFS-based transitive reduction

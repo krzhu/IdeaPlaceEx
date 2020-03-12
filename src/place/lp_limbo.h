@@ -105,7 +105,7 @@ struct linear_programming_trait<_limbo_lp_solver<limbo_lp_api_type>>
 
     static variable_type addVar(solver_type &solver)
     {
-        return solver._model.addVariable(0, std::numeric_limits<RealType>::max(),
+        return solver._model.addVariable(0, REAL_TYPE_MAX,
                                                 limbo::solvers::CONTINUOUS, 
                                                 "x" + solver._model.numVariables());
     }
