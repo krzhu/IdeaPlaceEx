@@ -1,44 +1,101 @@
 /**
- * @file lp_limbo_lpsolve.h
- * @brief The linear programming implementation using LIMBO::LPSolveApi
+ * @file lp_limbo.h
+ * @brief The linear programming implementation using limbo::LPSolveApi and limbo::GurobiLinearApi
  * @author Keren Zhu
  * @date 03/10/2020
  */
 
-#ifndef IDEAPLACE_LP_LIMBO_LPSOLVE_H_
-#define IDEAPLACE_LP_LIMBO_LPSOLVE_H_
+#ifndef IDEAPLACE_LP_LIMBO_H_
+#define IDEAPLACE_LP_LIMBO_H_
 
 #include <limbo/solvers/api/LPSolveApi.h>
+#include <limbo/solvers/api/GurobiApi.h>
 #include "place/linear_programming.h"
 
 PROJECT_NAMESPACE_BEGIN
 
-template<typename value_type=double>
-class LimboLpsolve
+
+template<typename limbo_lp_api>
+struct _limbo_lp_api_trait
 {
-    friend linear_programming_trait<LimboLpsolve<value_type>>;
+    typedef typename limbo_lp_api::param_type param_type;
+    typedef typename limbo_lp_api::limbo_solver_type limbo_solver_type;
+    typedef typename limbo_lp_api::value_type value_type;
+    
+    static void setDefaultParams(param_type & param);
+    static void setNumThreads(param_type &param, IndexType numThreads);
+};
+
+template<typename limbo_lp_api_type>
+class _limbo_lp_solver
+{
+    friend linear_programming_trait<_limbo_lp_solver<limbo_lp_api_type>>;
     public:
-        LimboLpsolve() {}
-        ~LimboLpsolve() {}
+        typedef typename _limbo_lp_api_trait<limbo_lp_api_type>::value_type value_type;
         typedef typename limbo::solvers::LinearModel<value_type, value_type> model_type;
         typedef typename model_type::variable_type variable_type;
         typedef typename model_type::expression_type expr_type;
         typedef typename model_type::constraint_type constr_type;
         typedef limbo::solvers::SolverProperty status_type;
-        typedef limbo::solvers::LPSolveLinearApi
-            <typename model_type::coefficient_value_type, 
-            typename model_type::variable_value_type>
-                limbo_solver_type;
+        typedef typename _limbo_lp_api_trait<limbo_lp_api_type>::param_type param_type;
+        typedef typename _limbo_lp_api_trait<limbo_lp_api_type>::limbo_solver_type limbo_solver_type;
     private:
         model_type _model; ///< The LP problem model
         status_type _status; ///< The result status. e.g. OPTIMAL
-        limbo::solvers::LPSolveParameters _params; ///< The parameters for LIMBO solver
+        param_type _params; ///< The parameters for LIMBO solver
 };
 
 template<typename value_type>
-struct linear_programming_trait<LimboLpsolve<value_type>>
+struct _limbo_lp_api_lpsove
 {
-    typedef LimboLpsolve<value_type> solver_type;
+};
+
+template<typename coe_value_type>
+struct _limbo_lp_api_trait<_limbo_lp_api_lpsove<coe_value_type>>
+{
+    typedef coe_value_type value_type;
+    typedef typename limbo::solvers::LPSolveParameters param_type;
+    typedef limbo::solvers::LPSolveLinearApi<value_type, value_type> limbo_solver_type;
+    
+    static void setDefaultParams(param_type & param)
+    {
+        param.setVerbose(2); // SERVE
+    }
+    static void setNumThreads(param_type &param, IndexType numThreads) {}
+};
+
+template<typename value_type>
+struct _limbo_lp_api_gurobi
+{
+};
+
+template<typename coe_value_type>
+struct _limbo_lp_api_trait<_limbo_lp_api_gurobi<coe_value_type>>
+{
+    typedef coe_value_type value_type;
+    typedef typename limbo::solvers::GurobiParameters param_type;
+    typedef limbo::solvers::GurobiLinearApi<value_type, value_type> limbo_solver_type;
+    
+    static void setDefaultParams(param_type & param) {}
+    static void setNumThreads(param_type &param, IndexType numThreads) { param.setNumThreads(numThreads); }
+};
+
+
+/// @namespace contain some shortcuts for solving LP. Basically don't need to use any other structs if not too worried about it
+namespace lp
+{
+    typedef _limbo_lp_solver<_limbo_lp_api_lpsove<RealType>> LimboLpsolve; ///< The lpsolve using limbo api. This one need to be constructed
+    typedef linear_programming_trait<LimboLpsolve> LimboLpsolveTrait; ///< The lpsolve using limbo api. Don't construct it. Use its static methods as interface
+    typedef _limbo_lp_solver<_limbo_lp_api_gurobi<RealType>> LimboLpGurobi; ///< The Gurobi using limbo api. This one need to be constructed
+    typedef linear_programming_trait<LimboLpGurobi> LimboLpGurobiTrait; ///< The Gurobi using limbo api. Don't construct it. Use its static methods as interface
+} // namespace lp
+
+
+template<typename limbo_lp_api_type>
+struct linear_programming_trait<_limbo_lp_solver<limbo_lp_api_type>>
+{
+    typedef _limbo_lp_solver<limbo_lp_api_type> solver_type;
+    typedef typename _limbo_lp_api_trait<limbo_lp_api_type>::value_type value_type;
     typedef typename solver_type::variable_type variable_type;
     typedef typename solver_type::expr_type expr_type;
     typedef typename solver_type::constr_type constr_type;
@@ -48,7 +105,7 @@ struct linear_programming_trait<LimboLpsolve<value_type>>
 
     static variable_type addVar(solver_type &solver)
     {
-        return solver._model.addVariable(0, std::numeric_limits<RealType>::max(),
+        return solver._model.addVariable(0, REAL_TYPE_MAX,
                                                 limbo::solvers::CONTINUOUS, 
                                                 "x" + solver._model.numVariables());
     }
@@ -87,7 +144,7 @@ struct linear_programming_trait<LimboLpsolve<value_type>>
     }
     static void solve(solver_type &solver)
     {
-        solver._params.setVerbose(2); // 2: SEVERE
+        _limbo_lp_api_trait<limbo_lp_api_type>::setDefaultParams(solver._params);
         typename solver_type::limbo_solver_type sol(&solver._model);
         solver._status = sol(&solver._params);
     }
@@ -123,9 +180,13 @@ struct linear_programming_trait<LimboLpsolve<value_type>>
     {
         return limbo::solvers::toString(solver._status);
     }
+    static void setNumThreads(solver_type &solver, IndexType numThreads)
+    {
+        _limbo_lp_api_trait<limbo_lp_api_type>::setNumThreads(solver._params, numThreads);
+    }
 };
 
 PROJECT_NAMESPACE_END
 
 
-#endif //IDEAPLACE_LP_LIMBO_LPSOLVE_H_
+#endif //IDEAPLACE_LP_LIMBO_H_

@@ -24,6 +24,7 @@ CommandLineOptions::CommandLineOptions(int argc, char** argv)
     _parser.add <std::string> ("connection", '\0', ".connection file", false);
     _parser.add <std::string> ("techsimple", '\0', "techsimple file", false);
     _parser.add <std::string> ("sym", '\0', ".sym file", false);
+    _parser.add <std::string> ("symnet", '\0', ".symnet file", false);
     _parser.add <std::string> ("log", '\0', "log file", false, "");
 
     // boolean options don't need template
@@ -49,6 +50,7 @@ void CommandLineOptions::populateAndCheckOptions()
     connectionFile = _parser.get<std::string>("connection");
     techsimpleFile = _parser.get<std::string>("techsimple");
     symFile = _parser.get<std::string>("sym");
+    symnetFile = _parser.get<std::string>("symnet");
     log            = _parser.get<std::string>("log");
     for (const auto &rest : _parser.rest())
     {
@@ -69,6 +71,7 @@ namespace ProgArgsDetails
         progArgs.setConnectionFile(opt.connectionFile);
         progArgs.setTechsimpleFile(opt.techsimpleFile);
         progArgs.setSymFile(opt.symFile);
+        progArgs.setSymnetFile(opt.symnetFile);
         progArgs.gdsFiles() = opt.gdsFiles;
 
         return progArgs;

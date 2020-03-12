@@ -77,6 +77,57 @@ class SweeplineConstraintGraphGenerator
         {}
         /// @brief solve the sweep line
         void solve();
+        void setExemptFunc(std::function<bool(IndexType, IndexType)> exexmptFunc)
+        {
+            _exemptFunc = exexmptFunc;
+            _setExempted = true;
+        }
+    /// @brief the balance tree for containing the "D" in TCAD-1987. Using the std::set implementation
+    class CellCoordTree
+    {
+        public:
+            explicit CellCoordTree() = default;
+            /// @brief insert a CellCoord
+            void insert(const CellCoord &cellCoord) { _tree.insert(cellCoord); }
+            /// @brief erase a CellCoord
+            void erase(const CellCoord &cellCoord) { _tree.erase(cellCoord); }
+            /// @brief find the right cell index in the tree
+            /// @param a CellCoord, this object should already inside the tree
+            /// @return the cell index. -1 if nil
+            IntType right(const CellCoord &cellCoord)
+            {
+                auto findIter = _tree.find(cellCoord);
+                Assert(findIter != _tree.end());
+                findIter++;
+                if (findIter == _tree.end())
+                {
+                    return -1;
+                }
+                else
+                {
+                    return static_cast<IntType>(findIter->cellIdx());
+                }
+            }
+            /// @brief find the left cell index in the tree
+            /// @param a CellCoord, this object should already inside the tree
+            /// @return the cell index. -1 if nil
+            IntType left(const CellCoord &cellCoord)
+            {
+                auto findIter = _tree.find(cellCoord);
+                Assert(findIter != _tree.end());
+                if (findIter == _tree.begin())
+                {
+                    return -1; // This cellCoord is the leftmost in the tree
+                }
+                else
+                {
+                    findIter --;
+                    return static_cast<IntType>(findIter->cellIdx());
+                }
+            }
+        private:
+            std::set<CellCoord> _tree; ///< std::set to act as the balanced tree
+    };
     private:
         /// @brief generate the events.
         /// @param first: the referece to a vector of events. The vector will be cleared first.
@@ -93,11 +144,26 @@ class SweeplineConstraintGraphGenerator
         /// @param second: the sorted events
         /// @param third: the recorded cell coordinates
         //void originalConstraintGeneration(Constraints &cs, std::vector<Event> &events, std::vector<CellCoord> &cellCoords);
+        void originalDelete(const CellCoord &cellCoord, CellCoordTree &dTree, std::vector<IntType> &cand, Constraints &cs);
+        void originalConstraintGeneration(Constraints &cs, std::vector<Event> &events, std::vector<CellCoord> &cellCoords);
+        bool isExempted(IndexType cell1, IndexType cell2) const
+        {
+            if (!_setExempted)
+            {
+                return false;
+            }
+            else
+            {
+                return _exemptFunc(cell1, cell2);
+            }
+        }
 
     private:
         Database &_db; ///< The placement database
         Constraints &_hC; ///< The horizontal edges
         Constraints &_vC; ///< The vertical edges
+        std::function<bool(IndexType, IndexType)> _exemptFunc; ///< exempt pair of cells to be add constraints
+        bool _setExempted = false;
 };
 
 PROJECT_NAMESPACE_END

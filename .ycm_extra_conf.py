@@ -45,6 +45,7 @@ gtest =  os.environ['GTEST_DIR'] + '/googletest/include'
 wnlib = os.environ['WNLIB_DIR'] + '/acc/h'
 lpsolve = os.environ['LPSOLVE_DIR']
 lemon = os.environ['LEMON_DIR'] + "/include"
+gurobi = os.environ['GUROBI_INC']
 flags = [
 '-Wall',
 '-Wextra',
@@ -80,6 +81,7 @@ get_python_inc(),
 '-I', gtest,
 '-I', wnlib,
 '-I', lpsolve,
+'-I', gurobi,
 '-isystem',
 '/home/local/eda09/keren/common/libs/boost_1_67_0/boost'
 ]

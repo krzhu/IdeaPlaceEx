@@ -10,7 +10,7 @@
 
 #include "ConstraintGraph.h"
 #include "db/Database.h"
-#include "lp_limbo_lpsolve.h"
+#include "lp_limbo.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -115,8 +115,8 @@ class Constraints
 /// @brief The LP solver for legalization
 class LpLegalizeSolver
 {
-        typedef LimboLpsolve<RealType> lp_solver_type;
-        typedef linear_programming_trait<lp_solver_type> lp_trait;
+        typedef lp::LimboLpGurobi lp_solver_type;
+        typedef lp::LimboLpGurobiTrait lp_trait;
         typedef lp_trait::variable_type lp_variable_type;
         typedef lp_trait::expr_type lp_expr_type;
     public:
@@ -253,6 +253,8 @@ class CGLegalizer
     private:
         /// @brief Generate the constraints (not optimal in number of constraints). Based on sweeping algorithm
         void generateConstraints();
+        void generateHorConstraints();
+        void generateVerConstraints();
         /// @brief construct constraint graph from two constraints
         void constructConstraintGraphs();
         /// @brief perform DFS-based transitive reduction

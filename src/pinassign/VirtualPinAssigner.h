@@ -34,12 +34,26 @@ class VirtualPinAssigner
         /// @brief solve the pin assignment problem. Export the solution to the database
         /// @param a function for query cell location
         bool pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc);
+
         /* Parameter settings */
         /// @brief set the extension distance of placement boundary to cell boundary
         void setVirtualBoundaryExtension(LocType ex) { _virtualBoundaryExtension = ex; }
         /// @brief set the interval between pins
         void setVirtualPinInterval(LocType in) { _virtualPinInterval = in; }
+        /// @brief use fast mode
+        void useFastMode() { _fastMode = true; }
+        void useSlowMode() { _fastMode = false; }
     private:
+        bool _lpSimplexPinAssignment(
+                std::function<bool(IndexType)> isSymNetFunc,
+                std::function<bool(IndexType)> isLeftPinFunc,
+                std::function<bool(IndexType)> isOtherNetFunc,
+                std::function<bool(IndexType)> isOtherPinFunc,
+                std::function<LocType(IndexType, IndexType)> symNetToPinCostFunc,
+                std::function<LocType(IndexType, IndexType)> otherNetToPinCostFunc,
+                std::function<void(IndexType, IndexType)> setSymNetPairToPinFunc,
+                std::function<void(IndexType, IndexType)> setOtherNetToPinFunc
+                );
         bool _networkSimplexPinAssignment(
                 std::function<bool(IndexType)> useNetFunc,
                 std::function<bool(IndexType)> usePinFunc,
@@ -52,6 +66,7 @@ class VirtualPinAssigner
         LocType _virtualBoundaryExtension = -1; ///< The extension to placement cell bounding box
         LocType _virtualPinInterval = -1; ///< The interval between virtual pins
         std::map<IndexType, IndexType> _leftToRightMap; // _leftToRightMap[idx of left] = idx of right
+        bool _fastMode = false; ///< True : use two pass MCMF. False: use simplex
 };
 
 PROJECT_NAMESPACE_END

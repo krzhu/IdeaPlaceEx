@@ -38,6 +38,7 @@ bool LpLegalizeSolver::solve()
 
 bool LpLegalizeSolver::solveLp()
 {
+    lp_trait::setNumThreads(_solver, _db.parameters().numThreads());
     lp_trait::setObjectiveMinimize(_solver);
     lp_trait::setObjective(_solver, _obj);
     lp_trait::solve(_solver);
@@ -358,6 +359,10 @@ void LpLegalizeSolver::addSymmetryConstraintsWithEqu()
             for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
             {
                 IndexType ssCellIdx = symGrp.selfSym(selfSymIdx);
+#ifdef DEBUG_LEGALIZE
+                DBG("Add self sym constraint. \n symGrp %d, cell %d  \n width %d \n",
+                        symGrpIdx, ssCellIdx, _db.cell(ssCellIdx).cellBBox().xLen());
+#endif
                 // x1 + width + x2 = 2 * symAxis
                 lp_trait::addConstr(_solver, 2 * _locs.at(ssCellIdx) - 2 * (*symVar)
                         == - _db.cell(ssCellIdx).cellBBox().xLen());
@@ -375,6 +380,10 @@ void LpLegalizeSolver::addSymmetryConstraintsWithEqu()
                 const auto &symPair = symGroup.symPair(symPairIdx);
                 // y_i = y_j
                 lp_trait::addConstr(_solver, _locs.at(symPair.firstCell()) - _locs.at(symPair.secondCell()) == 0.0);
+#ifdef DEBUG_LEGALIZE
+                DBG("Add y sym constraint. \n symGrp %d, cell %d %d  \n",
+                        symGroupIdx, symPair.firstCell(), symPair.secondCell());
+#endif
             }
         }
     }

@@ -112,6 +112,12 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
         INF("IdeaPlaceEx:%s Read in .sym ... \n", __FUNCTION__);
         ParserSymFile(_db).read(_args.symFile());
     }
+    if (_args.symnetFileIsSet())
+    {
+        INF("IdeaPlaceEx:%s Read in .symnet ... \n", __FUNCTION__);
+        readSymNetFile(_args.symnetFile());
+    }
+
 
     // Init cells before read in the gds
     if(!_db.initCells())

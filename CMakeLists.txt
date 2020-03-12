@@ -141,7 +141,6 @@ file(GLOB STATIC_LIB
     ${LIMBO_ROOT_DIR}/lib/libgdsdb.a 
     ${LIMBO_ROOT_DIR}/lib/libgdsparser.a)
 
-
 #pybind11
 if (PYBIND11_DIR)
     set(PYBIND11_ROOT_DIR ${PYBIND11_DIR})
@@ -167,6 +166,34 @@ add_subdirectory(${PYBIND11_ROOT_DIR} "./pybind11")
 # Python
 find_package(PythonLibs REQUIRED)
 
+
+#Gurobi
+set(USE_GUROBI TRUE)
+if (GUROBI_HOME AND USE_GUROBI)
+    set(GUROBI_ROOT_DIR ${GUROBI_HOME})
+    message(STATUS "Use Gurobi ${GUROBI_ROOT_DIR}")
+elseif(DEFINED ENV{GUROBI_HOME} AND USE_GUROBI)
+    set(GUROBI_ROOT_DIR $ENV{GUROBI_HOME})
+    message(STATUS "Use system Gurobi ${GUROBI_ROOT_DIR}")
+endif()
+unset(GUROBI_HOME CACHE)
+
+if (USE_GUROBI)
+    find_library(GUROBI_CPP
+        NAMES gurobi_c++
+        HINTS ${GUROBI_ROOT_DIR}/lib
+        )
+    find_library(GUROBI_C
+        NAMES gurobi90
+        HINTS ${GUROBI_ROOT_DIR}/lib
+        )
+    set(GUROBI_LIBRARIES ${GUROBI_CPP} ${GUROBI_C})
+    message(STATUS "GUROBI_ROOT_DIR = ${GUROBI_ROOT_DIR}")
+    message(STATUS "GUROBI_LIBRARIES = ${GUROBI_LIBRARIES}")
+endif()
+
+
+
 #Print out the used build type
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
     message(STATUS "Using build type DEBUG")
@@ -184,10 +211,7 @@ ENDIF()
 #set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -march=native -fopenmp ")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline ")
-#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -fno-inline") 
-#set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-#set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -frename-registers -fprofile-use -fprofile-correction") 
-set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_PROFILE "-O3 -pg -Winline")
 #set(CMAKE_EXE_LINKER_FLAGS "-pthread -static-libgcc -static-libstdc++ -static")
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
@@ -206,6 +230,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${PYTHON_INCLUDE_DIRS}
     ${PYBIND11_ROOT_DIR}/include
     ${LEMON_ROOT_DIR}/include
+    ${GUROBI_ROOT_DIR}/include
 )
 
 target_link_libraries(${PROJECT_NAME} 
@@ -215,6 +240,7 @@ target_link_libraries(${PROJECT_NAME}
     ${CAIRO_STATIC_LIBRARIES}
     ${WNLIB_LIBRARIES}
     ${LPSOLVE_LIBRARIES}
+    ${GUROBI_LIBRARIES}
     )
 #
 ## Add modules to pybind
@@ -222,6 +248,7 @@ pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})
 target_link_libraries("IdeaPlaceExPy" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES}
     ${WNLIB_LIBRARIES}
     ${LPSOLVE_LIBRARIES}
+    ${GUROBI_LIBRARIES}
 )
 #
 ##Install
