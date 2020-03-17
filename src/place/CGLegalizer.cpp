@@ -10,14 +10,14 @@ bool CGLegalizer::legalize()
     VirtualPinAssigner pinAssigner(_db);
 
     this->generateConstraints();
-    _wStar = lpLegalization(true);
-    if (_wStar < 0)
+    _hStar = lpLegalization(false);
+    if (_hStar < 0)
     {
         return false;
     }
     this->generateConstraints();
-    _hStar = lpLegalization(false);
-    if (_hStar < 0)
+    _wStar = lpLegalization(true);
+    if (_wStar < 0)
     {
         return false;
     }
@@ -140,8 +140,32 @@ IntType minOverlappingDirection(const Box<LocType> &box1, const Box<LocType> &bo
     return 0;
 }
 
-
-void CGLegalizer::generateConstraints()
+void CGLegalizer::generateHorConstraints()
+{
+    _hCG.clear();
+    _vCG.clear();
+    _hConstraints.clear();
+    _vConstraints.clear();
+    // Init the irredundant constraint edges
+    
+    
+    auto exemptSymPairFunc = [&](IndexType cellIdx1, IndexType cellIdx2)
+    {
+        if (_db.cell(cellIdx1).hasSymPair())
+        {
+            if(_db.cell(cellIdx1).symNetIdx() == cellIdx2)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+    
+    SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
+    sweepline.setExemptFunc(exemptSymPairFunc);
+    sweepline.solve();
+}
+void CGLegalizer::generateVerConstraints()
 {
     _hCG.clear();
     _vCG.clear();
@@ -151,7 +175,19 @@ void CGLegalizer::generateConstraints()
     
     SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
     sweepline.solve();
-    return;
+}
+
+void CGLegalizer::generateConstraints()
+{
+    _hCG.clear();
+    _vCG.clear();
+    _hConstraints.clear();
+    _vConstraints.clear();
+    // Init the irredundant constraint edges
+    
+    //SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
+    //sweepline.solve();
+    //return;
     // Sort the edges of cells
     std::vector<BoxEdge> hBoxEdges, vBoxEdges;
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
@@ -1106,8 +1142,8 @@ RealType CGLegalizer::lpLegalization(bool isHor)
 
 bool CGLegalizer::lpDetailedPlacement()
 {
-    this->generateConstraints();
     // Horizontal
+    this->generateConstraints();
     INF("CG legalizer: detailed placement horizontal LP...\n");
     auto horSolver = cg_lp_solver_type(_db, _hConstraints);
     lp_trait_type::enableOptHpwl(horSolver); 
@@ -1125,7 +1161,7 @@ bool CGLegalizer::lpDetailedPlacement()
     {
         return false;
     }
-    //_db.drawCellBlocks("./debug/after_dp_hor.gds");
+
     // Vertical
     this->generateConstraints();
     INF("CG legalizer: detailed placement vertical LP...\n");
@@ -1143,6 +1179,7 @@ bool CGLegalizer::lpDetailedPlacement()
         return false;
     }
     
+    //_db.drawCellBlocks("./debug/after_dp_hor.gds");
 #ifdef DEBUG_LEGALIZE
 #ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_dp.gds");

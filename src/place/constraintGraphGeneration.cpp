@@ -7,61 +7,15 @@ void SweeplineConstraintGraphGenerator::solve()
     originalSweepLine(); // TCAD-87
 }
 
-/// @brief the balance tree for containing the "D" in TCAD-1987. Using the std::set implementation
-class CellCoordTree
-{
-    public:
-        explicit CellCoordTree() = default;
-        /// @brief insert a CellCoord
-        void insert(const CellCoord &cellCoord) { _tree.insert(cellCoord); }
-        /// @brief erase a CellCoord
-        void erase(const CellCoord &cellCoord) { _tree.erase(cellCoord); }
-        /// @brief find the right cell index in the tree
-        /// @param a CellCoord, this object should already inside the tree
-        /// @return the cell index. -1 if nil
-        IntType right(const CellCoord &cellCoord)
-        {
-            auto findIter = _tree.find(cellCoord);
-            Assert(findIter != _tree.end());
-            findIter++;
-            if (findIter == _tree.end())
-            {
-                return -1;
-            }
-            else
-            {
-                return static_cast<IntType>(findIter->cellIdx());
-            }
-        }
-        /// @brief find the left cell index in the tree
-        /// @param a CellCoord, this object should already inside the tree
-        /// @return the cell index. -1 if nil
-        IntType left(const CellCoord &cellCoord)
-        {
-            auto findIter = _tree.find(cellCoord);
-            Assert(findIter != _tree.end());
-            if (findIter == _tree.begin())
-            {
-                return -1; // This cellCoord is the leftmost in the tree
-            }
-            else
-            {
-                findIter --;
-                return static_cast<IntType>(findIter->cellIdx());
-            }
-        }
-    private:
-        std::set<CellCoord> _tree; ///< std::set to act as the balanced tree
-};
 
-void originalInsert(const CellCoord &cellCoord, CellCoordTree &dTree, std::vector<IntType> &cand)
+void originalInsert(const CellCoord &cellCoord, SweeplineConstraintGraphGenerator::CellCoordTree &dTree, std::vector<IntType> &cand)
 {
     dTree.insert(cellCoord);
     cand.at(cellCoord.cellIdx()) = dTree.left(cellCoord);
     cand.at(dTree.right(cellCoord)) = cellCoord.cellIdx(); // dTree.right should never be -1. Because R0 is always there
 }
 
-void originalDelete(const CellCoord &cellCoord, CellCoordTree &dTree, std::vector<IntType> &cand, Constraints &cs)
+void SweeplineConstraintGraphGenerator::originalDelete(const CellCoord &cellCoord, CellCoordTree &dTree, std::vector<IntType> &cand, Constraints &cs)
 {
     auto left = dTree.left(cellCoord);
     if (left != -1 && left == cand.at(cellCoord.cellIdx()))
@@ -69,7 +23,10 @@ void originalDelete(const CellCoord &cellCoord, CellCoordTree &dTree, std::vecto
         IntType from = left;
         IntType to = cellCoord.cellIdx();
         IntType weight = 0; //< We actually don't care. In the original algorithm, the weight is the width of the left, and it uses shortest path to compact the layout.
-        cs.addConstraintEdge(from, to, weight);
+        if (!isExempted(from, to))
+        {
+            cs.addConstraintEdge(from, to, weight);
+        }
     }
     auto right = dTree.right(cellCoord);
     if (cand.at(right) == static_cast<IntType>(cellCoord.cellIdx()))
@@ -77,7 +34,10 @@ void originalDelete(const CellCoord &cellCoord, CellCoordTree &dTree, std::vecto
         IntType from = cellCoord.cellIdx();
         IntType to = right;
         IntType weight = 0;
-        cs.addConstraintEdge(from, to, weight);
+        if (!isExempted(from, to))
+        {
+            cs.addConstraintEdge(from, to, weight);
+        }
     }
     dTree.erase(cellCoord);
 }
@@ -86,9 +46,9 @@ void originalDelete(const CellCoord &cellCoord, CellCoordTree &dTree, std::vecto
 /// @param first: the constraints to save results in
 /// @param second: the sorted events
 /// @param third: the recorded cell coordinates
-void originalConstraintGeneration(Constraints &cs, std::vector<Event> &events, std::vector<CellCoord> &cellCoords)
+void SweeplineConstraintGraphGenerator::originalConstraintGeneration(Constraints &cs, std::vector<Event> &events, std::vector<CellCoord> &cellCoords)
 {
-    CellCoordTree dTree;
+    SweeplineConstraintGraphGenerator::CellCoordTree dTree;
     IndexType numCells = cellCoords.size();
     std::vector<IntType> cand(numCells + 2, -1);
     // Insert R0

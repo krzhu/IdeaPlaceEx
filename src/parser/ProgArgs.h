@@ -30,6 +30,7 @@ public:
     std::string connectionFile = "";
     std::string techsimpleFile = "";
     std::string symFile = "";
+    std::string symnetFile = "";
     std::string log = "";
     std::vector<std::string> gdsFiles;
 
@@ -71,6 +72,8 @@ class ProgArgs
         /// @brief determine whether the .sym file is set
         /// @return whether .sym file is set
         bool symFileIsSet() const { return _symFile != ""; }
+        const std::string symnetFile() const { Assert(this->symnetFileIsSet()); return _symnetFile; }
+        bool symnetFileIsSet() const { return _symnetFile != ""; }
         /// @brief get the techsimple file file name
         /// @return the techsimple file file name
         const std::string techsimpleFile() const { Assert(this->techsimpleFileIsSet()); return _techsimpleFile; }
@@ -101,12 +104,14 @@ class ProgArgs
         /// @brief set the techsimple file
         /// @param the techsimple file file name
         void setTechsimpleFile(const std::string &techsimpleFile) { _techsimpleFile = techsimpleFile; }
+        void setSymnetFile(const std::string &symnetFile) { _symnetFile = symnetFile; }
     private:
         std::string _pinFile = ""; ///< .pin file
         std::string _netwgtFile = ""; ///< .netwgt file
         std::string _connectionFile = ""; ///< .connection file
         std::string _techsimpleFile = ""; ///< The techfile simple file
         std::string _symFile = ""; ///< The .sym file
+        std::string _symnetFile = "";
         std::vector<std::string> _gdsFiles; ///< The gds files for read
 };
 

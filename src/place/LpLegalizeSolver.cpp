@@ -4,14 +4,14 @@ PROJECT_NAMESPACE_BEGIN
 
 RealType LpLegalizeSolver::evaluateObj()
 {
-    return _ilpModel.evaluateObjective();
+    return lp_trait::evaluateExpr(_solver, _obj);
 }
 
 void LpLegalizeSolver::exportSolution()
 {
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
-        auto var = _ilpModel.variableSolution(_locs.at(cellIdx));
+        auto var = lp_trait::solution(_solver, _locs.at(cellIdx));
         // convert to cell original location
         if (_isHor)
         {
@@ -38,29 +38,33 @@ bool LpLegalizeSolver::solve()
 
 bool LpLegalizeSolver::solveLp()
 {
-    _ilpModel.setObjective(_obj);
-    _ilpModel.setOptimizeType(limbo::solvers::MIN);
-    _params.setVerbose(2); // 2: SEVERE
-    SolverType _solver(&_ilpModel);
-    _optimStatus = _solver(&_params);
-    if (_optimStatus == limbo::solvers::UNBOUNDED)
+    lp_trait::setNumThreads(_solver, _db.parameters().numThreads());
+    lp_trait::setObjectiveMinimize(_solver);
+    lp_trait::setObjective(_solver, _obj);
+    lp_trait::solve(_solver);
+    if (lp_trait::isUnbounded(_solver))
     {
         ERR("LP legalization solver: LP unbounded \n");
         return false;
     }
-    else if (_optimStatus == limbo::solvers::OPTIMAL)
+    else if (lp_trait::isOptimal(_solver))
     {
         INF("LP legalization solver: LP optimal \n");
         return true;
     }
-    else if (_optimStatus == limbo::solvers::INFEASIBLE)
+    else if (lp_trait::isInfeasible(_solver))
     {
         ERR("LP legalization solver: LP infeasible \n");
         return false;
     }
+    else if (lp_trait::isSuboptimal(_solver))
+    {
+        ERR("LP legalization solver: LP suboptimal \n");
+        return false;
+    }
     else
     {
-        ERR("LP legalization solver: Unknown LP status %d \n", _optimStatus);
+        ERR("LP legalization solver: Unknown LP status %s \n", lp_trait::statusStr(_solver).c_str());
         return false;
     }
 }
@@ -140,9 +144,7 @@ void LpLegalizeSolver::addLocVars()
     _locs.resize(_db.numCells());
     for (IndexType i = 0; i < _db.numCells(); ++i)
     {
-        _locs.at(i) = _ilpModel.addVariable(0, std::numeric_limits<RealType>::max(),
-                                                limbo::solvers::CONTINUOUS, 
-                                                "loc_" + std::to_string(i));
+        _locs.at(i) = lp_trait::addVar(_solver);
     }
 }
 
@@ -155,12 +157,8 @@ void LpLegalizeSolver::addWirelengthVars()
         _wlR.resize(_db.numNets());
         for (IndexType i =0; i < _db.numNets(); ++i)
         {
-            _wlL.at(i) = _ilpModel.addVariable(0, std::numeric_limits<RealType>::max(),
-                                                limbo::solvers::CONTINUOUS,
-                                                "wll_" + std::to_string(i));
-            _wlR.at(i) = _ilpModel.addVariable(0, std::numeric_limits<RealType>::max(),
-                                                limbo::solvers::CONTINUOUS,
-                                                "wlr_" + std::to_string(i));
+            _wlL.at(i) = lp_trait::addVar(_solver);
+            _wlR.at(i) = lp_trait::addVar(_solver);
         }
     }
 }
@@ -169,9 +167,7 @@ void LpLegalizeSolver::addAreaVars()
 {
     if (_optArea == 1)
     {
-        _dim = _ilpModel.addVariable(0, std::numeric_limits<RealType>::max(),
-                                    limbo::solvers::CONTINUOUS,
-                                    "dim");
+        _dim = lp_trait::addVar(_solver);
     }
 }
 
@@ -183,28 +179,22 @@ void LpLegalizeSolver::addSymVars()
         _symLocs.resize(_db.numSymGroups());
         for (IndexType i = 0; i < _db.numSymGroups(); ++i)
         {
-            _symLocs.at(i) = _ilpModel.addVariable(0,
-                    std::numeric_limits<RealType>::max(),
-                    limbo::solvers::CONTINUOUS,
-                    "symLoc_"+std::to_string(i));
+            _symLocs.at(i) = lp_trait::addVar(_solver);
         }
     }
     else
     {
         _symLocs.resize(1);
-        _symLocs[0] = _ilpModel.addVariable(0,
-                    std::numeric_limits<RealType>::max(),
-                    limbo::solvers::CONTINUOUS,
-                    "symLoc_"+std::to_string(0));
+        _symLocs[0] = lp_trait::addVar(_solver);
     }
 }
 
 void LpLegalizeSolver::addIlpVars()
 {
     // Calculate how many variables are there in the ILP model
-    auto numVars = this->numVars();
+    //auto numVars = this->numVars();
     // Reserve the variables in the model
-    _ilpModel.reserveVariables(numVars);
+    //_ilpModel.reserveVariables(numVars);
 
     // add coordinate variables
     this->addLocVars();
@@ -229,14 +219,14 @@ void LpLegalizeSolver::addBoundaryConstraints()
 #ifdef DEBUG_LEGALIZE
                 DBG("Add boundary constraint: x_%d <= %f - %d \n", i, _wStar, _db.cell(i).cellBBox().xLen());
 #endif
-                _ilpModel.addConstraint(_locs.at(i) <= _wStar - _db.cell(i).cellBBox().xLen());
+                lp_trait::addConstr(_solver, _locs.at(i) <= _wStar - _db.cell(i).cellBBox().xLen());
             }
             else
             {
 #ifdef DEBUG_LEGALIZE
                 DBG("Add boundary constraint: y_%d <= %f - %d \n", i, _wStar, _db.cell(i).cellBBox().yLen());
 #endif
-                _ilpModel.addConstraint(_locs.at(i) <= _wStar - _db.cell(i).cellBBox().yLen());
+                lp_trait::addConstr(_solver, _locs.at(i) <= _wStar - _db.cell(i).cellBBox().yLen());
             }
         }
         else // if (_optArea == 0)
@@ -244,11 +234,11 @@ void LpLegalizeSolver::addBoundaryConstraints()
             if (_isHor)
             {
                 // 0 <= x_i <= W - w_i
-                _ilpModel.addConstraint(_locs.at(i) - _dim <= - _db.cell(i).cellBBox().xLen());
+                lp_trait::addConstr(_solver, _locs.at(i) - _dim <= - _db.cell(i).cellBBox().xLen());
             }
             else
             {
-                _ilpModel.addConstraint(_locs.at(i) - _dim <= - _db.cell(i).cellBBox().yLen());
+                lp_trait::addConstr(_solver, _locs.at(i) - _dim <= - _db.cell(i).cellBBox().yLen());
             }
         }
     }
@@ -285,7 +275,7 @@ void LpLegalizeSolver::addTopologyConstraints()
         }
         // Add the constraint 
         // x_i + w_i + spacing <= x_j
-        _ilpModel.addConstraint(_locs.at(sourceIdx) - _locs.at(targetIdx) <= - cellDim - spacing);
+        lp_trait::addConstr(_solver, _locs.at(sourceIdx) - _locs.at(targetIdx) <= - cellDim - spacing);
 #ifdef DEBUG_LEGALIZE
         DBG("Add spacing constrain: from %d to %d, <= -celldim %d - spacing %d = %d \n", sourceIdx, targetIdx, cellDim, spacing, -cellDim - spacing);
 #endif
@@ -327,7 +317,7 @@ void LpLegalizeSolver::addSymmetryConstraintsRex()
                     std::swap(tCellIdx, bCellIdx);
                 }
                 // y_b - y_t <= 0
-                _ilpModel.addConstraint(_locs.at(bCellIdx) - _locs.at(tCellIdx) <= 0.0);
+                lp_trait::addConstr(_solver, _locs.at(bCellIdx) - _locs.at(tCellIdx) <= 0.0);
             }
         }
     }
@@ -341,7 +331,7 @@ void LpLegalizeSolver::addSymmetryConstraintsWithEqu()
         for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
         {
             const auto &symGrp = _db.symGroup(symGrpIdx);
-            LpModelType::variable_type *symVar;
+            lp_variable_type *symVar;
             if (_isMultipleSymGrp)
             {
                 symVar = &_symLocs[symGrpIdx];
@@ -359,7 +349,7 @@ void LpLegalizeSolver::addSymmetryConstraintsWithEqu()
                 DBG("Add sym constraint. \n symGrp %d, cell %d %d \n width %d \n",
                         symGrpIdx, symPair.firstCell(), symPair.secondCell(), _db.cell(symPair.firstCell()).cellBBox().xLen());
 #endif
-                _ilpModel.addConstraint(_locs.at(symPair.firstCell()) 
+                lp_trait::addConstr(_solver,_locs.at(symPair.firstCell()) 
                         + _locs.at(symPair.secondCell()) 
                         - 2 * (*symVar) 
                         == 
@@ -369,8 +359,12 @@ void LpLegalizeSolver::addSymmetryConstraintsWithEqu()
             for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms(); ++selfSymIdx)
             {
                 IndexType ssCellIdx = symGrp.selfSym(selfSymIdx);
+#ifdef DEBUG_LEGALIZE
+                DBG("Add self sym constraint. \n symGrp %d, cell %d  \n width %d \n",
+                        symGrpIdx, ssCellIdx, _db.cell(ssCellIdx).cellBBox().xLen());
+#endif
                 // x1 + width + x2 = 2 * symAxis
-                _ilpModel.addConstraint(2 * _locs.at(ssCellIdx) - 2 * (*symVar)
+                lp_trait::addConstr(_solver, 2 * _locs.at(ssCellIdx) - 2 * (*symVar)
                         == - _db.cell(ssCellIdx).cellBBox().xLen());
             }
         }
@@ -385,7 +379,11 @@ void LpLegalizeSolver::addSymmetryConstraintsWithEqu()
             {
                 const auto &symPair = symGroup.symPair(symPairIdx);
                 // y_i = y_j
-                _ilpModel.addConstraint(_locs.at(symPair.firstCell()) - _locs.at(symPair.secondCell()) == 0.0);
+                lp_trait::addConstr(_solver, _locs.at(symPair.firstCell()) - _locs.at(symPair.secondCell()) == 0.0);
+#ifdef DEBUG_LEGALIZE
+                DBG("Add y sym constraint. \n symGrp %d, cell %d %d  \n",
+                        symGroupIdx, symPair.firstCell(), symPair.secondCell());
+#endif
             }
         }
     }
@@ -410,11 +408,11 @@ void LpLegalizeSolver::addHpwlConstraints()
                 {
                     RealType loc = static_cast<RealType>(midLoc.x());
                     // wl_l <= _loc + pin_offset for all pins in the net
-                    _ilpModel.addConstraint(  _wlL.at(netIdx)
+                    lp_trait::addConstr(_solver,  _wlL.at(netIdx)
                             - _locs.at(pin.cellIdx())
                             <=  loc);
                     // wl_r >= _loc + pin_offset for all pins in the net
-                    _ilpModel.addConstraint(  _wlR.at(netIdx)
+                    lp_trait::addConstr(_solver, _wlR.at(netIdx)
                             - _locs.at(pin.cellIdx()) 
                             >=  loc);
                 }
@@ -422,11 +420,11 @@ void LpLegalizeSolver::addHpwlConstraints()
                 {
                     RealType loc = static_cast<RealType>(midLoc.y());
                     // wl_l <= _loc + pin_offset for all pins in the net
-                    _ilpModel.addConstraint( _wlL.at(netIdx)
+                    lp_trait::addConstr(_solver, _wlL.at(netIdx)
                             - _locs.at(pin.cellIdx())
                             <=  loc);
                     // wl_r >= _loc + pin_offset for all pins in the net
-                    _ilpModel.addConstraint(  _wlR.at(netIdx)
+                    lp_trait::addConstr(_solver, _wlR.at(netIdx)
                             - _locs.at(pin.cellIdx()) 
                             >=  loc);
                 }
@@ -438,20 +436,20 @@ void LpLegalizeSolver::addHpwlConstraints()
                 {
                     RealType loc = static_cast<RealType>(net.virtualPinLoc().x());
                     // wl_l <= _loc + pin_offset for all pins in the net
-                    _ilpModel.addConstraint(  _wlL.at(netIdx)
+                    lp_trait::addConstr(_solver, _wlL.at(netIdx)
                             <=  std::max(loc, 0.0));
                     // wl_r >= _loc + pin_offset for all pins in the net
-                    _ilpModel.addConstraint(  _wlR.at(netIdx)
+                    lp_trait::addConstr(_solver, _wlR.at(netIdx)
                             >=  loc);
                 }
                 else
                 {
                     RealType loc = static_cast<RealType>(net.virtualPinLoc().y());
                     // wl_l <= _loc + pin_offset for all pins in the net
-                    _ilpModel.addConstraint( _wlL.at(netIdx)
+                    lp_trait::addConstr(_solver, _wlL.at(netIdx)
                             <=  std::max(loc, 0.0));
                     // wl_r >= _loc + pin_offset for all pins in the net
-                    _ilpModel.addConstraint( _wlR.at(netIdx)
+                    lp_trait::addConstr(_solver, _wlR.at(netIdx)
                             >=  loc);
                 }
             }
