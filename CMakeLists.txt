@@ -217,7 +217,6 @@ set(CMAKE_CXX_FLAGS_PROFILE "-O3 -pg -Winline")
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 
-add_executable(${PROJECT_NAME} ${SOURCES} ${EXE_SOURCES})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${Boost_INCLUDE_DIR}
@@ -233,6 +232,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${GUROBI_ROOT_DIR}/include
 )
 
+add_executable(${PROJECT_NAME} ${SOURCES} ${EXE_SOURCES})
+
 target_link_libraries(${PROJECT_NAME} 
     ${STATIC_LIB} 
     ${Boost_LIBRARIES} 
@@ -242,7 +243,7 @@ target_link_libraries(${PROJECT_NAME}
     ${LPSOLVE_LIBRARIES}
     ${GUROBI_LIBRARIES}
     )
-#
+
 ## Add modules to pybind
 pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})
 target_link_libraries("IdeaPlaceExPy" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES}
@@ -250,6 +251,6 @@ target_link_libraries("IdeaPlaceExPy" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${
     ${LPSOLVE_LIBRARIES}
     ${GUROBI_LIBRARIES}
 )
-#
+
 ##Install
 #install (TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX_DIR}/bin)
