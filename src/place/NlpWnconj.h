@@ -309,9 +309,10 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
         IndexType idx;
     };
 
+
     struct OpGrad
     {
-        OpGrad() { _ds.resize(0); }
+        OpGrad(IndexType numCells) { _ds.resize(0); _numCells = numCells; }
         void addPartial(nlp_numerical_type value, IndexType cellIdx, Orient2DType orient)
         {
             if (orient == Orient2DType::HORIZONTAL)
@@ -325,14 +326,15 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
 #ifdef MULTI_SYM_GROUP
             else
             {
-                _ds.emplace_back(Partial(value, 2 * _db.numCells() + cellIdx));
+                _ds.emplace_back(Partial(value, 2 * _numCells + cellIdx));
             }
 #endif
         }
         std::vector<Partial> _ds;
+        IndexType _numCells = 0;
     };
 
-    std::vector<OpGrad> _grads(_ops.size());
+    std::vector<OpGrad> _grads(_ops.size(), _db.numCells());
 
     _innerIter++;
 

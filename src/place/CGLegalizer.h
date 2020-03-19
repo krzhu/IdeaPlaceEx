@@ -187,12 +187,14 @@ class LpLegalizeSolver
         lp_variable_type _dim; ///< The variable for area optimization
         RealType _wStar = 0; ///< The optimal W found in legalization step
         std::vector<lp_variable_type> _symLocs; ///< The variable for symmetric group axises
+        std::vector<lp_variable_type> _symRexLeft; ///< The variables representing the left extrems of sym axis of each group
+        std::vector<lp_variable_type> _symRexRight; ///< The variables representing the left extrems of sym axis of each group
 #ifdef MULTI_SYM_GROUP
         bool _isMultipleSymGrp = true;
 #else
         bool _isMultipleSymGrp = false;
 #endif 
-        bool _relaxEqualityConstraint = false;
+        bool _relaxEqualityConstraint = true;
         //SolverType _solver; ///< Solver
         /*  Optimization Results */
         RealType _largeNum = 100000.0; ///< A large number
