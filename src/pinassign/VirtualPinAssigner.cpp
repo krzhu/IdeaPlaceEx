@@ -413,8 +413,8 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         std::function<void(IndexType, IndexType)> setOtherNetToPinFunc
         )
 {
-    using solver_type =  lp::LimboLpsolve;
-    using lp_type = lp::LimboLpsolveTrait;
+    using solver_type =  lp::LimboLpGurobi;
+    using lp_type = lp::LimboLpGurobiTrait;
     using variable_type = lp_type::variable_type;
     using expr_type = lp_type::expr_type;
 
@@ -577,7 +577,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
             if (sol < 0.99 && sol > 0.001)
             {
                 failed = true;
-                goto endloop;
             }
             if (assigned == 1)
             {
@@ -593,7 +592,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
             if (sol < 0.99 && sol > 0.001)
             {
                 failed = true;
-                goto endloop;
             }
             auto assigned = ::klib::autoRound<IntType>(sol);
             if (assigned == 1)
@@ -603,59 +601,7 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         }
     }
 
-endloop:
-    if (failed)
-    {
-        ERR("Ideaplace: io pin assignment: unexpected non-integer solutions. Now print the debugging info...\n");
-        for (IndexType x = 0; x < m; ++x)
-        {
-            for (IndexType y = 0; y < ns; ++y)
-            {
-                auto sol = lp_type::solution(solver, xs.at(x, y));
-                if (sol < 0.99 && sol > 0.001)
-                {
-                    DBG("xs %d %d sol %f. eq to net %d to pin %d\n", x, y, sol, symNets.at(y), symPins.at(x));
-                    DBG("cost %d \n" , symNetToPinCostFunc(symNets[y], symPins[x]));
-                }
-            }
-        }
-        for (IndexType x = 0; x < 2*m; ++x)
-        {
-            for (IndexType y = 0; y < na; ++y)
-            {
-                auto sol = lp_type::solution(solver, ys.at(x, y));
-                if (sol < 0.99 && sol > 0.001)
-                {
-                    DBG("ys %d %d sol %f. eq to net %d to pin %d\n", x, y, sol, otherNets.at(y), otherPins.at(x));
-                    DBG("cost %d \n", otherNetToPinCostFunc(otherNets[y], otherPins[x]));
-                }
-            }
-        }
-        for (IndexType x = 0; x < m; ++x)
-        {
-            for (IndexType y = 0; y < ns; ++y)
-            {
-                    DBG("xs %d %d . eq to net %d to pin %d\n", x, y, symNets.at(y), symPins.at(x));
-                    DBG("cost %d \n" , symNetToPinCostFunc(symNets[y], symPins[x]));
-            }
-        }
-        for (IndexType x = 0; x < 2*m; ++x)
-        {
-            for (IndexType y = 0; y < na; ++y)
-            {
-                DBG("ys %d %d . eq to net %d to pin %d\n", x, y, otherNets.at(y), otherPins.at(x));
-                DBG("cost %d \n", otherNetToPinCostFunc(otherNets[y], otherPins[x]));
-            }
-        }
-        Assert(false);
-    }
-    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
-    {
-        if (_db.net(netIdx).isIo())
-        {
-            Assert(_db.net(netIdx).isValidVirtualPin());
-        }
-    }
+    AssertMsg(!failed, "Ideaplace:: virtual pin assignment:: ILP:: floating results \n");
 
     auto end = std::chrono::high_resolution_clock::now();
     std::cout<<" io pin assignment time "<< std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() <<" us " <<std::endl;;

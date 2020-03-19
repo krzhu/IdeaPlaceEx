@@ -96,6 +96,9 @@ bool Database::checkSym()
 {
 #ifndef MULTI_SYM_GROUP
     LocType axis = LOC_TYPE_MIN;
+#else
+    LocType axis = LOC_TYPE_MIN;
+    Assert(false);
 #endif
     for (const auto &symGrp : _symGroups)
     {
