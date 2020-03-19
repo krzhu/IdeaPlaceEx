@@ -1,7 +1,6 @@
 #include "VirtualPinAssigner.h"
 #include <lemon/list_graph.h>
 #include <lemon/network_simplex.h>
-#include "place/lp_limbo.h"
 #include "util/Vector2D.h"
 #include <chrono>
 
@@ -413,8 +412,8 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         std::function<void(IndexType, IndexType)> setOtherNetToPinFunc
         )
 {
-    using solver_type =  lp::LimboLpGurobi;
-    using lp_type = lp::LimboLpGurobiTrait;
+    using solver_type =  lp::LpModel;
+    using lp_type = lp::LpTrait;
     using variable_type = lp_type::variable_type;
     using expr_type = lp_type::expr_type;
 

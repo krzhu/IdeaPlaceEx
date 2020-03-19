@@ -8,9 +8,43 @@
 #ifndef IDEAPLACE_LINEAR_PROGRAMMING_H_
 #define IDEAPLACE_LINEAR_PROGRAMMING_H_
 
-#include "global/global.h"
+#include "global/namespace.h"
+#include "Assert.h"
+#include <string>
 
 PROJECT_NAMESPACE_BEGIN
+
+namespace _lp
+{
+
+struct _undefined
+{
+    typedef int variable_type;
+    typedef double value_type;
+    typedef double expr_type;
+    typedef double constr_type;
+    typedef int status_type;
+
+    variable_type addVar() { Assert(false); return 0;}
+    void addConstr(const constr_type &) {}
+    void setVarLowerBound(const variable_type &, const value_type &) {}
+    void setVarUpperBound(const variable_type &, const value_type &) {}
+    void setVarInteger(const variable_type &) {}
+    void setVarContinuous(const variable_type &) {}
+    void setObjectiveMaximize() {}
+    void setObjectiveMinimize() {}
+    void setObjective(const expr_type &) {}
+    void solve() {}
+    status_type status() { return 0;}
+    bool isOptimal() { return true; }
+    bool isSuboptimal() { return true; }
+    bool isUnbounded() { return true; }
+    bool isInfeasible() { return false;}
+    value_type evaluateExpr(const expr_type &) const {return 0;}
+    value_type solution(const variable_type &) const { return 0;}
+    std::string statusStr() const { return "";}
+    void setNumThreads(std::uint32_t) {}
+};
 
 template<typename solver_type>
 struct linear_programming_trait
@@ -67,23 +101,23 @@ struct linear_programming_trait
     }
     static bool isOptimal(solver_type &solver)
     {
-        return status(solver).isOptimal();
+        return solver.isOptimal();
     }
     static bool isSuboptimal(solver_type &solver)
     {
-        return status(solver).isSuboptimal();
+        return solver.isSuboptimal();
     }
     static bool isUnbounded(solver_type &solver)
     {
-        return status(solver).isUnbounded();
+        return solver.isUnbounded();
     }
     static bool isInfeasible(solver_type &solver)
     {
-        return status(solver).isInfeasible();
+        return solver.isInfeasible();
     }
     static value_type evaluateExpr(const solver_type &solver, const expr_type &expr)
     {
-        return solver.evaluate(expr);
+        return solver.evaluateExpr(expr);
     }
     static value_type solution(const solver_type &solver, const variable_type &var)
     {
@@ -91,13 +125,15 @@ struct linear_programming_trait
     }
     static std::string statusStr(const solver_type &solver)
     {
-        return status(solver).toStr();
+        return solver.statusStr();
     }
-    static void setNumThreads(solver_type &solver, IndexType numThreads)
+    static void setNumThreads(solver_type &solver, std::uint32_t numThreads)
     {
         solver.setNumThreads(numThreads);
     }
 };
+
+} //namespace _lp
 
 PROJECT_NAMESPACE_END
 

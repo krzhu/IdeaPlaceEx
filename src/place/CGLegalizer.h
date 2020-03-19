@@ -10,7 +10,6 @@
 
 #include "ConstraintGraph.h"
 #include "db/Database.h"
-#include "lp_limbo.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -115,8 +114,8 @@ class Constraints
 /// @brief The LP solver for legalization
 class LpLegalizeSolver
 {
-        typedef lp::LimboLpGurobi lp_solver_type;
-        typedef lp::LimboLpGurobiTrait lp_trait;
+        typedef lp::LpModel lp_solver_type;
+        typedef lp::LpTrait lp_trait;
         typedef lp_trait::variable_type lp_variable_type;
         typedef lp_trait::expr_type lp_expr_type;
     public:
