@@ -10,6 +10,7 @@
 
 #include "ConstraintGraph.h"
 #include "db/Database.h"
+#include "util/linear_programming.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -114,8 +115,8 @@ class Constraints
 /// @brief The LP solver for legalization
 class LpLegalizeSolver
 {
-        typedef lp::LpModel lp_solver_type;
-        typedef lp::LpTrait lp_trait;
+        typedef ::klib::lp::LpModel lp_solver_type;
+        typedef ::klib::lp::LpTrait lp_trait;
         typedef lp_trait::variable_type lp_variable_type;
         typedef lp_trait::expr_type lp_expr_type;
     public:

@@ -12,7 +12,6 @@
 #include <string>
 #include <sstream>
 #include "namespace.h"
-#include "util/lp_limbo.h"
 
 PROJECT_NAMESPACE_BEGIN
 // Built-in type aliases
@@ -64,94 +63,6 @@ enum class Direction2DType
     NORTH  = 3,
     NONE = 4
 };
-
-struct YesType
-{
-    static const bool value = true;
-};
-
-
-struct NoType
-{
-    static const bool value = false;
-};
-
-// Select LP solver
-namespace _lp {
-    struct gurobi
-    {
-        static const int rank = 0;
-#ifndef LP_NOT_USE_GUROBI
-        static const bool if_enable = true;
-        typedef lp::LimboLpGurobi LpModel;
-        typedef lp::LimboLpGurobiTrait LpTrait;
-#else
-        static const bool if_enable = false;
-#endif
-    };
-    struct lp_solve
-    {
-        static const int rank = 1;
-#ifndef LP_NOT_USE_LPSOLVE
-        static const bool if_enable = true;
-        typedef lp::LimboLpsolve LpModel;
-        typedef lp::LimboLpsolveTrait LpTrait;
-#else
-        static const bool if_enable = false;
-#endif
-    };
-
-    struct undefined
-    {
-        static const bool if_enable = true;
-        typedef _undefined LpModel;
-        typedef linear_programming_trait<_undefined> LpTrait;
-    };
-
-    template<int rank>
-    struct lp_rank
-    {
-        typedef undefined solver_type;
-    };
-
-    template<>
-    struct lp_rank<0>
-    {
-        typedef gurobi solver_type;
-    };
-
-    template<>
-    struct lp_rank<1>
-    {
-        typedef lp_solve solver_type;
-    };
-
-    template<int rank, bool>
-    struct select_lp
-    {
-    };
-    template<int rank>
-    struct select_lp<rank, true>
-    {
-        typedef typename lp_rank<rank>::solver_type solver_type;
-        typedef typename solver_type::LpModel LpModel;
-        typedef typename solver_type::LpTrait LpTrait;
-    };
-    template<int rank>
-    struct select_lp<rank, false>
-    {
-        typedef typename lp_rank<rank+1>::solver_type solver_type;
-        typedef typename select_lp<rank+1, solver_type::if_enable>::LpModel LpModel;
-        typedef typename select_lp<rank+1, solver_type::if_enable>::LpTrait LpTrait;
-    };
-}; //namspace _lp
-
-namespace lp
-{
-    typedef typename _lp::select_lp<0, _lp::lp_rank<0>::solver_type::if_enable>::LpModel LpModel;
-    typedef typename _lp::select_lp<0, _lp::lp_rank<0>::solver_type::if_enable>::LpTrait LpTrait;
-};
-
 PROJECT_NAMESPACE_END
 
 #endif // AROUTER_TYPE_H_

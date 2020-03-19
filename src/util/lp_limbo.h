@@ -5,8 +5,8 @@
  * @date 03/10/2020
  */
 
-#ifndef IDEAPLACE_LP_LIMBO_H_
-#define IDEAPLACE_LP_LIMBO_H_
+#ifndef KLIB_LP_LIMBO_H_
+#define KLIB_LP_LIMBO_H_
 
 #include <limbo/solvers/Solvers.h>
 #ifndef LP_NOT_USE_LPSOLVE
@@ -15,10 +15,9 @@
 #ifndef LP_NOT_USE_GUROBI
 #include <limbo/solvers/api/GurobiApi.h>
 #endif
-#include "linear_programming.h"
-#include "Assert.h"
+#include "linear_programming_trait.h"
 
-PROJECT_NAMESPACE_BEGIN
+namespace klib {
 
 namespace _lp
 {
@@ -195,8 +194,7 @@ struct linear_programming_trait<_limbo_lp_solver<limbo_lp_api_type>>
 
 } //namespace _lp
 
-/// @namespace contain some shortcuts for solving LP. Basically don't need to use any other structs if not too worried about it
-namespace lp
+namespace _lp
 {
 #ifndef LP_NOT_USE_LPSOLVE
     typedef _lp::_limbo_lp_solver<_lp::_limbo_lp_api_lpsove<double>> LimboLpsolve; ///< The lpsolve using limbo api. This one need to be constructed
@@ -206,9 +204,9 @@ namespace lp
     typedef _lp::_limbo_lp_solver<_lp::_limbo_lp_api_gurobi<double>> LimboLpGurobi; ///< The Gurobi using limbo api. This one need to be constructed
     typedef _lp::linear_programming_trait<LimboLpGurobi> LimboLpGurobiTrait; ///< The Gurobi using limbo api. Don't construct it. Use its static methods as interface
 #endif
-} // namespace lp
+} // namespace _lp
 
-PROJECT_NAMESPACE_END
+} //namespace klib
 
 
-#endif //IDEAPLACE_LP_LIMBO_H_
+#endif //KLIB_LP_LIMBO_H_

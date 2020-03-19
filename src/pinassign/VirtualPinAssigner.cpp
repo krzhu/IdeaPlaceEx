@@ -2,6 +2,7 @@
 #include <lemon/list_graph.h>
 #include <lemon/network_simplex.h>
 #include "util/Vector2D.h"
+#include "util/linear_programming.h"
 #include <chrono>
 
 PROJECT_NAMESPACE_BEGIN
@@ -226,7 +227,6 @@ bool VirtualPinAssigner::_networkSimplexPinAssignment(std::function<bool(IndexTy
 bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
 {
 
-    DBG("start pinAssignment \n");
     // Calculate the current HPWLs without virtual pin
     std::vector<Box<LocType>> curNetBBox;
     curNetBBox.resize(_db.numNets());
@@ -290,7 +290,6 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
 
     auto directAssignNetToPinFunc = [&](IndexType netIdx, IndexType virtualPinIdx)
     {
-        DBG("Assign %d to %d \n", netIdx, virtualPinIdx);
         AssertMsg(!_virtualPins[virtualPinIdx].assigned(), "Ideaplace: IO pin assignment: unexpected error: pin assignment conflict \n");
 
         _virtualPins[virtualPinIdx].assign(netIdx);
@@ -364,14 +363,12 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
             auto netCost1 = calculateIncreasedHpwl(otherNetIdx, leftPinIdx) + calculateIncreasedHpwl(netIdx, rightPinIdx);
             if (netCost0 <= netCost1)
             {
-                DBG("assign sym %d to %d, %d to %d \n", netIdx, leftPinIdx, otherNetIdx, rightPinIdx);
                 // net -> left. other net -> right
                 directAssignNetToPinFunc(netIdx, leftPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, rightPinIdx);
             }
             else
             {
-                DBG("assign sym %d to %d, %d to %d \n", netIdx, rightPinIdx, otherNetIdx, leftPinIdx);
                 // net -> right. other net -> left
                 directAssignNetToPinFunc(netIdx, rightPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, leftPinIdx);
@@ -412,8 +409,8 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         std::function<void(IndexType, IndexType)> setOtherNetToPinFunc
         )
 {
-    using solver_type =  lp::LpModel;
-    using lp_type = lp::LpTrait;
+    using solver_type =  ::klib::lp::LpModel;
+    using lp_type = ::klib::lp::LpTrait;
     using variable_type = lp_type::variable_type;
     using expr_type = lp_type::expr_type;
 
