@@ -106,7 +106,35 @@ void LpLegalizeSolver::addAreaObj()
 
 void LpLegalizeSolver::addSymObj()
 {
-    AssertMsg(false, "Not implemented \n");
+    if (_isHor)
+    {
+        for (IndexType symGrpIdx = 0; symGrpIdx < _symRexLeft.size(); ++symGrpIdx)
+        {
+            _obj += _largeNum * _symRexRight.at(symGrpIdx);
+            _obj += - _largeNum * _symRexLeft.at(symGrpIdx);
+        }
+    }
+    else
+    {
+        // Force they have the same y coordinate
+        for (IndexType symGroupIdx = 0;  symGroupIdx < _db.numSymGroups(); ++symGroupIdx)
+        {
+            const auto & symGroup = _db.symGroup(symGroupIdx);
+            for (IndexType symPairIdx = 0; symPairIdx < symGroup.numSymPairs(); ++symPairIdx)
+            {
+                const auto &symPair = symGroup.symPair(symPairIdx);
+                IndexType bCellIdx = symPair.firstCell();
+                IndexType tCellIdx = symPair.secondCell();
+                if (_db.cell(bCellIdx).yLoc() > _db.cell(tCellIdx).yLoc())
+                {
+                    std::swap(tCellIdx, bCellIdx);
+                }
+                //  + M *( y_t - y_b)
+                _obj += _largeNum * _locs.at(tCellIdx);
+                _obj += -_largeNum * _locs.at(bCellIdx);
+            }
+        }
+    }
 }
 
 void LpLegalizeSolver::configureObjFunc()
@@ -120,6 +148,7 @@ void LpLegalizeSolver::configureObjFunc()
         addSymObj();
     }
 }
+
 
 IndexType LpLegalizeSolver::numVars() const
 {
@@ -173,6 +202,28 @@ void LpLegalizeSolver::addAreaVars()
 
 void LpLegalizeSolver::addSymVars()
 {
+    if (_relaxEqualityConstraint)
+    {
+        if (_isMultipleSymGrp)
+        {
+            // Symmetric group axis variables
+            _symRexLeft.resize(_db.numSymGroups());
+            _symRexRight.resize(_db.numSymGroups());
+            for (IndexType i = 0; i < _db.numSymGroups(); ++i)
+            {
+                _symRexLeft.at(i) = lp_trait::addVar(_solver);
+                _symRexRight.at(i) = lp_trait::addVar(_solver);
+            }
+        }
+        else
+        {
+            _symRexLeft.resize(1);
+            _symRexLeft[0] = lp_trait::addVar(_solver);
+            _symRexRight.resize(1);
+            _symRexRight[0] = lp_trait::addVar(_solver);
+        }
+        return;
+    }
     if (_isMultipleSymGrp)
     {
         // Symmetric group axis variables
@@ -300,6 +351,32 @@ void LpLegalizeSolver::addSymmetryConstraintsRex()
 {
     if (_isHor)
     {
+        for (IndexType symGroupIdx = 0;  symGroupIdx < _db.numSymGroups(); ++symGroupIdx)
+        {
+            const auto & symGroup = _db.symGroup(symGroupIdx);
+            lp_variable_type *leftSymLoc, *rightSymLoc;
+            if (_isMultipleSymGrp)
+            {
+                leftSymLoc = & _symRexLeft.at(symGroupIdx);
+                rightSymLoc = & _symRexRight.at(symGroupIdx);
+            }
+            else
+            {
+                leftSymLoc = & _symRexLeft.at(0);
+                rightSymLoc = & _symRexRight.at(0);
+            }
+            for (IndexType symPairIdx = 0; symPairIdx < symGroup.numSymPairs(); ++symPairIdx)
+            {
+                const auto &symPair = symGroup.symPair(symPairIdx);
+                // x1 + x2 + width  <= right * 2
+                // x1 + x2 + width >= left * 2
+                lp_variable_type x1_ = _locs.at(symPair.firstCell());
+                lp_variable_type x2_ = _locs.at(symPair.secondCell());
+                auto width_ = _db.cell(symPair.firstCell()).cellBBox().xLen(); // Two cells are equal in width <- assumption
+                lp_trait::addConstr(_solver, x1_ + x2_  -2*(*rightSymLoc) <=  - width_);
+                lp_trait::addConstr(_solver, x1_ + x2_ + -2*(*leftSymLoc) >= - width_);
+            }
+        }
     }
     else
     {
