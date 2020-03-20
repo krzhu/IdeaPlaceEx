@@ -75,6 +75,8 @@ void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cell
     }
     // generate the virtual pin locations
     _virtualPins.clear();
+    _topPin = VirtualPin(XY<LocType>(_boundary.center().x(), _boundary.xHi()));
+    _botPin = VirtualPin(XY<LocType>(_boundary.center().x(), _boundary.xLo()));
     for (LocType x = _boundary.xLo() + pinInterval;  x < _boundary.center().x() - pinInterval / 2 ; x += pinInterval)
     {
         continue;
@@ -227,6 +229,7 @@ bool VirtualPinAssigner::_networkSimplexPinAssignment(std::function<bool(IndexTy
 bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
 {
 
+    assignPowerPin();
     // Calculate the current HPWLs without virtual pin
     std::vector<Box<LocType>> curNetBBox;
     curNetBBox.resize(_db.numNets());
