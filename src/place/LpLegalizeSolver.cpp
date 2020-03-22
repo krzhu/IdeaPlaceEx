@@ -376,6 +376,16 @@ void LpLegalizeSolver::addSymmetryConstraintsRex()
                 lp_trait::addConstr(_solver, x1_ + x2_  -2*(*rightSymLoc) <=  - width_);
                 lp_trait::addConstr(_solver, x1_ + x2_ + -2*(*leftSymLoc) >= - width_);
             }
+            for (IndexType ssIdx = 0; ssIdx < symGroup.numSelfSyms(); ++ssIdx)
+            {
+                IndexType cellIdx = symGroup.selfSym(ssIdx);
+                lp_variable_type x_ = _locs.at(cellIdx);
+                auto width_ = _db.cell(cellIdx).cellBBox().xLen();
+                // x + width /2 <= right
+                // x + width /2 >= left
+                lp_trait::addConstr(_solver, x_ - (*rightSymLoc) <= -width_ / 2);
+                lp_trait::addConstr(_solver, x_ - (*leftSymLoc) >= -width_ / 2);
+            }
         }
     }
     else

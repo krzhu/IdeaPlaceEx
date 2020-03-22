@@ -371,6 +371,7 @@ bool NlpWnconj::nlpKernel()
     // Iteratively solving NLP
     while (_iter < _maxIter)
     {
+        if ((_iter +1) %3 == 0) {this->assignPin(); }
         _innerIter = 0;
         wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);

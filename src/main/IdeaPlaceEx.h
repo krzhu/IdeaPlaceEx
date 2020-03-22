@@ -206,6 +206,10 @@ class IdeaPlaceEx
         void markAsIoNet(IndexType netIdx) { _db.net(netIdx).setIsIo(true); }
         /// @brief remove io net mark
         void revokeIoNet(IndexType netIdx) { _db.net(netIdx).setIsIo(false); }
+        /// @brief mark a net as vdd
+        void markAsVddNet(IndexType netIdx) { _db.net(netIdx).markAsVdd(); }
+        /// @brief mark a net as vss
+        void markAsVssNet(IndexType netIdx) { _db.net(netIdx).markAsVss(); }
         /// @brief get the x coordinate of io net
         LocType iopinX(IndexType netIdx) { return _db.net(netIdx).virtualPinLoc().x(); }
         /// @brief get the y coordinate of io net

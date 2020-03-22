@@ -66,7 +66,7 @@ class Net
         /// @return the location for the virtual pin
         const XY<LocType> &virtualPinLoc() const { return _virtualPin.loc(); }
         /// @brief get whether need to consider the virtual pin: If not IO net, or if no vitual pin assigned
-        bool isValidVirtualPin() const { return _isIo && _virtualPin.assigned(); }
+        bool isValidVirtualPin() const { return (_isIo or _isVdd or _isVss) && _virtualPin.assigned(); }
         /// @brief get whether this net is a dummy net
         /// @return whether this net is a dummy net
         bool isDummyNet() const { return _isDummy; }
@@ -82,6 +82,10 @@ class Net
         bool isSelfSym() const { return _isSelfSym; }
         /// @brief get whether this net has symmetric net
         bool hasSymNet() const { return _symNetIdx != INDEX_TYPE_MAX; }
+        /// @brief get whether this net is vdd
+        bool isVdd() const { return _isVdd; }
+        /// @brief get whether this net is vss
+        bool isVss() const { return _isVss; }
         /*------------------------------*/ 
         /* Setters                      */
         /*------------------------------*/ 
@@ -106,6 +110,10 @@ class Net
         void markSelfSym() { _isSelfSym = true; }
         /// @brief revoke the mark of this net is self symmetric
         void revokeSelfSym() { _isSelfSym = false; }
+        /// @brief mark this net as vdd
+        void markAsVdd() { _isVdd = true; _isVss = false; _isIo = false; }
+        /// @brief mark this net as vss
+        void markAsVss() { _isVss = true; _isVdd = false; _isIo = false; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -129,6 +137,8 @@ class Net
         bool _isDummy = false; ///< Whether this is a dummy net
         IndexType _symNetIdx = INDEX_TYPE_MAX; ///< The symmetric pair of this net. If INDEX_TYPE_MAX, it does not have a sym pair
         bool _isSelfSym = false; ///< Whether this net is self-symmetric
+        bool _isVdd = false; ///< whether this net is vdd
+        bool _isVss = false; ///< Whether this net is vss
 };
 
 PROJECT_NAMESPACE_END

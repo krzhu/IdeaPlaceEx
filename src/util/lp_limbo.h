@@ -5,15 +5,22 @@
  * @date 03/10/2020
  */
 
-#ifndef IDEAPLACE_LP_LIMBO_H_
-#define IDEAPLACE_LP_LIMBO_H_
+#ifndef KLIB_LP_LIMBO_H_
+#define KLIB_LP_LIMBO_H_
 
+#include <limbo/solvers/Solvers.h>
+#ifndef LP_NOT_USE_LPSOLVE
 #include <limbo/solvers/api/LPSolveApi.h>
+#endif
+#ifndef LP_NOT_USE_GUROBI
 #include <limbo/solvers/api/GurobiApi.h>
-#include "place/linear_programming.h"
+#endif
+#include "linear_programming_trait.h"
 
-PROJECT_NAMESPACE_BEGIN
+namespace klib {
 
+namespace _lp
+{
 
 template<typename limbo_lp_api>
 struct _limbo_lp_api_trait
@@ -23,7 +30,7 @@ struct _limbo_lp_api_trait
     typedef typename limbo_lp_api::value_type value_type;
     
     static void setDefaultParams(param_type & param);
-    static void setNumThreads(param_type &param, IndexType numThreads);
+    static void setNumThreads(param_type &param, std::uint32_t numThreads);
 };
 
 template<typename limbo_lp_api_type>
@@ -45,6 +52,9 @@ class _limbo_lp_solver
         param_type _params; ///< The parameters for LIMBO solver
 };
 
+#ifndef LP_NOT_USE_LPSOLVE
+
+
 template<typename value_type>
 struct _limbo_lp_api_lpsove
 {
@@ -61,8 +71,13 @@ struct _limbo_lp_api_trait<_limbo_lp_api_lpsove<coe_value_type>>
     {
         param.setVerbose(2); // SERVE
     }
-    static void setNumThreads(param_type &param, IndexType numThreads) {}
+    static void setNumThreads(param_type &, std::uint32_t) {}
 };
+
+#endif
+
+#ifndef LP_NOT_USE_GUROBI
+
 
 template<typename value_type>
 struct _limbo_lp_api_gurobi
@@ -76,20 +91,11 @@ struct _limbo_lp_api_trait<_limbo_lp_api_gurobi<coe_value_type>>
     typedef typename limbo::solvers::GurobiParameters param_type;
     typedef limbo::solvers::GurobiLinearApi<value_type, value_type> limbo_solver_type;
     
-    static void setDefaultParams(param_type & param) {}
-    static void setNumThreads(param_type &param, IndexType numThreads) { param.setNumThreads(numThreads); }
+    static void setDefaultParams(param_type &) {}
+    static void setNumThreads(param_type &param, std::uint32_t numThreads) { param.setNumThreads(numThreads); }
 };
 
-
-/// @namespace contain some shortcuts for solving LP. Basically don't need to use any other structs if not too worried about it
-namespace lp
-{
-    typedef _limbo_lp_solver<_limbo_lp_api_lpsove<RealType>> LimboLpsolve; ///< The lpsolve using limbo api. This one need to be constructed
-    typedef linear_programming_trait<LimboLpsolve> LimboLpsolveTrait; ///< The lpsolve using limbo api. Don't construct it. Use its static methods as interface
-    typedef _limbo_lp_solver<_limbo_lp_api_gurobi<RealType>> LimboLpGurobi; ///< The Gurobi using limbo api. This one need to be constructed
-    typedef linear_programming_trait<LimboLpGurobi> LimboLpGurobiTrait; ///< The Gurobi using limbo api. Don't construct it. Use its static methods as interface
-} // namespace lp
-
+#endif
 
 template<typename limbo_lp_api_type>
 struct linear_programming_trait<_limbo_lp_solver<limbo_lp_api_type>>
@@ -105,7 +111,7 @@ struct linear_programming_trait<_limbo_lp_solver<limbo_lp_api_type>>
 
     static variable_type addVar(solver_type &solver)
     {
-        return solver._model.addVariable(0, REAL_TYPE_MAX,
+        return solver._model.addVariable(0, 1e20,
                                                 limbo::solvers::CONTINUOUS, 
                                                 "x" + solver._model.numVariables());
     }
@@ -180,13 +186,27 @@ struct linear_programming_trait<_limbo_lp_solver<limbo_lp_api_type>>
     {
         return limbo::solvers::toString(solver._status);
     }
-    static void setNumThreads(solver_type &solver, IndexType numThreads)
+    static void setNumThreads(solver_type &solver, std::uint32_t numThreads)
     {
         _limbo_lp_api_trait<limbo_lp_api_type>::setNumThreads(solver._params, numThreads);
     }
 };
 
-PROJECT_NAMESPACE_END
+} //namespace _lp
+
+namespace _lp
+{
+#ifndef LP_NOT_USE_LPSOLVE
+    typedef _lp::_limbo_lp_solver<_lp::_limbo_lp_api_lpsove<double>> LimboLpsolve; ///< The lpsolve using limbo api. This one need to be constructed
+    typedef _lp::linear_programming_trait<LimboLpsolve> LimboLpsolveTrait; ///< The lpsolve using limbo api. Don't construct it. Use its static methods as interface
+#endif
+#ifndef LP_NOT_USE_GUROBI
+    typedef _lp::_limbo_lp_solver<_lp::_limbo_lp_api_gurobi<double>> LimboLpGurobi; ///< The Gurobi using limbo api. This one need to be constructed
+    typedef _lp::linear_programming_trait<LimboLpGurobi> LimboLpGurobiTrait; ///< The Gurobi using limbo api. Don't construct it. Use its static methods as interface
+#endif
+} // namespace _lp
+
+} //namespace klib
 
 
-#endif //IDEAPLACE_LP_LIMBO_H_
+#endif //KLIB_LP_LIMBO_H_
