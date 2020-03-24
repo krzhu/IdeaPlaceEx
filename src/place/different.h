@@ -16,7 +16,7 @@ namespace diff {
 
 enum class OpEnumType
 {
-    hpwl, ovl, oob, asym
+    hpwl, ovl, oob, asym, cosine
 };
 struct placement_differentiable_concept {};
 

@@ -123,6 +123,8 @@ class Database
         { _proximityGrps.emplace_back(ProximityGroup()); return _proximityGrps.size() - 1; }
         const ProximityGroup &proximityGrp( IndexType grpIdx ) const { return _proximityGrps.at(grpIdx); }
         ProximityGroup &proximityGrp( IndexType grpIdx ) { return _proximityGrps.at(grpIdx); }
+        const std::vector<SignalPath> &vSignalPaths() const { return _signalPaths; }
+        std::vector<SignalPath> &vSignalPaths() { return _signalPaths; }
         /*------------------------------*/ 
         /* Technology-dependent         */
         /*------------------------------*/ 
@@ -164,6 +166,7 @@ class Database
         std::vector<Pin> _pinArray; ///< The pins of the placement problem
         std::vector<SymGroup> _symGroups; ///< The symmetric groups
         std::vector<ProximityGroup> _proximityGrps; ///< The proximity group constraints
+        std::vector<SignalPath> _signalPaths; ///< The signal/current paths
         Tech _tech; ///< The tech information
         Parameters _para; ///< The parameters for the placement engine
 };
