@@ -113,6 +113,7 @@ class SignalPath
         explicit SignalPath() = default;
         const std::vector<IndexType> & vPinIdxArray() const { return _pinIdxArray; }
         std::vector<IndexType> & vPinIdxArray() { return _pinIdxArray; }
+        void addPinIdx(IndexType pinIdx) { _pinIdxArray.emplace_back(pinIdx); }
     private:
         std::vector<IndexType> _pinIdxArray; ///< The indices of pins composing the path
 };

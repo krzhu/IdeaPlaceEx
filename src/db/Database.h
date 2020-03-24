@@ -76,6 +76,12 @@ class Database
         /// @brief allocate a new cell in the array
         /// @return the index of the new cell
         IndexType allocateCell() { _cellArray.emplace_back(Cell()); return _cellArray.size() - 1; }
+        /// @brief get the cell array
+        /// @return the cell array
+        const std::vector<Cell> & vCellArray() const { return _cellArray; }
+        /// @brief get the cell array
+        /// @return the cell array
+        std::vector<Cell> & vCellArray() { return _cellArray; }
         /// @brief set name of cell
         /// @param first: cellIdx
         /// @param second: cellName
@@ -108,11 +114,11 @@ class Database
         /// @param the index of the pin
         /// @return the pin of the index
         Pin & pin(IndexType pinIdx) { return _pinArray.at(pinIdx); }
-        const std::vector<Pin> & pins() const { return _pinArray; }
-        std::vector<Pin> &pins() { return _pinArray; }
         /// @brief allocate a new pin in the array
         /// @return the index of the pin
         IndexType allocatePin() { _pinArray.emplace_back(Pin()); return _pinArray.size() - 1; }
+        const std::vector<Pin> & vPinArray() const { return _pinArray; }
+        std::vector<Pin> &vPinArray() { return _pinArray; }
         /// @brief get the vector of proximity groups
         /// @return the vector of proximity groups
         const std::vector<ProximityGroup> & proximityGrps() const { return _proximityGrps; }
@@ -123,8 +129,12 @@ class Database
         { _proximityGrps.emplace_back(ProximityGroup()); return _proximityGrps.size() - 1; }
         const ProximityGroup &proximityGrp( IndexType grpIdx ) const { return _proximityGrps.at(grpIdx); }
         ProximityGroup &proximityGrp( IndexType grpIdx ) { return _proximityGrps.at(grpIdx); }
+
         const std::vector<SignalPath> &vSignalPaths() const { return _signalPaths; }
         std::vector<SignalPath> &vSignalPaths() { return _signalPaths; }
+        IndexType allocateSignalPath() { _signalPaths.emplace_back(SignalPath()); return _signalPaths.size() - 1; }
+        SignalPath & signalPath(IndexType idx) { return _signalPaths.at(idx); }
+        const SignalPath & signalPath(IndexType idx) const { return _signalPaths.at(idx); }
         /*------------------------------*/ 
         /* Technology-dependent         */
         /*------------------------------*/ 
