@@ -15,7 +15,6 @@
 #include <functional>
 #include "pinassign/VirtualPinAssigner.h"
 #include "different.h"
-#include "init_different.h"
 
 PROJECT_NAMESPACE_BEGIN
 

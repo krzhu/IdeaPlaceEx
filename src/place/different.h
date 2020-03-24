@@ -14,6 +14,10 @@ PROJECT_NAMESPACE_BEGIN
 
 namespace diff {
 
+enum class OpEnumType
+{
+    hpwl, ovl, oob, asym
+};
 struct placement_differentiable_concept {};
 
 template <typename ConceptType>
