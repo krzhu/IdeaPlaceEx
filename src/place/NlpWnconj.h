@@ -15,6 +15,7 @@
 #include <functional>
 #include "pinassign/VirtualPinAssigner.h"
 #include "different.h"
+#include "init_different.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -24,20 +25,15 @@ class NlpWnconj
 {
     typedef RealType nlp_coordinate_type;
     typedef RealType nlp_numerical_type;
-    typedef LseHpwlDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_hpwl_type;
-    typedef CellPairOverlapPenaltyDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_ovl_type;
-    typedef CellOutOfBoundaryPenaltyDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_oob_type;
-    typedef AsymmetryDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_asym_type;
-
-    enum class OpEnumType
-    {
-        hpwl, ovl, oob, asym
-    };
+    typedef diff::LseHpwlDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_hpwl_type;
+    typedef diff::CellPairOverlapPenaltyDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_ovl_type;
+    typedef diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_oob_type;
+    typedef diff::AsymmetryDifferentiable<nlp_coordinate_type, nlp_numerical_type> nlp_asym_type;
     struct OpIdxType
     {
-        OpIdxType(IndexType idx_, OpEnumType type_) : idx(idx_), type(type_) {}
+        OpIdxType(IndexType idx_, diff::OpEnumType type_) : idx(idx_), type(type_) {}
         IndexType idx;
-        OpEnumType type;
+        diff::OpEnumType type;
     };
     public:
         /// @brief default constructor
@@ -250,21 +246,21 @@ inline RealType NlpWnconj::objFunc(RealType *values)
     {
         const auto &opIdx = _ops[idx];
         const auto &type = opIdx.type;
-        if (type == OpEnumType::ovl)
+        if (type == diff::OpEnumType::ovl)
         {
-            ovl[opIdx.idx] = placement_differentiable_traits<nlp_ovl_type>::evaluate(_ovlOps[opIdx.idx], getVarFunc);
+            ovl[opIdx.idx] = diff::placement_differentiable_traits<nlp_ovl_type>::evaluate(_ovlOps[opIdx.idx], getVarFunc);
         }
-        else if (type == OpEnumType::oob)
+        else if (type == diff::OpEnumType::oob)
         {
-            oob[opIdx.idx] = placement_differentiable_traits<nlp_oob_type>::evaluate(_oobOps[opIdx.idx], getVarFunc);
+            oob[opIdx.idx] = diff::placement_differentiable_traits<nlp_oob_type>::evaluate(_oobOps[opIdx.idx], getVarFunc);
         }
-        else if (type == OpEnumType::hpwl)
+        else if (type == diff::OpEnumType::hpwl)
         {
-            hpwl[opIdx.idx] = placement_differentiable_traits<nlp_hpwl_type>::evaluate(_hpwlOps[opIdx.idx], getVarFunc);
+            hpwl[opIdx.idx] = diff::placement_differentiable_traits<nlp_hpwl_type>::evaluate(_hpwlOps[opIdx.idx], getVarFunc);
         }
         else
         {
-            asym[opIdx.idx] = placement_differentiable_traits<nlp_asym_type>::evaluate(_asymOps[opIdx.idx], getVarFunc);
+            asym[opIdx.idx] = diff::placement_differentiable_traits<nlp_asym_type>::evaluate(_asymOps[opIdx.idx], getVarFunc);
         }
     }
 
@@ -346,21 +342,21 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
                     std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
         const auto &opIdx = _ops[idx];
         const auto &type = opIdx.type;
-        if (type == OpEnumType::ovl)
+        if (type == diff::OpEnumType::ovl)
         {
-            placement_differentiable_traits<nlp_ovl_type>::accumlateGradient(_ovlOps[opIdx.idx], getVarFunc, f);
+            diff::placement_differentiable_traits<nlp_ovl_type>::accumlateGradient(_ovlOps[opIdx.idx], getVarFunc, f);
         }
-        else if (type == OpEnumType::oob)
+        else if (type == diff::OpEnumType::oob)
         {
-            placement_differentiable_traits<nlp_oob_type>::accumlateGradient(_oobOps[opIdx.idx], getVarFunc, f);
+            diff::placement_differentiable_traits<nlp_oob_type>::accumlateGradient(_oobOps[opIdx.idx], getVarFunc, f);
         }
-        else if (type == OpEnumType::hpwl)
+        else if (type == diff::OpEnumType::hpwl)
         {
-            placement_differentiable_traits<nlp_hpwl_type>::accumlateGradient(_hpwlOps[opIdx.idx], getVarFunc, f);
+            diff::placement_differentiable_traits<nlp_hpwl_type>::accumlateGradient(_hpwlOps[opIdx.idx], getVarFunc, f);
         }
         else
         {
-            placement_differentiable_traits<nlp_asym_type>::accumlateGradient(_asymOps[opIdx.idx], getVarFunc, f);
+            diff::placement_differentiable_traits<nlp_asym_type>::accumlateGradient(_asymOps[opIdx.idx], getVarFunc, f);
         }
     }
 

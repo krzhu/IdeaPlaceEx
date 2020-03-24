@@ -12,6 +12,8 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+namespace diff {
+
 struct placement_differentiable_concept {};
 
 template <typename ConceptType>
@@ -33,14 +35,14 @@ struct placement_differentiable_traits
     typedef typename different_type::numerical_type numerical_type;
     typedef typename different_type::coordinate_type coordinate_type;
 
-    static numerical_type evaluate( const different_type & dif, std::function<coordinate_type(IndexType, Orient2DType)> getVarFunc) 
+    static numerical_type evaluate( const different_type & dif, const std::function<coordinate_type(IndexType, Orient2DType)> &getVarFunc) 
     {
         return dif.evaluate(getVarFunc);
     }
 
     static void accumlateGradient(const different_type & dif, 
-            std::function<coordinate_type(IndexType cellIdx, Orient2DType orient)> getVarFunc,
-            std::function<void(numerical_type, IndexType, Orient2DType)> accumulateGradFunc)
+            const std::function<coordinate_type(IndexType cellIdx, Orient2DType orient)> &getVarFunc,
+            const std::function<void(numerical_type, IndexType, Orient2DType)> &accumulateGradFunc)
     {
         dif.accumlateGradient(getVarFunc, accumulateGradFunc);
     }
@@ -113,7 +115,8 @@ struct LseHpwlDifferentiable
     typedef NumType numerical_type;
     typedef CoordType coordinate_type;
 
-    LseHpwlDifferentiable(NumType *alpha, NumType *lambda) { _alpha = alpha; _lambda = lambda; }
+    LseHpwlDifferentiable(const std::function<NumType(void)> &getAlphaFunc, const std::function<NumType(void)> &getLambdaFunc) 
+    { _getAlphaFunc = getAlphaFunc; _getLambdaFunc = getLambdaFunc; }
 
     void setVirtualPin(const CoordType &x, const CoordType &y) 
     { 
@@ -132,15 +135,15 @@ struct LseHpwlDifferentiable
     bool validHpwl() const { return _cells.size() + _validVirtualPin > 1;}
 
 
-    NumType evaluate( std::function<CoordType(IndexType, Orient2DType)> getVarFunc) const
+    NumType evaluate( const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) const
     {
         if (! validHpwl())
         {
             return 0;
         }
         std::array<NumType, 4> max_val = { 0, 0, 0, 0}; // xmax xin ymax ymin
-        auto alpha = (*_alpha);
-        auto lambda = (*_lambda);
+        auto alpha = _getAlphaFunc();
+        auto lambda = _getLambdaFunc();
         NumType *pMax = &max_val.front(); 
         for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
         {
@@ -170,16 +173,17 @@ struct LseHpwlDifferentiable
         return alpha * obj * _weight * lambda;
     }
 
-    void accumlateGradient(std::function<CoordType(IndexType cellIdx, Orient2DType orient)> getVarFunc,
-            std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const
+    void accumlateGradient(
+            const std::function<CoordType(IndexType cellIdx, Orient2DType orient)> &getVarFunc,
+            const std::function<void(NumType, IndexType, Orient2DType)> &accumulateGradFunc) const
     {
         if (! validHpwl())
         {
             return;
         }
         std::array<NumType, 4> max_val = { 0, 0, 0, 0}; // xmax xin ymax ymin
-        auto alpha = (*_alpha);
-        auto lambda = (*_lambda);
+        auto alpha = _getAlphaFunc();
+        auto lambda = _getLambdaFunc();
         NumType *pMax = &max_val.front(); 
         std::vector<std::array<NumType, 4>> exp_results(_cells.size());
         for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
@@ -225,8 +229,8 @@ struct LseHpwlDifferentiable
     std::vector<CoordType> _offsetX;
     std::vector<CoordType> _offsetY;
     NumType _weight = 1;
-    NumType *_alpha = nullptr;
-    NumType *_lambda = nullptr;
+    std::function<NumType(void)> _getAlphaFunc; ///< A function to get the current alpha
+    std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
 };
 
 
@@ -245,7 +249,7 @@ struct CellPairOverlapPenaltyDifferentiable
 
     CellPairOverlapPenaltyDifferentiable(IndexType cellIdxI, CoordType cellWidthI, CoordType cellHeightI,
                            IndexType cellIdxJ, CoordType cellWidthJ, CoordType cellHeightJ,
-                           NumType *alpha, NumType *lambda)
+                           const std::function<NumType(void)> &getAlphaFunc, const std::function<NumType(void)> &getLambdaFunc)
     {
         _cellIdxI = cellIdxI;
         _cellWidthI = cellWidthI;
@@ -253,51 +257,54 @@ struct CellPairOverlapPenaltyDifferentiable
         _cellIdxJ = cellIdxJ;
         _cellWidthJ = cellWidthJ;
         _cellHeightJ = cellHeightJ;
-        _alpha = alpha;
-        _lambda = lambda;
+        _getAlphaFunc = getAlphaFunc;
+        _getLambdaFunc = getLambdaFunc;
     }
 
-    NumType evaluate( std::function<CoordType(IndexType, Orient2DType)> getVarFunc) const
+    NumType evaluate( const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) const
     {
-            CoordType xLoI = getVarFunc(_cellIdxI, Orient2DType::HORIZONTAL);
-            CoordType xHiI = xLoI + _cellWidthI;
-            CoordType yLoI = getVarFunc(_cellIdxI, Orient2DType::VERTICAL);
-            CoordType yHiI = yLoI + _cellHeightI;
-            CoordType xLoJ = getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL);
-            CoordType xHiJ = xLoJ + _cellWidthJ;
-            CoordType yLoJ = getVarFunc(_cellIdxJ, Orient2DType::VERTICAL);
-            CoordType yHiJ = yLoJ + _cellHeightJ;
-            // max (min(xHiI - xLoJ, xHiJ - xLoI), 0), vice versa
-            // Notice that the calculation results for changing the order of i and j.
-            // In the gradient, the results will be different
-            CoordType var1X = xHiI - xLoJ;
-            CoordType var2X = xHiJ - xLoI;
-            NumType overlapX = op::logSumExp(
-                op::conv<NumType>(var1X),
-                op::conv<NumType>(var2X),
-                - (*_alpha)
+        NumType alpha = _getAlphaFunc();
+        NumType lambda  = _getLambdaFunc();
+        CoordType xLoI = getVarFunc(_cellIdxI, Orient2DType::HORIZONTAL);
+        CoordType xHiI = xLoI + _cellWidthI;
+        CoordType yLoI = getVarFunc(_cellIdxI, Orient2DType::VERTICAL);
+        CoordType yHiI = yLoI + _cellHeightI;
+        CoordType xLoJ = getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL);
+        CoordType xHiJ = xLoJ + _cellWidthJ;
+        CoordType yLoJ = getVarFunc(_cellIdxJ, Orient2DType::VERTICAL);
+        CoordType yHiJ = yLoJ + _cellHeightJ;
+        // max (min(xHiI - xLoJ, xHiJ - xLoI), 0), vice versa
+        // Notice that the calculation results for changing the order of i and j.
+        // In the gradient, the results will be different
+        CoordType var1X = xHiI - xLoJ;
+        CoordType var2X = xHiJ - xLoI;
+        NumType overlapX = op::logSumExp(
+            op::conv<NumType>(var1X),
+            op::conv<NumType>(var2X),
+            - alpha
+            );
+        overlapX = op::logSumExp0(
+                overlapX,
+                alpha
                 );
-            overlapX = op::logSumExp0(
-                    overlapX,
-                    (*_alpha)
-                    );
-            // y
-            CoordType var1Y = yHiI - yLoJ;
-            CoordType var2Y = yHiJ - yLoI;
-            NumType overlapY = op::logSumExp(
-                op::conv<NumType>(var1Y),
-                op::conv<NumType>(var2Y),
-                - (*_alpha)
+        // y
+        CoordType var1Y = yHiI - yLoJ;
+        CoordType var2Y = yHiJ - yLoI;
+        NumType overlapY = op::logSumExp(
+            op::conv<NumType>(var1Y),
+            op::conv<NumType>(var2Y),
+            - alpha
+            );
+        overlapY = op::logSumExp0(
+                overlapY,
+                alpha
                 );
-            overlapY = op::logSumExp0(
-                    overlapY,
-                    (*_alpha)
-                    );
-            return (*_lambda) * overlapX * overlapY;
+        return lambda * overlapX * overlapY;
     }
 
-    void accumlateGradient(std::function<CoordType(IndexType cellIdx, Orient2DType orient)> getVarFunc,
-            std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const
+    void accumlateGradient(
+            const std::function<CoordType(IndexType cellIdx, Orient2DType orient)> &getVarFunc,
+            const std::function<void(NumType, IndexType, Orient2DType)> &accumulateGradFunc) const
     {
         /** 
          * @brief syms xi xj wi wj alpha yi yj hi hj
@@ -346,8 +353,8 @@ struct CellPairOverlapPenaltyDifferentiable
         NumType hi = op::conv<NumType>(_cellHeightI);
         NumType wj = op::conv<NumType>(_cellWidthJ);
         NumType hj = op::conv<NumType>(_cellHeightJ);
-        NumType alpha = (*_alpha);
-        NumType lambda = (*_lambda);
+        NumType alpha = _getAlphaFunc();
+        NumType lambda = _getLambdaFunc();
 
         NumType dxi = (alpha * alpha *log(1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(exp(-(wi + xi - xj)/alpha)/alpha - exp(-(wj - xi + xj)/alpha)/alpha))/((1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*pow(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha), 2)) * lambda;
          NumType dxj = -dxi;
@@ -369,8 +376,8 @@ struct CellPairOverlapPenaltyDifferentiable
     IndexType _cellIdxJ;
     CoordType _cellWidthJ;
     CoordType _cellHeightJ;
-    NumType *_alpha = nullptr;
-    NumType *_lambda = nullptr;
+    std::function<NumType(void)> _getAlphaFunc; ///< A function to get the current alpha
+    std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
 };
 
 
@@ -387,18 +394,21 @@ struct CellOutOfBoundaryPenaltyDifferentiable
     typedef NumType numerical_type;
     typedef CoordType coordinate_type;
 
-    CellOutOfBoundaryPenaltyDifferentiable(IndexType cellIdx, CoordType cellWidth, CoordType cellHeight, Box<CoordType> *boundary, NumType *alpha, NumType *lambda)
+    CellOutOfBoundaryPenaltyDifferentiable(IndexType cellIdx, CoordType cellWidth, CoordType cellHeight, Box<CoordType> *boundary,
+            const std::function<NumType(void)> &getAlphaFunc, const std::function<NumType(void)> &getLambdaFunc)
     {
         _cellIdx = cellIdx;
         _cellWidth = cellWidth;
         _cellHeight = cellHeight;
         _boundary = boundary;
-        _alpha = alpha;
-        _lambda = lambda;
+        _getAlphaFunc = getAlphaFunc;
+        _getLambdaFunc = getLambdaFunc;
     }
 
-    NumType evaluate( std::function<CoordType(IndexType, Orient2DType)> getVarFunc) const
+    NumType evaluate( const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) const
     {
+        NumType alpha  = _getAlphaFunc();
+        NumType lambda = _getLambdaFunc();
         CoordType xLo = getVarFunc(_cellIdx, Orient2DType::HORIZONTAL);
         CoordType yLo = getVarFunc(_cellIdx, Orient2DType::VERTICAL);
         CoordType xHi = xLo + _cellWidth;
@@ -406,25 +416,28 @@ struct CellOutOfBoundaryPenaltyDifferentiable
         // Smooth abs xLo xHi
         NumType obXLo = op::logSumExp0(
                 op::conv<NumType>(_boundary->xLo() - xLo),
-                *_alpha);
+                alpha);
         NumType obXHi = op::logSumExp0(
                 op::conv<NumType>(xHi - _boundary->xHi()),
-                *_alpha);
+                alpha);
         // y
         NumType obYLo = op::logSumExp0(
                 op::conv<NumType>(_boundary->yLo() - yLo),
-                *_alpha
+                alpha
                 );
         NumType obYHi = op::logSumExp0(
                 op::conv<NumType>(yHi - _boundary->yHi()),
-                *_alpha
+                alpha
                 );
-        return (obXLo + obXHi + obYLo + obYHi) * (*_lambda);
+        return (obXLo + obXHi + obYLo + obYHi) * lambda;
     }
 
-    void accumlateGradient(std::function<CoordType(IndexType cellIdx, Orient2DType orient)> getVarFunc,
-            std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const
+    void accumlateGradient(
+            const std::function<CoordType(IndexType cellIdx, Orient2DType orient)> &getVarFunc,
+            const std::function<void(NumType, IndexType, Orient2DType)> &accumulateGradFunc) const
     {
+        NumType alpha  = _getAlphaFunc();
+        NumType lambda = _getLambdaFunc();
         CoordType xLo = getVarFunc(_cellIdx, Orient2DType::HORIZONTAL);
         CoordType yLo = getVarFunc(_cellIdx, Orient2DType::VERTICAL);
         CoordType xHi = xLo + _cellWidth;
@@ -433,26 +446,26 @@ struct CellOutOfBoundaryPenaltyDifferentiable
         NumType gradObX =
             - op::gradLogSumExp0( // negative comes from the derivative
                     op::conv<NumType>(_boundary->xLo() - xLo),
-                    *_alpha
+                    alpha
                     );
         gradObX +=
             op::gradLogSumExp0(
                     op::conv<NumType>(xHi - _boundary->xHi()),
-                    *_alpha
+                    alpha
                     );
-        accumulateGradFunc(gradObX * (*_lambda), _cellIdx, Orient2DType::HORIZONTAL);
+        accumulateGradFunc(gradObX * lambda, _cellIdx, Orient2DType::HORIZONTAL);
         // y
         NumType gradObY =
             - op::gradLogSumExp0( // negative comes from the derivative
                     op::conv<NumType>(_boundary->yLo() - yLo),
-                    *_alpha
+                    alpha
                     );
         gradObY +=
             op::gradLogSumExp0( 
                     op::conv<NumType>(yHi - _boundary->yHi()),
-                    *_alpha
+                    alpha
                     );
-        accumulateGradFunc(gradObY * (*_lambda), _cellIdx, Orient2DType::VERTICAL);
+        accumulateGradFunc(gradObY * lambda, _cellIdx, Orient2DType::VERTICAL);
     }
 
 
@@ -460,8 +473,8 @@ struct CellOutOfBoundaryPenaltyDifferentiable
     CoordType _cellWidth;
     CoordType _cellHeight;
     Box<CoordType> *_boundary = nullptr;
-    NumType *_alpha = nullptr;
-    NumType *_lambda = nullptr;
+    std::function<NumType(void)> _getAlphaFunc;
+    std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
 };
 
 
@@ -478,10 +491,10 @@ struct AsymmetryDifferentiable
     typedef NumType numerical_type;
     typedef CoordType coordinate_type;
 
-    AsymmetryDifferentiable(IndexType symGrpIdx, NumType *lambda)
+    AsymmetryDifferentiable(IndexType symGrpIdx, const std::function<NumType(void)> &getLambdaFunc)
     {
         _symGrpIdx = symGrpIdx;
-        _lambda = lambda;
+        _getLambdaFunc = getLambdaFunc;
     }
     /// @brief add a symmetric pair. require the cell widths are the same
     void addSymPair(IndexType cellIdxI, IndexType cellIdxJ, CoordType width)
@@ -495,8 +508,9 @@ struct AsymmetryDifferentiable
         _selfSymWidths.emplace_back(op::conv<NumType>(width));
     }
 
-    NumType evaluate( std::function<CoordType(IndexType, Orient2DType)> getVarFunc) const
+    NumType evaluate(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) const
     {
+        NumType lambda = _getLambdaFunc();
         NumType asym = 0;
         NumType symAxis = op::conv<NumType>(getVarFunc(_symGrpIdx, Orient2DType::NONE));
         for (IndexType symPairIdx = 0; symPairIdx < _pairCells.size(); ++symPairIdx)
@@ -519,12 +533,13 @@ struct AsymmetryDifferentiable
 
             asym += pow( x + w / 2 - symAxis, 2.0);
         }
-        return asym  * (*_lambda);
+        return asym  * lambda;
     }
-    void accumlateGradient(std::function<CoordType(IndexType cellIdx, Orient2DType orient)> getVarFunc,
-            std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const
+    void accumlateGradient(
+            const std::function<CoordType(IndexType cellIdx, Orient2DType orient)> &getVarFunc,
+            const std::function<void(NumType, IndexType, Orient2DType)> &accumulateGradFunc) const
     {
-        NumType lambda = *_lambda;
+        NumType lambda = _getLambdaFunc();
         NumType symAxis = op::conv<NumType>(getVarFunc(_symGrpIdx, Orient2DType::NONE));
         for (IndexType symPairIdx = 0; symPairIdx < _pairCells.size(); ++symPairIdx)
         {
@@ -563,7 +578,7 @@ struct AsymmetryDifferentiable
     std::vector<NumType> _pairWidths;
     std::vector<IndexType> _selfSymCells;
     std::vector<NumType> _selfSymWidths;
-    NumType *_lambda = nullptr;
+    std::function<NumType(void)> _getLambdaFunc;
 };
 
 
@@ -585,7 +600,7 @@ struct CosineDatapathDifferentiable
             IndexType sCellIdx, const XY<CoordType> &sOffset,
             IndexType midCellIdx, const XY<CoordType> &midOffset,
             IndexType tCellIdx, const XY<CoordType> &tOffset,
-            std::function<NumType(void)> getLambdaFunc)
+            const std::function<NumType(void)> &getLambdaFunc)
         : _sCellIdx(sCellIdx),
           _midCellIdx(midCellIdx),
           _tCellIdx(tCellIdx), 
@@ -600,9 +615,10 @@ struct CosineDatapathDifferentiable
         }
     
 
-    NumType evaluate( std::function<CoordType(IndexType, Orient2DType)> getVarFunc) const;
-    void accumlateGradient(std::function<CoordType(IndexType cellIdx, Orient2DType orient)> getVarFunc,
-            std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const;
+    NumType evaluate(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) const;
+    void accumlateGradient(
+            const std::function<CoordType(IndexType cellIdx, Orient2DType orient)> &getVarFunc,
+            const std::function<void(NumType, IndexType, Orient2DType)> &accumulateGradFunc) const;
 
     IndexType _sCellIdx = INDEX_TYPE_MAX; ///< Source
     XY<NumType> _sOffset; ///< The offset for x0
@@ -614,7 +630,8 @@ struct CosineDatapathDifferentiable
 };
 
 template<typename NumType, typename CoordType>
-inline NumType CosineDatapathDifferentiable<NumType, CoordType>::evaluate(std::function<CoordType(IndexType, Orient2DType)> getVarFunc) const
+inline NumType CosineDatapathDifferentiable<NumType, CoordType>::evaluate(
+        const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) const
 {
     NumType lambda = _getLambdaFunc();
     NumType x1 = op::conv<NumType>(getVarFunc(_sCellIdx, Orient2DType::HORIZONTAL));
@@ -635,8 +652,8 @@ inline NumType CosineDatapathDifferentiable<NumType, CoordType>::evaluate(std::f
 
 template<typename NumType, typename CoordType>
 inline void CosineDatapathDifferentiable<NumType, CoordType>::accumlateGradient(
-        std::function<CoordType(IndexType cellIdx, Orient2DType orient)> getVarFunc,
-        std::function<void(NumType, IndexType, Orient2DType)> accumulateGradFunc) const
+        const std::function<CoordType(IndexType cellIdx, Orient2DType orient)> &getVarFunc,
+        const std::function<void(NumType, IndexType, Orient2DType)> &accumulateGradFunc) const
 {
     NumType lambda = _getLambdaFunc();
     NumType x1 = op::conv<NumType>(getVarFunc(_sCellIdx, Orient2DType::HORIZONTAL));
@@ -677,6 +694,8 @@ inline void CosineDatapathDifferentiable<NumType, CoordType>::accumlateGradient(
     accumulateGradFunc(dx3, _tCellIdx, Orient2DType::HORIZONTAL);
     accumulateGradFunc(dy3, _tCellIdx, Orient2DType::VERTICAL);
 }
+
+} //namespace diff
 
 PROJECT_NAMESPACE_END
 

@@ -412,12 +412,32 @@ bool NlpWnconj::nlpKernel()
 
 void NlpWnconj::initOperators()
 {
+    auto getAlphaFunc = [&]()
+    {
+        return _alpha;
+    };
+    auto getLambda1Func = [&]()
+    {
+        return _lambda1;
+    };
+    auto getLambda2Func = [&]()
+    {
+        return _lambda2;
+    };
+    auto getLambda3Func = [&]()
+    {
+        return _lambda3;
+    };
+    auto getLambda4Func = [&]()
+    {
+        return _lambda4;
+    };
     // Hpwl
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
         const auto &net = _db.net(netIdx);
-        _hpwlOps.emplace_back(nlp_hpwl_type(&_alpha, &_lambda3));
-        _ops.emplace_back(OpIdxType( _hpwlOps.size() - 1, OpEnumType::hpwl));
+        _hpwlOps.emplace_back(nlp_hpwl_type(getAlphaFunc, getLambda3Func));
+        _ops.emplace_back(OpIdxType( _hpwlOps.size() - 1, diff::OpEnumType::hpwl));
         auto &op = _hpwlOps.back();
         op.setWeight(net.weight());
         for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
@@ -448,10 +468,10 @@ void NlpWnconj::initOperators()
                         cellIdxJ,
                         cellBBoxJ.xLen() * _scale,
                         cellBBoxJ.yLen() * _scale,
-                        &_alpha,
-                        &_lambda1
+                        getAlphaFunc,
+                        getLambda1Func
                         ));
-            _ops.emplace_back(OpIdxType(_ovlOps.size() - 1, OpEnumType::ovl));
+            _ops.emplace_back(OpIdxType(_ovlOps.size() - 1, diff::OpEnumType::ovl));
         }
     }
     // Out of boundary
@@ -463,17 +483,17 @@ void NlpWnconj::initOperators()
                     cellBBox.xLen() * _scale,
                     cellBBox.yLen() * _scale,
                     &_boundary,
-                    &_alpha,
-                    &_lambda2
+                    getAlphaFunc,
+                    getLambda2Func
                     ));
-        _ops.emplace_back(OpIdxType(_oobOps.size() - 1, OpEnumType::oob));
+        _ops.emplace_back(OpIdxType(_oobOps.size() - 1, diff::OpEnumType::oob));
     }
     // Asym
     for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
     {
         const auto &symGrp = _db.symGroup(symGrpIdx);
-        _asymOps.emplace_back(nlp_asym_type(symGrpIdx, &_lambda4));
-        _ops.emplace_back(OpIdxType(_asymOps.size() - 1, OpEnumType::asym));
+        _asymOps.emplace_back(nlp_asym_type(symGrpIdx, getLambda4Func));
+        _ops.emplace_back(OpIdxType(_asymOps.size() - 1, diff::OpEnumType::asym));
         for (const auto &symPair : symGrp.vSymPairs())
         {
             IndexType cellIdxI = symPair.firstCell();
