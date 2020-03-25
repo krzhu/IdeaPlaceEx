@@ -22,8 +22,11 @@ class SigPathSeg
         {}
         /// @brief get the starting pin of the first segment
         IndexType beginPinFirstSeg() const { return _sPinIdx; }
+        /// @brief get the ending pin of the first segment
         IndexType endPinFirstSeg() const { return _midPinIdxA; }
+        /// @brief get the starting pin of the second segment
         IndexType beginPinSecondSeg() const { return _midPinIdxB; }
+        /// @brief get the ending pin of the second segment
         IndexType endPinSecondSeg() const { return _tPinIdx; }
     private:
         IndexType _sPinIdx = INDEX_TYPE_MAX; ///< The starting pin index of the first segment. It belongs to cell 1,
