@@ -656,7 +656,7 @@ inline NumType CosineDatapathDifferentiable<NumType, CoordType>::evaluate(
     NumType ox3 = _tOffset.x();
     NumType oy3 = _tOffset.y();
 
-    return (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*(pow(ox3 - ox2b - x2 + x3, 2.0) + (oy3 - oy2b - y2 + y3)^2)^(1/2)) + 1) * lambda;
+    return (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) + 1) * lambda;
 }
 
 template<typename NumType, typename CoordType>
@@ -680,32 +680,25 @@ inline void CosineDatapathDifferentiable<NumType, CoordType>::accumlateGradient(
     NumType ox3 = _tOffset.x();
     NumType oy3 = _tOffset.y();
 
-    NumType dx1 = (ox3 - ox2b - x2 + x3)/(((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2)) - (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*ox1 - 2*ox2a + 2*x1 - 2*x2))/(2*((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(3/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2));
+    NumType dx1 = (ox3 - ox2b - x2 + x3)/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) - (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*ox1 - 2*ox2a + 2*x1 - 2*x2))/(2*pow(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0), 1.5)*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0)));
 
     dx1 *= lambda;
 
-    NumType dy1 = 
-(oy3 - oy2b - y2 + y3)/(((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2)) - (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*oy1 - 2*oy2a + 2*y1 - 2*y2))/(2*((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(3/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2))
-;
+    NumType dy1 = (oy3 - oy2b - y2 + y3)/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) - (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*oy1 - 2*oy2a + 2*y1 - 2*y2))/(2*pow(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0), 1.5)*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0)));
     dy1 *= lambda;
 
-    NumType dx2 = 
-(((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*ox1 - 2*ox2a + 2*x1 - 2*x2))/(2*((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(3/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2)) - (ox1 + ox3 - ox2a - ox2b + x1 - 2*x2 + x3)/(((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2)) + (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*ox3 - 2*ox2b - 2*x2 + 2*x3))/(2*((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(3/2))
-;
+    NumType dx2 = (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*ox1 - 2*ox2a + 2*x1 - 2*x2))/(2*pow(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0), 1.5)*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) - (ox1 + ox3 - ox2a - ox2b + x1 - 2*x2 + x3)/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) + (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*ox3 - 2*ox2b - 2*x2 + 2*x3))/(2*sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*pow(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0), 1.5));
     dx2 *= lambda;
 
-    NumType dy2 = 
-(((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*oy1 - 2*oy2a + 2*y1 - 2*y2))/(2*((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(3/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2)) - (oy1 + oy3 - oy2a - oy2b + y1 - 2*y2 + y3)/(((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2)) + (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*oy3 - 2*oy2b - 2*y2 + 2*y3))/(2*((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(3/2));
+    NumType dy2 = (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*oy1 - 2*oy2a + 2*y1 - 2*y2))/(2*pow(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0), 1.5)*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) - (oy1 + oy3 - oy2a - oy2b + y1 - 2*y2 + y3)/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) + (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*oy3 - 2*oy2b - 2*y2 + 2*y3))/(2*sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*pow(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0), 1.5));
     dy2 *= lambda;
 
     NumType dx3 = 
-(ox1 - ox2a + x1 - x2)/(((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2)) - (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*ox3 - 2*ox2b - 2*x2 + 2*x3))/(2*((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(3/2))
-;
+(ox1 - ox2a + x1 - x2)/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) - (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*ox3 - 2*ox2b - 2*x2 + 2*x3))/(2*sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*pow(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0), 1.5));
     dx3 *= lambda;
 
     NumType dy3 = 
-(oy1 - oy2a + y1 - y2)/(((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(1/2)) - (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*oy3 - 2*oy2b - 2*y2 + 2*y3))/(2*((ox1 - ox2a + x1 - x2)^2 + (oy1 - oy2a + y1 - y2)^2)^(1/2)*((ox3 - ox2b - x2 + x3)^2 + (oy3 - oy2b - y2 + y3)^2)^(3/2))
-;
+(oy1 - oy2a + y1 - y2)/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) - (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*oy3 - 2*oy2b - 2*y2 + 2*y3))/(2*sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*pow(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0), 1.5));
     dy3 *= lambda;
 
     accumulateGradFunc(dx1, _sCellIdx, Orient2DType::HORIZONTAL);
