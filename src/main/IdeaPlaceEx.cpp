@@ -203,6 +203,10 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     {
         symAxis = alignToGrid(gridStep);
     }
+    else
+    {
+        symAxis = alignToGrid(1);
+    }
 
 #ifdef DEBUG_GR
 #ifdef DEBUG_DRAW

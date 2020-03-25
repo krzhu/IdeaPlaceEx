@@ -66,6 +66,7 @@ void GridAligner::align(LocType stepSize)
 LocType GridAligner::findCurrentSymAxis()
 {
     LocType symAxis = 0;
+    bool foundSym = false;
     for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
     {
         const auto &symGrp = _db.symGroup(symAxis);
@@ -73,14 +74,30 @@ LocType GridAligner::findCurrentSymAxis()
         {
             const auto &symPair = symGrp.symPair(symPairIdx);
             symAxis = (_db.cell(symPair.firstCell()).xLo() + _db.cell(symPair.secondCell()).xHi()) / 2;
+            foundSym = true;
             goto theEnd;
         }
         for (IndexType ssIdx = 0; ssIdx < symGrp.numSelfSyms(); ++ssIdx)
         {
             const auto &ssCell = _db.cell(symGrp.selfSym(ssIdx));
             symAxis = (ssCell.xLo() + ssCell.xHi()) / 2;
+            foundSym = true;
             goto theEnd;
         }
+    }
+    if (!foundSym)
+    {
+        LocType xmin =LOC_TYPE_MAX;
+        LocType xmax = LOC_TYPE_MIN;
+        for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+        {
+            const auto &cell = _db.cell(cellIdx);
+            xmin = std::min(cell.xLo(), xmin);
+            xmax = std::max(cell.xHi(), xmax);
+        }
+        LocType xCenter = (xmax + xmin) / 2;
+        xCenter = xCenter + ceilDif(xCenter , _stepSize) + _stepSize / 2; // Ensure its on the correct grid
+        return xCenter;
     }
 theEnd:
     return symAxis;
