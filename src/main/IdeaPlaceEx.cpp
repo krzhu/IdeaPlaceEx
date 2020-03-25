@@ -180,7 +180,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n",  _db.hpwlWithVitualPins());
     if (!legalizeResult)
     {
-        exit(0);
+        Assert(0);
         INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
         NlpWnconj tryagain(_db);
         tryagain.setToughMode(true);
