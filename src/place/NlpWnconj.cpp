@@ -1,6 +1,7 @@
 #include "NlpWnconj.h"
 #include <cstdlib>
 #include <functional>
+#include "signalPathMgr.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -514,30 +515,30 @@ void NlpWnconj::initOperators()
         }
     }
     // Signal path
-    for (const auto &path : _db.vSignalPaths())
+    SigPathMgr pathMgr(_db);
+    for (const auto &seg : pathMgr.vSegList())
     {
-        for (IndexType idx = 0; idx < path.vPinIdxArray().size() - 2; ++idx)
-        {
-            IndexType sPinIdx = path.vPinIdxArray().at(idx);
-            IndexType midPinIdx = path.vPinIdxArray().at(idx+1);
-            IndexType tPinIdx = path.vPinIdxArray().at(idx+2);
+        IndexType sPinIdx = seg.beginPinFirstSeg();
+        IndexType midPinIdxA = seg.endPinFirstSeg();
+        IndexType midPinIdxB = seg.beginPinSecondSeg();
+        IndexType tPinIdx = seg.endPinSecondSeg();
 
-            const auto &sPin = _db.pin(sPinIdx);
-            IndexType sCellIdx = sPin.cellIdx();
-            const auto &mPin = _db.pin(midPinIdx);
-            IndexType mCellIdx = mPin.cellIdx();
-            const auto &tPin = _db.pin(tPinIdx);
-            IndexType tCellIdx = tPin.cellIdx();
+        const auto &sPin = _db.pin(sPinIdx);
+        IndexType sCellIdx = sPin.cellIdx();
+        const auto &mPinA = _db.pin(midPinIdxA);
+        IndexType mCellIdx = mPinA.cellIdx();
+        const auto &tPin = _db.pin(tPinIdx);
+        IndexType tCellIdx = tPin.cellIdx();
 
-            auto sOffset = calculatePinOffset(sPinIdx);
-            auto midOffset = calculatePinOffset(midPinIdx);
-            auto tOffset = calculatePinOffset(tPinIdx);
-            _cosOps.emplace_back(sCellIdx, sOffset,
-                    mCellIdx, midOffset,
-                    tCellIdx, tOffset,
-                    getLambdaCosineFunc);
-            _ops.emplace_back(OpIdxType(_cosOps.size()-1, diff::OpEnumType::cosine));
-        }
+        auto sOffset = calculatePinOffset(sPinIdx);
+        auto midOffsetA = calculatePinOffset(midPinIdxA);
+        auto midOffsetB = calculatePinOffset(midPinIdxB);
+        auto tOffset = calculatePinOffset(tPinIdx);
+        _cosOps.emplace_back(sCellIdx, sOffset,
+                mCellIdx, midOffsetA, midOffsetB,
+                tCellIdx, tOffset,
+                getLambdaCosineFunc);
+        _ops.emplace_back(OpIdxType(_cosOps.size()-1, diff::OpEnumType::cosine));
     }
 }
 
