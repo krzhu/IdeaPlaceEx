@@ -118,6 +118,11 @@ class SignalPath
         std::vector<IndexType> _pinIdxArray; ///< The indices of pins composing the path
 };
 
+/// @brief the signal path manager
+class SigPathMgr
+{
+};
+
 PROJECT_NAMESPACE_END
 
 #endif //IDEAPLACE_DBASE_CONSTRAINTS_H.at(
