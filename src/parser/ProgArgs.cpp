@@ -74,6 +74,7 @@ namespace ProgArgsDetails
         progArgs.setTechsimpleFile(opt.techsimpleFile);
         progArgs.setSymFile(opt.symFile);
         progArgs.setSymnetFile(opt.symnetFile);
+        progArgs.setSigpathFile(opt.sigpathFile);
         progArgs.gdsFiles() = opt.gdsFiles;
 
         return progArgs;
