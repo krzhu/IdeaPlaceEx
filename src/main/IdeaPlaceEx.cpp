@@ -195,6 +195,8 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     // Restore proxmity group
     proximityMgr.restore();
 
+    _db.checkSym();
+
     if (gridStep > 0)
     {
         INF("Ideaplace: Aligning the placement to grid...\n");

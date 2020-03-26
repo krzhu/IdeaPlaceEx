@@ -9,18 +9,12 @@ bool CGLegalizer::legalize()
 
     VirtualPinAssigner pinAssigner(_db);
 
-    this->generateConstraints();
+
+    this->generateVerConstraints();
     _hStar = lpLegalization(false);
-    //if (_hStar < 0)
-    //{
-    //    return false;
-    //}
-    this->generateConstraints();
+
+    this->generateHorConstraints();
     _wStar = lpLegalization(true);
-    //if (_wStar < 0)
-    //{
-    //    return false;
-    //}
 
     LocType xMin = LOC_TYPE_MAX;
     LocType xMax = LOC_TYPE_MIN;
@@ -142,6 +136,9 @@ IntType minOverlappingDirection(const Box<LocType> &box1, const Box<LocType> &bo
 
 void CGLegalizer::generateHorConstraints()
 {
+    generateConstraints();
+    return;
+
     _hCG.clear();
     _vCG.clear();
     _hConstraints.clear();
