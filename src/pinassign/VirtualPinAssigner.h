@@ -46,6 +46,9 @@ class VirtualPinAssigner
     private:
         void assignPowerPin()
         {
+#ifdef DEBUG_PINASSIGN
+            DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
             for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
             {
                 auto & net = _db.net(netIdx);
@@ -62,6 +65,9 @@ class VirtualPinAssigner
                     break;
                 }
             }
+#ifdef DEBUG_PINASSIGN
+            DBG("Ideaplace: pinassgin: end %s\n", __FUNCTION__);
+#endif
         }
         bool _lpSimplexPinAssignment(
                 std::function<bool(IndexType)> isSymNetFunc,

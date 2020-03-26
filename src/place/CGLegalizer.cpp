@@ -537,7 +537,9 @@ bool CGLegalizer::dagfyOneConstraintGraph(ConstraintGraph &cg)
             //AssertMsg(visited[idx], "node %d \n", idx);
             if (!visited[idx])
             {
+#ifdef DEBUG_LEGALIZE
                 WRN("CGLegalizer::missing edge from source  %d\n", idx);
+#endif
                 cg.addEdge(sourceIdx, idx);
                 Assert(cg.hasEdge(sourceIdx, idx));
                 check = true;

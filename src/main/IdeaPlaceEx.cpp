@@ -156,6 +156,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     ProximityMgr proximityMgr(_db);
     proximityMgr.applyProximityWithDummyNets();
 
+    INF("Ideaplace: Entering global placement...\n");
     NlpWnconj nlp(_db);
     nlp.setToughMode(false);
     nlpPtr = &nlp;
@@ -165,8 +166,10 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     _db.drawCellBlocks("./debug/after_gr.gds");
 #endif //DEBUG_DRAW
 #endif
+    INF("Ideaplace: Entering legalization and detailed placement...\n");
     CGLegalizer legalizer(_db);
     bool legalizeResult = legalizer.legalize();
+    INF("Ideaplace: Assigning IO pin...\n");
     VirtualPinAssigner pinAssigner(_db);
     pinAssigner.solveFromDB();
     INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
@@ -194,6 +197,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
 
     if (gridStep > 0)
     {
+        INF("Ideaplace: Aligning the placement to grid...\n");
         symAxis = alignToGrid(gridStep);
     }
     else
