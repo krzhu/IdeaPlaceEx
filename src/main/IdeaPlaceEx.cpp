@@ -163,6 +163,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     ProximityMgr proximityMgr(_db);
     proximityMgr.applyProximityWithDummyNets();
 
+    INF("Ideaplace: Entering global placement...\n");
     NlpWnconj nlp(_db);
     nlp.setToughMode(false);
     nlpPtr = &nlp;
@@ -172,15 +173,17 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     _db.drawCellBlocks("./debug/after_gr.gds");
 #endif //DEBUG_DRAW
 #endif
+    INF("Ideaplace: Entering legalization and detailed placement...\n");
     CGLegalizer legalizer(_db);
     bool legalizeResult = legalizer.legalize();
+    INF("Ideaplace: Assigning IO pin...\n");
     VirtualPinAssigner pinAssigner(_db);
     pinAssigner.solveFromDB();
     INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
     INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n",  _db.hpwlWithVitualPins());
     if (!legalizeResult)
     {
-        Assert(0);
+        Assert(false);
         INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
         NlpWnconj tryagain(_db);
         tryagain.setToughMode(true);
@@ -199,8 +202,11 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     // Restore proxmity group
     proximityMgr.restore();
 
+    _db.checkSym();
+
     if (gridStep > 0)
     {
+        INF("Ideaplace: Aligning the placement to grid...\n");
         symAxis = alignToGrid(gridStep);
     }
     else

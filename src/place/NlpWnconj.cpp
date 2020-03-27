@@ -300,7 +300,7 @@ bool NlpWnconj::initVars()
     */
     
     // My alternative intialization, just give the variables fixed linear value
-    srand(0); //just a arbitary number
+    srand(666); //just a arbitary number
     if (1)
     {
         for (IndexType idx = 0; idx < _db.numCells() * 2; ++idx)

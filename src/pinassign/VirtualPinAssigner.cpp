@@ -9,12 +9,18 @@ PROJECT_NAMESPACE_BEGIN
 
 bool VirtualPinAssigner::solveFromDB()
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     reconfigureVirtualPinLocationFromDB();
     return pinAssignmentFromDB();
 }
 
 void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     Box<LocType> boundary(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
@@ -27,6 +33,9 @@ void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
 
 bool VirtualPinAssigner::pinAssignmentFromDB()
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     auto cellLocQueryFunc = [&] (IndexType cellIdx)
     {
         const auto &cell = _db.cell(cellIdx);
@@ -54,6 +63,9 @@ IntType lcm(IntType a, IntType b)
 
 void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cellsBBox)
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     _virtualPinInterval = _db.parameters().virtualPinInterval();
     _virtualBoundaryExtension = _db.parameters().virtualBoundaryExtension();
     _boundary = cellsBBox;
@@ -132,6 +144,9 @@ bool VirtualPinAssigner::_networkSimplexPinAssignment(std::function<bool(IndexTy
         std::function<LocType(IndexType, IndexType)> netToPinCostFunc,
         std::function<void(IndexType, IndexType)> setNetToVirtualPinFunc)
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     // Prepare the nets and pins available to the problem
     std::vector<IndexType> nets;
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
@@ -229,12 +244,22 @@ bool VirtualPinAssigner::_networkSimplexPinAssignment(std::function<bool(IndexTy
 bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
 {
 
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     assignPowerPin();
     // Calculate the current HPWLs without virtual pin
     std::vector<Box<LocType>> curNetBBox;
     curNetBBox.resize(_db.numNets());
+    std::vector<char> nopinNets;
+    nopinNets.resize(_db.numNets(), false);
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
+        if (_db.net(netIdx).numPinIdx() < 1)
+        {
+            nopinNets.at(netIdx) = true;
+            continue;
+        }
         IndexType pinIdx = _db.net(netIdx).pinIdx(0);
         XY<LocType> pinOff = _db.pin(pinIdx).midLoc();
         XY<LocType> cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
@@ -249,8 +274,13 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         }
     }
 
+
     auto calculateIncreasedHpwl = [&](IndexType netIdx, IndexType pinIdx)
     {
+        if (nopinNets.at(netIdx))
+        {
+            return 0; // don't care
+        }
         const auto &virtualPinLoc = _virtualPins.at(pinIdx);
         auto difX = std::max(virtualPinLoc.x() - curNetBBox.at(netIdx).xHi(), curNetBBox.at(netIdx).xLo() - virtualPinLoc.x());
         difX = std::max(difX, 0);
@@ -417,6 +447,9 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
     using variable_type = lp_type::variable_type;
     using expr_type = lp_type::expr_type;
 
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     auto start = std::chrono::high_resolution_clock::now();
 
 

@@ -9,18 +9,12 @@ bool CGLegalizer::legalize()
 
     VirtualPinAssigner pinAssigner(_db);
 
-    this->generateConstraints();
+
+    this->generateVerConstraints();
     _hStar = lpLegalization(false);
-    //if (_hStar < 0)
-    //{
-    //    return false;
-    //}
-    this->generateConstraints();
+
+    this->generateHorConstraints();
     _wStar = lpLegalization(true);
-    //if (_wStar < 0)
-    //{
-    //    return false;
-    //}
 
     LocType xMin = LOC_TYPE_MAX;
     LocType xMax = LOC_TYPE_MIN;
@@ -142,6 +136,9 @@ IntType minOverlappingDirection(const Box<LocType> &box1, const Box<LocType> &bo
 
 void CGLegalizer::generateHorConstraints()
 {
+    //generateConstraints();
+    //return;
+
     _hCG.clear();
     _vCG.clear();
     _hConstraints.clear();
@@ -149,20 +146,20 @@ void CGLegalizer::generateHorConstraints()
     // Init the irredundant constraint edges
     
     
-    auto exemptSymPairFunc = [&](IndexType cellIdx1, IndexType cellIdx2)
-    {
-        if (_db.cell(cellIdx1).hasSymPair())
-        {
-            if(_db.cell(cellIdx1).symNetIdx() == cellIdx2)
-            {
-                return true;
-            }
-        }
-        return false;
-    };
+    //auto exemptSymPairFunc = [&](IndexType cellIdx1, IndexType cellIdx2)
+    //{
+    //    if (_db.cell(cellIdx1).hasSymPair())
+    //    {
+    //        if(_db.cell(cellIdx1).symNetIdx() == cellIdx2)
+    //        {
+    //            return true;
+    //        }
+    //    }
+    //    return false;
+    //};
     
     SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
-    sweepline.setExemptFunc(exemptSymPairFunc);
+    //sweepline.setExemptFunc(exemptSymPairFunc);
     sweepline.solve();
 }
 void CGLegalizer::generateVerConstraints()
@@ -537,7 +534,9 @@ bool CGLegalizer::dagfyOneConstraintGraph(ConstraintGraph &cg)
             //AssertMsg(visited[idx], "node %d \n", idx);
             if (!visited[idx])
             {
+#ifdef DEBUG_LEGALIZE
                 WRN("CGLegalizer::missing edge from source  %d\n", idx);
+#endif
                 cg.addEdge(sourceIdx, idx);
                 Assert(cg.hasEdge(sourceIdx, idx));
                 check = true;
@@ -1151,7 +1150,7 @@ RealType CGLegalizer::lpLegalization(bool isHor)
 bool CGLegalizer::lpDetailedPlacement()
 {
     // Horizontal
-    this->generateConstraints();
+    this->generateHorConstraints();
     INF("CG legalizer: detailed placement horizontal LP...\n");
     auto horSolver = LpLegalizeSolver(_db, _hConstraints, true, 1, 0);
 #ifdef DEBUG_LEGALIZE
@@ -1169,7 +1168,7 @@ bool CGLegalizer::lpDetailedPlacement()
     }
 
     // Vertical
-    this->generateConstraints();
+    this->generateVerConstraints();
     INF("CG legalizer: detailed placement vertical LP...\n");
     auto verSolver = LpLegalizeSolver(_db, _vConstraints, false, 1, 0);
     verSolver.setWStar(_hStar);
