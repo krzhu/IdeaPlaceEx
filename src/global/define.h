@@ -12,7 +12,8 @@
 
 #define DEBUG_DRAW
 #define DEBUG_GR
-#define DEBUG_LEGALIZE
+//#define DEBUG_LEGALIZE
+//#define DEBUG_PINASSIGN
 
 //#define MULTI_SYM_GROUP
 

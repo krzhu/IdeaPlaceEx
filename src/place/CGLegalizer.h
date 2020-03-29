@@ -10,11 +10,7 @@
 
 #include "ConstraintGraph.h"
 #include "db/Database.h"
-<<<<<<< HEAD
-#include "LpLegalizeSolver.h"
-=======
-#include "lp_limbo.h"
->>>>>>> develop
+#include "util/linear_programming.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -115,14 +111,12 @@ class Constraints
     private:
         std::set<ConstraintEdge> _edges; ///< The constraint edges
 };
-<<<<<<< HEAD
-=======
 
 /// @brief The LP solver for legalization
 class LpLegalizeSolver
 {
-        typedef lp::LimboLpGurobi lp_solver_type;
-        typedef lp::LimboLpGurobiTrait lp_trait;
+        typedef ::klib::lp::LpModel lp_solver_type;
+        typedef ::klib::lp::LpTrait lp_trait;
         typedef lp_trait::variable_type lp_variable_type;
         typedef lp_trait::expr_type lp_expr_type;
     public:
@@ -193,6 +187,8 @@ class LpLegalizeSolver
         lp_variable_type _dim; ///< The variable for area optimization
         RealType _wStar = 0; ///< The optimal W found in legalization step
         std::vector<lp_variable_type> _symLocs; ///< The variable for symmetric group axises
+        std::vector<lp_variable_type> _symRexLeft; ///< The variables representing the left extrems of sym axis of each group
+        std::vector<lp_variable_type> _symRexRight; ///< The variables representing the left extrems of sym axis of each group
 #ifdef MULTI_SYM_GROUP
         bool _isMultipleSymGrp = true;
 #else
@@ -201,15 +197,12 @@ class LpLegalizeSolver
         bool _relaxEqualityConstraint = false;
         //SolverType _solver; ///< Solver
         /*  Optimization Results */
-        RealType _largeNum = 100000.0; ///< A large number
+        RealType _largeNum = 900000.0; ///< A large number
 
 };
 
->>>>>>> develop
 class CGLegalizer
 {
-    typedef LpLegalizeSolver cg_lp_solver_type;
-    typedef legalization_lp_traits<cg_lp_solver_type> lp_trait_type;
     private:
         class BoxEdge
         {

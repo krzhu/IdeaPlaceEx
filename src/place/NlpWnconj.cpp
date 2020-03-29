@@ -1,6 +1,7 @@
 #include "NlpWnconj.h"
 #include <cstdlib>
 #include <functional>
+#include "signalPathMgr.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -256,7 +257,7 @@ bool NlpWnconj::initVars()
     else
     {
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
-        RealType aspectRatio = 1;
+        RealType aspectRatio = 0.85;
         RealType xLo = 0; RealType yLo = 0; 
         RealType tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
         RealType xHi = std::sqrt(tolerentArea * aspectRatio);
@@ -299,7 +300,7 @@ bool NlpWnconj::initVars()
     */
     
     // My alternative intialization, just give the variables fixed linear value
-    srand(0); //just a arbitary number
+    srand(6); //just a arbitary number
     if (1)
     {
         for (IndexType idx = 0; idx < _db.numCells() * 2; ++idx)
@@ -371,8 +372,9 @@ bool NlpWnconj::nlpKernel()
     // Iteratively solving NLP
     while (_iter < _maxIter)
     {
+        if ((_iter +1) %3 == 0) {this->assignPin(); }
         _innerIter = 0;
-        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
+        //wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 10000);
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         if (_toughModel && _iter >= _maxIter / 5)
         {
@@ -411,26 +413,52 @@ bool NlpWnconj::nlpKernel()
 
 void NlpWnconj::initOperators()
 {
+    auto getAlphaFunc = [&]()
+    {
+        return _alpha;
+    };
+    auto getLambda1Func = [&]()
+    {
+        return _lambda1;
+    };
+    auto getLambda2Func = [&]()
+    {
+        return _lambda2;
+    };
+    auto getLambda3Func = [&]()
+    {
+        return _lambda3;
+    };
+    auto getLambda4Func = [&]()
+    {
+        return _lambda4;
+    };
+    auto getLambdaCosineFunc = []() { return 64; };
+
+    auto calculatePinOffset = [&](IndexType pinIdx)
+    {
+        const auto &pin = _db.pin(pinIdx);
+        IndexType cellIdx = pin.cellIdx();
+        const auto &cell = _db.cell(cellIdx);
+        // Get the cell location from the input arguments
+        XY<RealType> midLoc = XY<RealType>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
+        XY<RealType> cellLoLoc = XY<RealType>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+        return midLoc - cellLoLoc;
+    };
     // Hpwl
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
         const auto &net = _db.net(netIdx);
-        _hpwlOps.emplace_back(nlp_hpwl_type(&_alpha, &_lambda3));
-        _ops.emplace_back(OpIdxType( _hpwlOps.size() - 1, OpEnumType::hpwl));
+        _hpwlOps.emplace_back(nlp_hpwl_type(getAlphaFunc, getLambda3Func));
+        _ops.emplace_back(OpIdxType( _hpwlOps.size() - 1, diff::OpEnumType::hpwl));
         auto &op = _hpwlOps.back();
         op.setWeight(net.weight());
         for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
         {
             // Get the pin location referenced to the cell
             IndexType pinIdx = net.pinIdx(idx);
-            const auto &pin = _db.pin(pinIdx);
-            IndexType cellIdx = pin.cellIdx();
-            const auto &cell = _db.cell(cellIdx);
-            // Get the cell location from the input arguments
-            XY<RealType> midLoc = XY<RealType>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-            XY<RealType> cellLoLoc = XY<RealType>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
-            XY<RealType> pinLoc = midLoc - cellLoLoc;
-            op.addVar(cellIdx, pinLoc.x(), pinLoc.y());
+            auto pinLoc = calculatePinOffset(pinIdx);
+            op.addVar(_db.pin(pinIdx).cellIdx(), pinLoc.x(), pinLoc.y());
         }
     }
     // Pair-wise cell overlapping
@@ -447,10 +475,10 @@ void NlpWnconj::initOperators()
                         cellIdxJ,
                         cellBBoxJ.xLen() * _scale,
                         cellBBoxJ.yLen() * _scale,
-                        &_alpha,
-                        &_lambda1
+                        getAlphaFunc,
+                        getLambda1Func
                         ));
-            _ops.emplace_back(OpIdxType(_ovlOps.size() - 1, OpEnumType::ovl));
+            _ops.emplace_back(OpIdxType(_ovlOps.size() - 1, diff::OpEnumType::ovl));
         }
     }
     // Out of boundary
@@ -462,17 +490,17 @@ void NlpWnconj::initOperators()
                     cellBBox.xLen() * _scale,
                     cellBBox.yLen() * _scale,
                     &_boundary,
-                    &_alpha,
-                    &_lambda2
+                    getAlphaFunc,
+                    getLambda2Func
                     ));
-        _ops.emplace_back(OpIdxType(_oobOps.size() - 1, OpEnumType::oob));
+        _ops.emplace_back(OpIdxType(_oobOps.size() - 1, diff::OpEnumType::oob));
     }
     // Asym
     for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
     {
         const auto &symGrp = _db.symGroup(symGrpIdx);
-        _asymOps.emplace_back(nlp_asym_type(symGrpIdx, &_lambda4));
-        _ops.emplace_back(OpIdxType(_asymOps.size() - 1, OpEnumType::asym));
+        _asymOps.emplace_back(nlp_asym_type(symGrpIdx, getLambda4Func));
+        _ops.emplace_back(OpIdxType(_asymOps.size() - 1, diff::OpEnumType::asym));
         for (const auto &symPair : symGrp.vSymPairs())
         {
             IndexType cellIdxI = symPair.firstCell();
@@ -485,6 +513,32 @@ void NlpWnconj::initOperators()
             RealType width = _db.cell(ssCellIdx).cellBBox().xLen() * _scale;
             _asymOps.back().addSelfSym(ssCellIdx, width);
         }
+    }
+    // Signal path
+    SigPathMgr pathMgr(_db);
+    for (const auto &seg : pathMgr.vSegList())
+    {
+        IndexType sPinIdx = seg.beginPinFirstSeg();
+        IndexType midPinIdxA = seg.endPinFirstSeg();
+        IndexType midPinIdxB = seg.beginPinSecondSeg();
+        IndexType tPinIdx = seg.endPinSecondSeg();
+
+        const auto &sPin = _db.pin(sPinIdx);
+        IndexType sCellIdx = sPin.cellIdx();
+        const auto &mPinA = _db.pin(midPinIdxA);
+        IndexType mCellIdx = mPinA.cellIdx();
+        const auto &tPin = _db.pin(tPinIdx);
+        IndexType tCellIdx = tPin.cellIdx();
+
+        auto sOffset = calculatePinOffset(sPinIdx);
+        auto midOffsetA = calculatePinOffset(midPinIdxA);
+        auto midOffsetB = calculatePinOffset(midPinIdxB);
+        auto tOffset = calculatePinOffset(tPinIdx);
+        _cosOps.emplace_back(sCellIdx, sOffset,
+                mCellIdx, midOffsetA, midOffsetB,
+                tCellIdx, tOffset,
+                getLambdaCosineFunc);
+        _ops.emplace_back(OpIdxType(_cosOps.size()-1, diff::OpEnumType::cosine));
     }
 }
 

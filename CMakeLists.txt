@@ -6,7 +6,7 @@ set(PROJECT_NAME "IdeaPlaceEx")
 project(${PROJECT_NAME})
 
 find_package (PkgConfig)
-pkg_check_modules (CAIRO cairo)
+#pkg_check_modules (CAIRO cairo)
 
 #The project version number
 set(VERSION_MAJOR   0   CACHE STRING "Project major version number.")
@@ -73,38 +73,32 @@ endif()
 message(STATUS "Find Eigen: ${EIGEN_ROOT_DIR}")
 unset(LEMON_DIR CACHE)
 
-# Find the directory for WNLIB. If cache variable WNLIB_DIR is defined, use it as the path to WNLIB, otherwise use the system WNLIB_DIR
-if (WNLIB_DIR)
-    set(WNLIB_ROOT_DIR ${WNLIB_DIR})
-    message(STATUS "Use WNLIB: ${WNLIB_ROOT_DIR}")
-else()
-    set(WNLIB_ROOT_DIR $ENV{WNLIB_DIR})
-    message(STATUS "Use system WNLIB ${WNLIB_ROOT_DIR}")
-endif()
-unset (WNLIB_DIR CACHE)
-find_library(WNLIB_LIBRARIES
-    NAMES text.a
-    HINTS ${WNLIB_ROOT_DIR}/acc
-    )
-message(STATUS "WNLIB_ROOT_DIR = ${WNLIB_ROOT_DIR}")
-message(STATUS "WNLIB_LIBRARIES = ${WNLIB_LIBRARIES}")
-
 
 # Find the directory for LPSOLVE. If cache variable LPSOLVE_DIR is defined, use it as the path to LPSOLVE, otherwise use the system LPSOLVE_DIR
 if (LPSOLVE_DIR)
     set(LPSOLVE_ROOT_DIR ${LPSOLVE_DIR})
     message(STATUS "Use LPSOLVE: ${LPSOLVE_ROOT_DIR}")
-else()
+    set(USE_LPSOLVE TRUE)
+elseif(DEFINED ENV{LPSOLVE_DIR})
     set(LPSOLVE_ROOT_DIR $ENV{LPSOLVE_DIR})
     message(STATUS "Use system LPSOLVE ${LPSOLVE_ROOT_DIR}")
+    set(USE_LPSOLVE TRUE)
+else()
+    message(STATUS "Disable lpsolve")
+    set(USE_LPSOLVE FALSE)
 endif()
 unset (LPSOLVE_DIR CACHE)
+
+if (USE_LPSOLVE)
 find_library(LPSOLVE_LIBRARIES
     NAMES liblpsolve55.so
     PATHS ${LPSOLVE_ROOT_DIR}
     )
 message(STATUS "LPSOLVE_ROOT_DIR = ${LPSOLVE_ROOT_DIR}")
 message(STATUS "LPSOLVE_LIBRARIES = ${LPSOLVE_LIBRARIES}")
+else()
+    add_compile_definitions(LP_NOT_USE_LPSOLVE)
+endif()
 
 # add a target to generate API documentation with Doxygen
 find_package(Doxygen)
@@ -178,15 +172,20 @@ find_package(PythonLibs REQUIRED)
 
 
 #Gurobi
-set(USE_GUROBI TRUE)
-if (GUROBI_HOME AND USE_GUROBI)
+if (GUROBI_HOME)
     set(GUROBI_ROOT_DIR ${GUROBI_HOME})
     message(STATUS "Use Gurobi ${GUROBI_ROOT_DIR}")
-elseif(DEFINED ENV{GUROBI_HOME} AND USE_GUROBI)
+    set(USE_GUROBI TRUE)
+elseif(DEFINED ENV{GUROBI_HOME})
     set(GUROBI_ROOT_DIR $ENV{GUROBI_HOME})
     message(STATUS "Use system Gurobi ${GUROBI_ROOT_DIR}")
+    set(USE_GUROBI TRUE)
+else()
+    message(STATUS "Disable Gurobi")
+    set(USE_GUROBI FALSE)
 endif()
 unset(GUROBI_HOME CACHE)
+
 
 if (USE_GUROBI)
     find_library(GUROBI_CPP
@@ -200,6 +199,8 @@ if (USE_GUROBI)
     set(GUROBI_LIBRARIES ${GUROBI_CPP} ${GUROBI_C})
     message(STATUS "GUROBI_ROOT_DIR = ${GUROBI_ROOT_DIR}")
     message(STATUS "GUROBI_LIBRARIES = ${GUROBI_LIBRARIES}")
+else()
+    add_compile_definitions(LP_NOT_USE_GUROBI)
 endif()
 
 
@@ -227,15 +228,23 @@ set(CMAKE_CXX_FLAGS_PROFILE "-O3 -pg -Winline")
 set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 
+set(TO_LINK_LIBS ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES})
+
+if (USE_LPSOLVE)
+    set(TO_LINK_LIBS ${TO_LINK_LIBS} ${LPSOLVE_LIBRARIES})
+endif()
+
+if (USE_GUROBI)
+    set(TO_LINK_LIBS ${TO_LINK_LIBS} ${GUROBI_LIBRARIES})
+endif()
+
 add_executable(${PROJECT_NAME} ${SOURCES} ${EXE_SOURCES})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${Boost_INCLUDE_DIR}
     ${ZLIB_INCLUDE_DIRS}
-    ${CAIRO_STATIC_INCLUDE_DIRS}
     ${LIMBO_ROOT_DIR}/include
     ${SPARSEHASH_ROOT_DIR}/include
-    ${WNLIB_ROOT_DIR}/acc/h
     ${LPSOLVE_ROOT_DIR} 
     ${PYTHON_INCLUDE_DIRS}
     ${PYBIND11_ROOT_DIR}/include
@@ -244,23 +253,15 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${GUROBI_ROOT_DIR}/include
 )
 
+
 target_link_libraries(${PROJECT_NAME} 
-    ${STATIC_LIB} 
-    ${Boost_LIBRARIES} 
-    ${ZLIB_LIBRARIES} 
-    ${CAIRO_STATIC_LIBRARIES}
-    ${WNLIB_LIBRARIES}
-    ${LPSOLVE_LIBRARIES}
-    ${GUROBI_LIBRARIES}
+    ${TO_LINK_LIBS}
     )
-#
+
 ## Add modules to pybind
 pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})
-target_link_libraries("IdeaPlaceExPy" PUBLIC ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${CAIRO_STATIC_LIBRARIES}
-    ${WNLIB_LIBRARIES}
-    ${LPSOLVE_LIBRARIES}
-    ${GUROBI_LIBRARIES}
+target_link_libraries("IdeaPlaceExPy" PUBLIC ${TO_LINK_LIBS}
 )
-#
+
 ##Install
 #install (TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX_DIR}/bin)

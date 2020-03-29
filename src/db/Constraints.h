@@ -87,22 +87,35 @@ class SymGroup
 /// @brief simple proximity
 class ProximityGroup
 {
-  public:
-    /// @brief default constructor
-    explicit ProximityGroup() = default;
-    /// @brief add a cell to this proximity group
-    /// @param the cell index
-    void addCell(IndexType cellIdx) { _cells.emplace_back(cellIdx); }
-    /// @brief set the weight of the proximity group
-    /// @param the weight of this proximity group
-    void setWeight(IntType weight) { _weight = weight; }
-    /// @brief get the vector of the cell indices
-    /// @return get the vector of the cell indices
-    const std::vector<IndexType> &cells() const { return _cells; }
+    public:
+      /// @brief default constructor
+      explicit ProximityGroup() = default;
+      /// @brief add a cell to this proximity group
+      /// @param the cell index
+      void addCell(IndexType cellIdx) { _cells.emplace_back(cellIdx); }
+      /// @brief set the weight of the proximity group
+      /// @param the weight of this proximity group
+      void setWeight(IntType weight) { _weight = weight; }
+      /// @brief get the vector of the cell indices
+      /// @return get the vector of the cell indices
+      const std::vector<IndexType> &cells() const { return _cells; }
 
-  private:
-    std::vector<IndexType> _cells; ///< The cells belonging to this proximity group
-    IntType _weight; ///< The weight of this proximity group
+    private:
+      std::vector<IndexType> _cells; ///< The cells belonging to this proximity group
+      IntType _weight; ///< The weight of this proximity group
+};
+
+/// @brief the signal/current path
+class SignalPath
+{
+    public:
+        /// @brief default constructor
+        explicit SignalPath() = default;
+        const std::vector<IndexType> & vPinIdxArray() const { return _pinIdxArray; }
+        std::vector<IndexType> & vPinIdxArray() { return _pinIdxArray; }
+        void addPinIdx(IndexType pinIdx) { _pinIdxArray.emplace_back(pinIdx); }
+    private:
+        std::vector<IndexType> _pinIdxArray; ///< The indices of pins composing the path
 };
 
 PROJECT_NAMESPACE_END

@@ -31,6 +31,7 @@ public:
     std::string techsimpleFile = "";
     std::string symFile = "";
     std::string symnetFile = "";
+    std::string sigpathFile = "";
     std::string log = "";
     std::vector<std::string> gdsFiles;
 
@@ -72,8 +73,18 @@ class ProgArgs
         /// @brief determine whether the .sym file is set
         /// @return whether .sym file is set
         bool symFileIsSet() const { return _symFile != ""; }
+        /// @brief get the .symnet file
+        /// @return the .symnet file
         const std::string symnetFile() const { Assert(this->symnetFileIsSet()); return _symnetFile; }
+        /// @brief determine whether the .symnet file is set
+        /// @return whether .symnet file is set
         bool symnetFileIsSet() const { return _symnetFile != ""; }
+        /// @brief get the .sigpath file
+        /// @return the .sigpath file
+        const std::string sigpathFile() const { Assert(this->sigpathFileIsSet()); return _sigpathFile; }
+        /// @brief determine whether the .sigpath file is set
+        /// @return whether .sigpath file is set
+        bool sigpathFileIsSet() const { return _sigpathFile != ""; }
         /// @brief get the techsimple file file name
         /// @return the techsimple file file name
         const std::string techsimpleFile() const { Assert(this->techsimpleFileIsSet()); return _techsimpleFile; }
@@ -104,14 +115,20 @@ class ProgArgs
         /// @brief set the techsimple file
         /// @param the techsimple file file name
         void setTechsimpleFile(const std::string &techsimpleFile) { _techsimpleFile = techsimpleFile; }
+        /// @brief set the symnet file
+        /// @param the symnet file file name
         void setSymnetFile(const std::string &symnetFile) { _symnetFile = symnetFile; }
+        /// @brief set the sigpath file
+        /// @param the sigpath file file name
+        void setSigpathFile(const std::string &sigpathFile) { _sigpathFile = sigpathFile; }
     private:
         std::string _pinFile = ""; ///< .pin file
         std::string _netwgtFile = ""; ///< .netwgt file
         std::string _connectionFile = ""; ///< .connection file
         std::string _techsimpleFile = ""; ///< The techfile simple file
         std::string _symFile = ""; ///< The .sym file
-        std::string _symnetFile = "";
+        std::string _symnetFile = ""; ///< The .symnet file
+        std::string _sigpathFile = ""; ///< The .sigpath file
         std::vector<std::string> _gdsFiles; ///< The gds files for read
 };
 

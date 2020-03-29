@@ -8,6 +8,7 @@
 #include "parser/ParserGds.h"
 #include "parser/ParserSymFile.h"
 #include "parser/ParserSymNet.h"
+#include "parser/ParserSignalPath.h"
 /* Placement */
 #include "pinassign/VirtualPinAssigner.h"
 #include "place/ProximityMgr.h"
@@ -118,6 +119,12 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
         readSymNetFile(_args.symnetFile());
     }
 
+    if (_args.sigpathFileIsSet())
+    {
+        INF("IdeaPlaceEx:%s Read in .sigpath ... \n", __FUNCTION__);
+        ParserSignalPath(_db).read(_args.sigpathFile());
+    }
+
 
     // Init cells before read in the gds
     if(!_db.initCells())
@@ -156,6 +163,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     ProximityMgr proximityMgr(_db);
     proximityMgr.applyProximityWithDummyNets();
 
+    INF("Ideaplace: Entering global placement...\n");
     NlpWnconj nlp(_db);
     nlp.setToughMode(false);
     nlpPtr = &nlp;
@@ -165,15 +173,17 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     _db.drawCellBlocks("./debug/after_gr.gds");
 #endif //DEBUG_DRAW
 #endif
+    INF("Ideaplace: Entering legalization and detailed placement...\n");
     CGLegalizer legalizer(_db);
     bool legalizeResult = legalizer.legalize();
+    INF("Ideaplace: Assigning IO pin...\n");
     VirtualPinAssigner pinAssigner(_db);
     pinAssigner.solveFromDB();
     INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
     INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n",  _db.hpwlWithVitualPins());
     if (!legalizeResult)
     {
-        exit(0);
+        Assert(false);
         INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
         NlpWnconj tryagain(_db);
         tryagain.setToughMode(true);
@@ -192,9 +202,16 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     // Restore proxmity group
     proximityMgr.restore();
 
+    _db.checkSym();
+
     if (gridStep > 0)
     {
+        INF("Ideaplace: Aligning the placement to grid...\n");
         symAxis = alignToGrid(gridStep);
+    }
+    else
+    {
+        symAxis = alignToGrid(1);
     }
 
 #ifdef DEBUG_GR

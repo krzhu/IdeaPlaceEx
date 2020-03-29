@@ -1,20 +1,26 @@
 #include "VirtualPinAssigner.h"
 #include <lemon/list_graph.h>
 #include <lemon/network_simplex.h>
-#include "place/lp_limbo.h"
 #include "util/Vector2D.h"
+#include "util/linear_programming.h"
 #include <chrono>
 
 PROJECT_NAMESPACE_BEGIN
 
 bool VirtualPinAssigner::solveFromDB()
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     reconfigureVirtualPinLocationFromDB();
     return pinAssignmentFromDB();
 }
 
 void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     Box<LocType> boundary(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
@@ -27,6 +33,9 @@ void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
 
 bool VirtualPinAssigner::pinAssignmentFromDB()
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     auto cellLocQueryFunc = [&] (IndexType cellIdx)
     {
         const auto &cell = _db.cell(cellIdx);
@@ -54,6 +63,9 @@ IntType lcm(IntType a, IntType b)
 
 void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cellsBBox)
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     _virtualPinInterval = _db.parameters().virtualPinInterval();
     _virtualBoundaryExtension = _db.parameters().virtualBoundaryExtension();
     _boundary = cellsBBox;
@@ -75,6 +87,8 @@ void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cell
     }
     // generate the virtual pin locations
     _virtualPins.clear();
+    _topPin = VirtualPin(XY<LocType>(_boundary.center().x(), _boundary.xHi()));
+    _botPin = VirtualPin(XY<LocType>(_boundary.center().x(), _boundary.xLo()));
     for (LocType x = _boundary.xLo() + pinInterval;  x < _boundary.center().x() - pinInterval / 2 ; x += pinInterval)
     {
         continue;
@@ -130,6 +144,9 @@ bool VirtualPinAssigner::_networkSimplexPinAssignment(std::function<bool(IndexTy
         std::function<LocType(IndexType, IndexType)> netToPinCostFunc,
         std::function<void(IndexType, IndexType)> setNetToVirtualPinFunc)
 {
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     // Prepare the nets and pins available to the problem
     std::vector<IndexType> nets;
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
@@ -227,12 +244,22 @@ bool VirtualPinAssigner::_networkSimplexPinAssignment(std::function<bool(IndexTy
 bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
 {
 
-    DBG("start pinAssignment \n");
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
+    assignPowerPin();
     // Calculate the current HPWLs without virtual pin
     std::vector<Box<LocType>> curNetBBox;
     curNetBBox.resize(_db.numNets());
+    std::vector<char> nopinNets;
+    nopinNets.resize(_db.numNets(), false);
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
+        if (_db.net(netIdx).numPinIdx() < 1)
+        {
+            nopinNets.at(netIdx) = true;
+            continue;
+        }
         IndexType pinIdx = _db.net(netIdx).pinIdx(0);
         XY<LocType> pinOff = _db.pin(pinIdx).midLoc();
         XY<LocType> cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
@@ -247,8 +274,13 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         }
     }
 
+
     auto calculateIncreasedHpwl = [&](IndexType netIdx, IndexType pinIdx)
     {
+        if (nopinNets.at(netIdx))
+        {
+            return 0; // don't care
+        }
         const auto &virtualPinLoc = _virtualPins.at(pinIdx);
         auto difX = std::max(virtualPinLoc.x() - curNetBBox.at(netIdx).xHi(), curNetBBox.at(netIdx).xLo() - virtualPinLoc.x());
         difX = std::max(difX, 0);
@@ -291,7 +323,6 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
 
     auto directAssignNetToPinFunc = [&](IndexType netIdx, IndexType virtualPinIdx)
     {
-        DBG("Assign %d to %d \n", netIdx, virtualPinIdx);
         AssertMsg(!_virtualPins[virtualPinIdx].assigned(), "Ideaplace: IO pin assignment: unexpected error: pin assignment conflict \n");
 
         _virtualPins[virtualPinIdx].assign(netIdx);
@@ -365,14 +396,12 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
             auto netCost1 = calculateIncreasedHpwl(otherNetIdx, leftPinIdx) + calculateIncreasedHpwl(netIdx, rightPinIdx);
             if (netCost0 <= netCost1)
             {
-                DBG("assign sym %d to %d, %d to %d \n", netIdx, leftPinIdx, otherNetIdx, rightPinIdx);
                 // net -> left. other net -> right
                 directAssignNetToPinFunc(netIdx, leftPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, rightPinIdx);
             }
             else
             {
-                DBG("assign sym %d to %d, %d to %d \n", netIdx, rightPinIdx, otherNetIdx, leftPinIdx);
                 // net -> right. other net -> left
                 directAssignNetToPinFunc(netIdx, rightPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, leftPinIdx);
@@ -413,11 +442,14 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         std::function<void(IndexType, IndexType)> setOtherNetToPinFunc
         )
 {
-    using solver_type =  lp::LimboLpsolve;
-    using lp_type = lp::LimboLpsolveTrait;
+    using solver_type =  ::klib::lp::LpModel;
+    using lp_type = ::klib::lp::LpTrait;
     using variable_type = lp_type::variable_type;
     using expr_type = lp_type::expr_type;
 
+#ifdef DEBUG_PINASSIGN
+    DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
     auto start = std::chrono::high_resolution_clock::now();
 
 
@@ -577,7 +609,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
             if (sol < 0.99 && sol > 0.001)
             {
                 failed = true;
-                goto endloop;
             }
             if (assigned == 1)
             {
@@ -593,7 +624,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
             if (sol < 0.99 && sol > 0.001)
             {
                 failed = true;
-                goto endloop;
             }
             auto assigned = ::klib::autoRound<IntType>(sol);
             if (assigned == 1)
@@ -603,59 +633,7 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
         }
     }
 
-endloop:
-    if (failed)
-    {
-        ERR("Ideaplace: io pin assignment: unexpected non-integer solutions. Now print the debugging info...\n");
-        for (IndexType x = 0; x < m; ++x)
-        {
-            for (IndexType y = 0; y < ns; ++y)
-            {
-                auto sol = lp_type::solution(solver, xs.at(x, y));
-                if (sol < 0.99 && sol > 0.001)
-                {
-                    DBG("xs %d %d sol %f. eq to net %d to pin %d\n", x, y, sol, symNets.at(y), symPins.at(x));
-                    DBG("cost %d \n" , symNetToPinCostFunc(symNets[y], symPins[x]));
-                }
-            }
-        }
-        for (IndexType x = 0; x < 2*m; ++x)
-        {
-            for (IndexType y = 0; y < na; ++y)
-            {
-                auto sol = lp_type::solution(solver, ys.at(x, y));
-                if (sol < 0.99 && sol > 0.001)
-                {
-                    DBG("ys %d %d sol %f. eq to net %d to pin %d\n", x, y, sol, otherNets.at(y), otherPins.at(x));
-                    DBG("cost %d \n", otherNetToPinCostFunc(otherNets[y], otherPins[x]));
-                }
-            }
-        }
-        for (IndexType x = 0; x < m; ++x)
-        {
-            for (IndexType y = 0; y < ns; ++y)
-            {
-                    DBG("xs %d %d . eq to net %d to pin %d\n", x, y, symNets.at(y), symPins.at(x));
-                    DBG("cost %d \n" , symNetToPinCostFunc(symNets[y], symPins[x]));
-            }
-        }
-        for (IndexType x = 0; x < 2*m; ++x)
-        {
-            for (IndexType y = 0; y < na; ++y)
-            {
-                DBG("ys %d %d . eq to net %d to pin %d\n", x, y, otherNets.at(y), otherPins.at(x));
-                DBG("cost %d \n", otherNetToPinCostFunc(otherNets[y], otherPins[x]));
-            }
-        }
-        Assert(false);
-    }
-    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
-    {
-        if (_db.net(netIdx).isIo())
-        {
-            Assert(_db.net(netIdx).isValidVirtualPin());
-        }
-    }
+    AssertMsg(!failed, "Ideaplace:: virtual pin assignment:: ILP:: floating results \n");
 
     auto end = std::chrono::high_resolution_clock::now();
     std::cout<<" io pin assignment time "<< std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() <<" us " <<std::endl;;

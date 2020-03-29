@@ -44,6 +44,31 @@ class VirtualPinAssigner
         void useFastMode() { _fastMode = true; }
         void useSlowMode() { _fastMode = false; }
     private:
+        void assignPowerPin()
+        {
+#ifdef DEBUG_PINASSIGN
+            DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
+#endif
+            for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+            {
+                auto & net = _db.net(netIdx);
+                if (net.isVdd())
+                {
+                    net.setVirtualPin(_topPin);
+                    _topPin.assign(netIdx);
+                    break;
+                }
+                if (net.isVss())
+                {
+                    net.setVirtualPin(_botPin);
+                    _botPin.assign(netIdx);
+                    break;
+                }
+            }
+#ifdef DEBUG_PINASSIGN
+            DBG("Ideaplace: pinassgin: end %s\n", __FUNCTION__);
+#endif
+        }
         bool _lpSimplexPinAssignment(
                 std::function<bool(IndexType)> isSymNetFunc,
                 std::function<bool(IndexType)> isLeftPinFunc,
@@ -63,6 +88,8 @@ class VirtualPinAssigner
         Database &_db; ///< The placement database
         Box<LocType> _boundary; ///< The virtual boundary of the placement
         std::vector<VirtualPin> _virtualPins; ///< The locations for virtual pins
+        VirtualPin _topPin; ///< The pin at top
+        VirtualPin _botPin; ///< The pin at bottom
         LocType _virtualBoundaryExtension = -1; ///< The extension to placement cell bounding box
         LocType _virtualPinInterval = -1; ///< The interval between virtual pins
         std::map<IndexType, IndexType> _leftToRightMap; // _leftToRightMap[idx of left] = idx of right

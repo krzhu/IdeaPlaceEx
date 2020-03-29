@@ -42,7 +42,7 @@ void GridAligner::align(LocType stepSize)
     for (IndexType cellIdx =0; cellIdx < _db.numCells(); ++cellIdx)
     {
         const auto &cell = _db.cell(cellIdx);
-        INF("IDEAPLACE::%s cell center %d %d\n ", __FUNCTION__, cell.xCenter(), cell.yCenter());
+        INF("IDEAPLACE::%s cell %d %s center %d %d\n ", __FUNCTION__, cellIdx, cell.name().c_str(), cell.xCenter(), cell.yCenter());
     }
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
@@ -60,12 +60,16 @@ void GridAligner::align(LocType stepSize)
             Assert(0);
         }
     }
-    Assert(_db.checkSym());
+    if (!_db.checkSym())
+    {
+        WRN("Ideaplace: the final results is not completely symmetric\n");
+    }
 }
 
 LocType GridAligner::findCurrentSymAxis()
 {
     LocType symAxis = 0;
+    bool foundSym = false;
     for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
     {
         const auto &symGrp = _db.symGroup(symAxis);
@@ -73,14 +77,30 @@ LocType GridAligner::findCurrentSymAxis()
         {
             const auto &symPair = symGrp.symPair(symPairIdx);
             symAxis = (_db.cell(symPair.firstCell()).xLo() + _db.cell(symPair.secondCell()).xHi()) / 2;
+            foundSym = true;
             goto theEnd;
         }
         for (IndexType ssIdx = 0; ssIdx < symGrp.numSelfSyms(); ++ssIdx)
         {
             const auto &ssCell = _db.cell(symGrp.selfSym(ssIdx));
             symAxis = (ssCell.xLo() + ssCell.xHi()) / 2;
+            foundSym = true;
             goto theEnd;
         }
+    }
+    if (!foundSym)
+    {
+        LocType xmin =LOC_TYPE_MAX;
+        LocType xmax = LOC_TYPE_MIN;
+        for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+        {
+            const auto &cell = _db.cell(cellIdx);
+            xmin = std::min(cell.xLo(), xmin);
+            xmax = std::max(cell.xHi(), xmax);
+        }
+        LocType xCenter = (xmax + xmin) / 2;
+        xCenter = xCenter + ceilDif(xCenter , _stepSize) + _stepSize / 2; // Ensure its on the correct grid
+        return xCenter;
     }
 theEnd:
     return symAxis;
@@ -247,8 +267,12 @@ void GridAligner::bettherThanNaiveAlign()
             edgeLUTReverse.at(edge.target()).emplace_back(edge.source());
         }
     }
+    IntType count = 0;
+    IntType trialLimit = _db.numCells() * 10;
     while (!cellNodeHeap.empty())
     {
+        bool checkSym = count   < trialLimit;
+        ++count;
         const auto &top = cellNodeHeap.top();
         IndexType cellIdx = top.cellIdx;
         cellNodeHeap.pop();
@@ -272,7 +296,7 @@ void GridAligner::bettherThanNaiveAlign()
                 inHeap.at(target) = true;
                 heapHandles.at(target) = cellNodeHeap.push(CellIdxNode(target, &xDecided, &hasSym, &dis2SymAxis));
             }
-            if (_db.cell(target).hasSymPair())
+            if (_db.cell(target).hasSymPair() && checkSym)
             {
                 IndexType symNetIdx = _db.cell(target).symNetIdx();
                 _db.cell(symNetIdx).setXLoc(_db.cell(symNetIdx).xLoc() + spacing);
@@ -287,7 +311,7 @@ void GridAligner::bettherThanNaiveAlign()
                     heapHandles.at(symNetIdx) = cellNodeHeap.push(CellIdxNode(symNetIdx, &xDecided, &hasSym, &dis2SymAxis));
                 }
             }
-            if (_db.cell(target).isSelfSym())
+            if (_db.cell(target).isSelfSym() && checkSym)
             {
                 auto &cell = _db.cell(target);
                 LocType center = cell.xCenter(); 
@@ -312,7 +336,7 @@ void GridAligner::bettherThanNaiveAlign()
                 inHeap.at(source) = true;
                 heapHandles.at(source) = cellNodeHeap.push(CellIdxNode(source, &xDecided, &hasSym, &dis2SymAxis));
             }
-            if (_db.cell(source).hasSymPair())
+            if (_db.cell(source).hasSymPair() && checkSym)
             {
                 IndexType symNetIdx = _db.cell(source).symNetIdx();
                 _db.cell(symNetIdx).setXLoc(_db.cell(symNetIdx).xLoc() - spacing);
@@ -327,7 +351,7 @@ void GridAligner::bettherThanNaiveAlign()
                     heapHandles.at(symNetIdx) = cellNodeHeap.push(CellIdxNode(symNetIdx, &xDecided, &hasSym, &dis2SymAxis));
                 }
             }
-            if (_db.cell(source).isSelfSym())
+            if (_db.cell(source).isSelfSym() && checkSym)
             {
                 auto &cell = _db.cell(source);
                 LocType center = cell.xCenter(); 

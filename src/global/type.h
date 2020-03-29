@@ -63,18 +63,6 @@ enum class Direction2DType
     NORTH  = 3,
     NONE = 4
 };
-
-struct YesType
-{
-    static const bool value = true;
-};
-
-
-struct NoType
-{
-    static const bool value = false;
-};
-
 PROJECT_NAMESPACE_END
 
 #endif // AROUTER_TYPE_H_
