@@ -256,7 +256,7 @@ bool NlpWnconj::initVars()
     else
     {
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
-        RealType aspectRatio = 1;
+        RealType aspectRatio = 0.85;
         RealType xLo = 0; RealType yLo = 0; 
         RealType tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
         RealType xHi = std::sqrt(tolerentArea * aspectRatio);
@@ -299,7 +299,7 @@ bool NlpWnconj::initVars()
     */
     
     // My alternative intialization, just give the variables fixed linear value
-    srand(666); //just a arbitary number
+    srand(6); //just a arbitary number
     if (1)
     {
         for (IndexType idx = 0; idx < _db.numCells() * 2; ++idx)
@@ -373,7 +373,7 @@ bool NlpWnconj::nlpKernel()
     {
         if ((_iter +1) %3 == 0) {this->assignPin(); }
         _innerIter = 0;
-        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 1000);
+        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 10000);
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         if (_toughModel && _iter >= _maxIter / 5)
         {

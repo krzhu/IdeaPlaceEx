@@ -194,10 +194,10 @@ class LpLegalizeSolver
 #else
         bool _isMultipleSymGrp = false;
 #endif 
-        bool _relaxEqualityConstraint = true;
+        bool _relaxEqualityConstraint = false;
         //SolverType _solver; ///< Solver
         /*  Optimization Results */
-        RealType _largeNum = 100000.0; ///< A large number
+        RealType _largeNum = 900000.0; ///< A large number
 
 };
 
