@@ -42,7 +42,7 @@ void GridAligner::align(LocType stepSize)
     for (IndexType cellIdx =0; cellIdx < _db.numCells(); ++cellIdx)
     {
         const auto &cell = _db.cell(cellIdx);
-        INF("IDEAPLACE::%s cell center %d %d\n ", __FUNCTION__, cell.xCenter(), cell.yCenter());
+        INF("IDEAPLACE::%s cell %d %s center %d %d\n ", __FUNCTION__, cellIdx, cell.name().c_str(), cell.xCenter(), cell.yCenter());
     }
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {

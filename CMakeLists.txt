@@ -259,14 +259,15 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${GUROBI_ROOT_DIR}/include
 )
 
+
 target_link_libraries(${PROJECT_NAME} 
     ${TO_LINK_LIBS}
     )
-#
+
 ## Add modules to pybind
 pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})
 target_link_libraries("IdeaPlaceExPy" PUBLIC ${TO_LINK_LIBS}
 )
-#
+
 ##Install
 #install (TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX_DIR}/bin)

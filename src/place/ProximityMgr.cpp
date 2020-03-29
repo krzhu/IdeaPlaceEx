@@ -57,7 +57,7 @@ void ProximityMgr::restore()
             Assert(last -1 == _dummyPins[idx]);
             last = _dummyPins[idx];
         }
-        _db.pins().erase(_db.pins().begin() + _dummyPins.back(), _db.pins().end());
+        _db.vPinArray().erase(_db.vPinArray().begin() + _dummyPins.back(), _db.vPinArray().end());
     }
     if (_dummyNets.size() > 0)
     {

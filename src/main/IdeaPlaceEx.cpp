@@ -8,6 +8,7 @@
 #include "parser/ParserGds.h"
 #include "parser/ParserSymFile.h"
 #include "parser/ParserSymNet.h"
+#include "parser/ParserSignalPath.h"
 /* Placement */
 #include "pinassign/VirtualPinAssigner.h"
 #include "place/ProximityMgr.h"
@@ -116,6 +117,12 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
     {
         INF("IdeaPlaceEx:%s Read in .symnet ... \n", __FUNCTION__);
         readSymNetFile(_args.symnetFile());
+    }
+
+    if (_args.sigpathFileIsSet())
+    {
+        INF("IdeaPlaceEx:%s Read in .sigpath ... \n", __FUNCTION__);
+        ParserSignalPath(_db).read(_args.sigpathFile());
     }
 
 
