@@ -163,6 +163,10 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     ProximityMgr proximityMgr(_db);
     proximityMgr.applyProximityWithDummyNets();
 
+    NlpGPlacerBase placer(_db);
+    placer.solve();
+    exit(0);
+
     INF("Ideaplace: Entering global placement...\n");
     NlpWnconj nlp(_db);
     nlp.setToughMode(false);

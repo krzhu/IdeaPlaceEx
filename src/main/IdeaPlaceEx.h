@@ -12,6 +12,7 @@
 /* Solver */
 #include "place/CGLegalizer.h"
 #include "place/NlpWnconj.h" //< This stupid package must be included here
+#include "place/NlpGPlacer.h"
 
 PROJECT_NAMESPACE_BEGIN
 

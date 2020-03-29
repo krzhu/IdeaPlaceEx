@@ -249,23 +249,23 @@ inline RealType NlpWnconj::objFunc(RealType *values)
         const auto &type = opIdx.type;
         if (type == diff::OpEnumType::ovl)
         {
-            ovl[opIdx.idx] = diff::placement_differentiable_traits<nlp_ovl_type>::evaluate(_ovlOps[opIdx.idx], getVarFunc);
+            ovl[opIdx.idx] = diff::placement_differentiable_traits<nlp_ovl_type>::evaluate(_ovlOps[opIdx.idx]);
         }
         else if (type == diff::OpEnumType::oob)
         {
-            oob[opIdx.idx] = diff::placement_differentiable_traits<nlp_oob_type>::evaluate(_oobOps[opIdx.idx], getVarFunc);
+            oob[opIdx.idx] = diff::placement_differentiable_traits<nlp_oob_type>::evaluate(_oobOps[opIdx.idx]);
         }
         else if (type == diff::OpEnumType::hpwl)
         {
-            hpwl[opIdx.idx] = diff::placement_differentiable_traits<nlp_hpwl_type>::evaluate(_hpwlOps[opIdx.idx], getVarFunc);
+            hpwl[opIdx.idx] = diff::placement_differentiable_traits<nlp_hpwl_type>::evaluate(_hpwlOps[opIdx.idx]);
         }
         else if (type == diff::OpEnumType::asym)
         {
-            asym[opIdx.idx] = diff::placement_differentiable_traits<nlp_asym_type>::evaluate(_asymOps[opIdx.idx], getVarFunc);
+            asym[opIdx.idx] = diff::placement_differentiable_traits<nlp_asym_type>::evaluate(_asymOps[opIdx.idx]);
         }
         else
         {
-            cos[opIdx.idx] = diff::placement_differentiable_traits<nlp_cos_type>::evaluate(_cosOps[opIdx.idx], getVarFunc);
+            cos[opIdx.idx] = diff::placement_differentiable_traits<nlp_cos_type>::evaluate(_cosOps[opIdx.idx]);
         }
     }
 
@@ -349,23 +349,23 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
         const auto &type = opIdx.type;
         if (type == diff::OpEnumType::ovl)
         {
-            diff::placement_differentiable_traits<nlp_ovl_type>::accumlateGradient(_ovlOps[opIdx.idx], getVarFunc, f);
+            diff::placement_differentiable_traits<nlp_ovl_type>::accumlateGradient(_ovlOps[opIdx.idx]);
         }
         else if (type == diff::OpEnumType::oob)
         {
-            diff::placement_differentiable_traits<nlp_oob_type>::accumlateGradient(_oobOps[opIdx.idx], getVarFunc, f);
+            diff::placement_differentiable_traits<nlp_oob_type>::accumlateGradient(_oobOps[opIdx.idx]);
         }
         else if (type == diff::OpEnumType::hpwl)
         {
-            diff::placement_differentiable_traits<nlp_hpwl_type>::accumlateGradient(_hpwlOps[opIdx.idx], getVarFunc, f);
+            diff::placement_differentiable_traits<nlp_hpwl_type>::accumlateGradient(_hpwlOps[opIdx.idx]);
         }
         else if (type == diff::OpEnumType::asym)
         {
-            diff::placement_differentiable_traits<nlp_asym_type>::accumlateGradient(_asymOps[opIdx.idx], getVarFunc, f);
+            diff::placement_differentiable_traits<nlp_asym_type>::accumlateGradient(_asymOps[opIdx.idx]);
         }
         else
         {
-            diff::placement_differentiable_traits<nlp_cos_type>::accumlateGradient(_cosOps[opIdx.idx], getVarFunc, f);
+            diff::placement_differentiable_traits<nlp_cos_type>::accumlateGradient(_cosOps[opIdx.idx]);
         }
     }
 
