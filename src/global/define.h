@@ -22,4 +22,6 @@
 #define PIN_ASSIGN_IN_GP
 #define PIN_ASSIGN_IN_LG
 
+#define DEBUG_SINGLE_THREAD_GP
+
 #endif /// IDEAPLACE_DEFINE_H

@@ -8,14 +8,9 @@ IntType NlpGPlacerBase::solve()
     this->initProblem();
     this->initRandomPlacement();
     this->initOperators();
-    this->constructObjectiveCalculationTasks();
-    RealType obj = 0.0;
-    for (auto &task : _evaHpwlTasks)
-    {
-        task.run();
-        obj += task.taskData().obj();
-    }
-    DBG("obj: %f \n", obj);
+    this->constructTasks();
+    _wrapObjAllTask.run();
+    DBG("obj: %f %f %f %f %f %f \n", _obj, _objHpwl, _objOvl, _objOob, _objAsym, _objCos);
     return 0;
 }
 
@@ -279,6 +274,18 @@ void NlpGPlacerBase::writeOut()
     }
 }
 
+void NlpGPlacerBase::constructTasks()
+{
+    constructObjTasks();
+}
+
+void NlpGPlacerBase::constructObjTasks()
+{
+    constructObjectiveCalculationTasks();
+    constructSumObjTasks();
+    constructWrapObjTask();
+}
+
 void NlpGPlacerBase::constructObjectiveCalculationTasks()
 {
     for (const auto &hpwl : _hpwlOps)
@@ -308,4 +315,122 @@ void NlpGPlacerBase::constructObjectiveCalculationTasks()
     }
 }
 
+void NlpGPlacerBase::constructSumObjTasks()
+{
+    auto hpwl = [&]() 
+    {
+        _objHpwl = 0.0;
+        for (const auto &eva : _evaHpwlTasks)
+        {
+            _objHpwl += eva.taskData().obj();
+        }
+    };
+    _sumObjHpwlTask = Task<FuncTask>(FuncTask(hpwl));
+    auto ovl = [&]() 
+    {
+        _objOvl = 0.0;
+        for (const auto &eva : _evaOvlTasks)
+        {
+            _objOvl += eva.taskData().obj();
+        }
+    };
+    _sumObjOvlTask = Task<FuncTask>(FuncTask(ovl));
+    auto oob = [&]()
+    {
+        _objOob = 0.0;
+        for (const auto &eva : _evaOobTasks)
+        {
+            _objOob += eva.taskData().obj();
+        }
+    };
+    _sumObjOobTask = Task<FuncTask>(FuncTask(oob));
+    auto asym = [&]()
+    {
+        _objAsym = 0.0;
+        for (const auto &eva : _evaAsymTasks)
+        {
+            _objAsym += eva.taskData().obj();
+        }
+    };
+    _sumObjAsymTask = Task<FuncTask>(FuncTask(asym));
+    auto cos = [&]()
+    {
+        _objCos = 0.0;
+        for (const auto &eva : _evaCosTasks)
+        {
+            _objCos += eva.taskData().obj();
+        }
+    };
+    _sumObjCosTask = Task<FuncTask>(FuncTask(cos));
+    auto all = [&]()
+    {
+        _obj = 0.0;
+        _obj += _objHpwl;
+        _obj += _objOvl;
+        _obj += _objOob;
+        _obj += _objAsym;
+        _obj += _objCos;
+    };
+    _sumObjAllTask = Task<FuncTask>(FuncTask(all));
+}
+
+#ifdef DEBUG_SINGLE_THREAD_GP
+void NlpGPlacerBase::constructWrapObjTask()
+{
+    auto hpwl = [&]()
+    {
+        for (auto &eva : _evaHpwlTasks)
+        {
+            eva.run();
+        }
+        _sumObjHpwlTask.run();
+    };
+    _wrapObjHpwlTask = Task<FuncTask>(FuncTask(hpwl));
+    auto ovl = [&]()
+    {
+        for (auto &eva : _evaOvlTasks)
+        {
+            eva.run();
+        }
+        _sumObjOvlTask.run();
+    };
+    _wrapObjOvlTask = Task<FuncTask>(FuncTask(ovl));
+    auto oob = [&]()
+    {
+        for (auto &eva : _evaOobTasks)
+        {
+            eva.run();
+        }
+        _sumObjOobTask.run();
+    };
+    _wrapObjOobTask = Task<FuncTask>(FuncTask(oob));
+    auto asym = [&]()
+    {
+        for (auto &eva : _evaAsymTasks)
+        {
+            eva.run();
+        }
+        _sumObjAsymTask.run();
+    };
+    _wrapObjAsymTask = Task<FuncTask>(FuncTask(asym));
+    auto cos = [&]()
+    {
+        for (auto &eva : _evaCosTasks)
+        {
+            eva.run();
+        }
+        _sumObjCosTask.run();
+    };
+    _wrapObjCosTask = Task<FuncTask>(FuncTask(cos));
+    auto all = [&]()
+    {
+        _wrapObjHpwlTask.run();
+        _wrapObjOvlTask.run();
+        _wrapObjOobTask.run();
+        _wrapObjAsymTask.run();
+        _wrapObjCosTask.run();
+    };
+    _wrapObjAllTask = Task<FuncTask>(FuncTask(all));
+}
+#endif //DEBUG_SINGLE_THREAD_GP
 PROJECT_NAMESPACE_END
