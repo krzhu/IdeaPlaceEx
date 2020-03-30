@@ -62,6 +62,9 @@ class IdeaPlaceEx
         /// @brief read the symnet file
         /// @param the filename for the symnet file
         void readSymNetFile(const std::string &symnetFile);
+        /// @brief read the sigpath file
+        /// @param the filename for the sigpath file
+        void readSigpathFile(const std::string &sigpathFile);
         /*------------------------------*/ 
         /* paramters                    */
         /*------------------------------*/ 
