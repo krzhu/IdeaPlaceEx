@@ -164,7 +164,6 @@ bool NlpWnconj::updateMultipliers2()
 
 void NlpWnconj::alignSym()
 {
-    return;
     for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
     {
         const auto &symGrp = _db.symGroup(symGrpIdx);
