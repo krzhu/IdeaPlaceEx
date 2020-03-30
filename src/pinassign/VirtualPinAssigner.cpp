@@ -253,6 +253,12 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     curNetBBox.resize(_db.numNets());
     std::vector<char> nopinNets;
     nopinNets.resize(_db.numNets(), false);
+    auto findRealPinLoc = [&](IndexType pinIdx)
+    {
+        XY<LocType> pinOff = _db.pin(pinIdx).midLoc();
+        XY<LocType> cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
+        return cellLoc + pinOff;
+    };
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
         if (_db.net(netIdx).numPinIdx() < 1)
@@ -261,16 +267,14 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
             continue;
         }
         IndexType pinIdx = _db.net(netIdx).pinIdx(0);
-        XY<LocType> pinOff = _db.pin(pinIdx).midLoc();
-        XY<LocType> cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
-        curNetBBox.at(netIdx) = Box<LocType>(cellLoc + pinOff, cellLoc + pinOff); // Init into an area=0 box
+        auto pinOff = findRealPinLoc(pinIdx);
+        curNetBBox.at(netIdx) = Box<LocType>(pinOff, pinOff); // Init into an area=0 box
         // The rest pins
         for (IndexType idx = 1; idx < _db.net(netIdx).numPinIdx(); ++idx)
         {
             pinIdx = _db.net(netIdx).pinIdx(idx);
-            pinOff = _db.pin(pinIdx).midLoc();
-            cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
-            curNetBBox.at(netIdx).join(cellLoc + pinOff);
+            pinOff = findRealPinLoc(pinIdx);
+            curNetBBox.at(netIdx).join(pinOff);
         }
     }
 
@@ -289,10 +293,22 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         return difX + difY;
     };
 
+    auto calculateShortestManhattanDistance = [&](IndexType netIdx, IndexType ioPinIdx)
+    {
+        LocType dist = LOC_TYPE_MAX;
+        const auto &iopinLoc = _virtualPins.at(ioPinIdx).loc();
+        for (IndexType pinIdx : _db.net(netIdx).pinIdxArray())
+        {
+            auto pinOff = findRealPinLoc(pinIdx);
+            dist = std::min(::klib::manhattanDistance(iopinLoc, pinOff), dist);
+        }
+        return dist;
+    };
+
     // Calculate the added HPWL if adding the virtual pin
     auto directNetToPinCostFunc = [&](IndexType netIdx, IndexType virtualPinIdx)
     {
-        return calculateIncreasedHpwl(netIdx, virtualPinIdx);
+        return calculateShortestManhattanDistance(netIdx, virtualPinIdx);
     };
 
     auto useASymNet = [&](IndexType netIdx)
@@ -340,8 +356,8 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         if (_db.net(netIdx).hasSymNet())
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
-            auto netCost0 = calculateIncreasedHpwl(netIdx, leftPinIdx) + calculateIncreasedHpwl(otherNetIdx, rightPinIdx);
-            auto netCost1 = calculateIncreasedHpwl(otherNetIdx, leftPinIdx) + calculateIncreasedHpwl(netIdx, rightPinIdx);
+            auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
+            auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
             return std::min(netCost0, netCost1);
         }
         Assert(false);
@@ -392,8 +408,8 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         if (_db.net(netIdx).hasSymNet())
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
-            auto netCost0 = calculateIncreasedHpwl(netIdx, leftPinIdx) + calculateIncreasedHpwl(otherNetIdx, rightPinIdx);
-            auto netCost1 = calculateIncreasedHpwl(otherNetIdx, leftPinIdx) + calculateIncreasedHpwl(netIdx, rightPinIdx);
+            auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
+            auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
             if (netCost0 <= netCost1)
             {
                 // net -> left. other net -> right
