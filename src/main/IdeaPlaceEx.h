@@ -107,6 +107,13 @@ class IdeaPlaceEx
             _db.cell(cellIdx).addPin(pinIdx);
             return pinIdx;
         }
+        /// @brief set the name of a pin
+        /// @param the index of the pin
+        /// @param the name of the pin
+        void setPinName(IndexType pinIdx, const std::string &name)
+        {
+            _db.pin(pinIdx).setName(name);
+        }
         /// @brief add pin shape for a pin
         /// @param the index of the pin
         /// @param xLo
