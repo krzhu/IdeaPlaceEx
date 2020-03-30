@@ -202,8 +202,8 @@ class IdeaPlaceEx
         /// @param first and second: two net indices. The order does not matter
         void addSymNetPair(IndexType netIdx1, IndexType netIdx2)
         {
-            _db.net(netIdx1).setSymNet(netIdx2);
-            _db.net(netIdx2).setSymNet(netIdx1);
+            _db.net(netIdx1).setSymNet(netIdx2, true);
+            _db.net(netIdx2).setSymNet(netIdx1, false);
         }
         /// @brief mark a net as self-symmmetric
         /// @param the net index

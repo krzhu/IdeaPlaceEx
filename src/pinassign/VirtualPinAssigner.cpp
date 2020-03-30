@@ -357,6 +357,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
             auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
+            return netCost0;
             auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
             return std::min(netCost0, netCost1);
         }
@@ -376,7 +377,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         //}
         if (_db.net(netIdx).hasSymNet())
         {
-            if (netIdx < _db.net(netIdx).symNetIdx())
+            if (_db.net(netIdx).isLeftSym())
             {
                 return true;
             }
@@ -408,9 +409,10 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         if (_db.net(netIdx).hasSymNet())
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
-            auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
-            auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
-            if (netCost0 <= netCost1)
+            //auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
+            //auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
+            if (1)
+            //if (netCost0 <= netCost1)
             {
                 // net -> left. other net -> right
                 directAssignNetToPinFunc(netIdx, leftPinIdx);

@@ -57,8 +57,8 @@ bool ParserSymNet::processNamePair()
         {
             IndexType netIdx1 = netNameMap[pair.first];
             IndexType netIdx2 = netNameMap[pair.second];
-            _db.net(netIdx1).setSymNet(netIdx2);
-            _db.net(netIdx2).setSymNet(netIdx1);
+            _db.net(netIdx1).setSymNet(netIdx2, true);
+            _db.net(netIdx2).setSymNet(netIdx1, false);
         }
         else
         {
