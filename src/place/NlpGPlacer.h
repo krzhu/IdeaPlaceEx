@@ -14,12 +14,14 @@
 
 PROJECT_NAMESPACE_BEGIN
 
-class NlpGPlacerBase;
-
 namespace nlp {
 
     template<typename T>
-    struct stop_condition_trait {};
+    struct stop_condition_trait 
+    {
+        // static T construct(NlpType &)
+        // static IntType stopPlaceCondition(T&, NlpType &)
+    };
 
     /// @brief stop condition with number of iterations
     struct stop_after_num_outer_iterations
@@ -69,6 +71,7 @@ namespace nlp {
 
 }// namespace nlp
 
+/// @brief namespace for nlp tasks
 namespace nt
 {
     template<typename task_type>
