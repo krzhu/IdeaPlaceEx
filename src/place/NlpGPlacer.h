@@ -53,6 +53,63 @@ namespace nlp {
 
 }// namespace nlp
 
+namespace nt
+{
+    template<typename task_type>
+    class Task
+    {
+        public: 
+            explicit Task() {}
+            explicit Task(task_type &task) : _task(task) {}
+            explicit Task(task_type &&task) : _task(task) {}
+            void run() { task_type::run(_task); }
+            const task_type &taskData() const { return _task; } 
+        private:
+            task_type _task;
+    };
+
+    /// @brief Evaluating objective tasks
+    template<typename nlp_numerical_type>
+    class EvaObjTask
+    {
+        public:
+            EvaObjTask(const std::function<nlp_numerical_type(void)> &func) : _evaFunc(func) {}
+            EvaObjTask(const EvaObjTask & other) { _evaFunc = other._evaFunc; }
+            static void run(EvaObjTask & task) { task._obj =  task._evaFunc(); }
+            nlp_numerical_type obj() const { return _obj; }
+        private:
+            std::function<nlp_numerical_type(void)> _evaFunc; 
+            nlp_numerical_type _obj;
+    };
+
+    /// @brief The tasks for only wrapping a function
+    class FuncTask
+    {
+        public:
+            FuncTask() { _func = [](){}; }
+            FuncTask(const std::function<void(void)> &func) : _func(func) {}
+            FuncTask(const FuncTask &other) { _func = other._func; }
+            static void run(FuncTask &task) { task._func(); }
+        private:
+            std::function<void(void)> _func;
+    };
+
+    /// @brief The tasks for only wrapping a function returning integer
+    class ConditionTask
+    {
+        public:
+            ConditionTask() { _func = [](){ return 0; }; _cond = 0; }
+            ConditionTask(const std::function<IntType(void)> &func) : _func(func) { _cond = 0;}
+            ConditionTask(const ConditionTask &other) { _func = other._func; _cond = other._cond; }
+            static void run(ConditionTask &task) { task._cond = task._func(); }
+            IntType cond() const { return _cond; }
+        private:
+            std::function<IntType(void)> _func;
+            IntType _cond = 0;
+    };
+
+}// namespace nt
+
 /// @brief non-linear programming-based analog global placement
 class NlpGPlacerBase
 {
@@ -73,59 +130,7 @@ class NlpGPlacerBase
         typedef nlp::nlp_parameters::stop_condition_type stop_condition_type;
         typedef nlp::stop_condition_trait<stop_condition_type> stop_condition_trait;
         friend stop_condition_trait;
-    protected:
-        template<typename task_type>
-        class Task
-        {
-            public: 
-                explicit Task() {}
-                explicit Task(task_type &task) : _task(task) {}
-                explicit Task(task_type &&task) : _task(task) {}
-                void run() { task_type::run(_task); }
-                const task_type &taskData() const { return _task; } 
-            private:
-                task_type _task;
-        };
-
-        /// @brief Evaluating objective tasks
-        class EvaObjTask
-        {
-            public:
-                EvaObjTask(const std::function<nlp_numerical_type(void)> &func) : _evaFunc(func) {}
-                EvaObjTask(const EvaObjTask & other) { _evaFunc = other._evaFunc; }
-                static void run(EvaObjTask & task) { task._obj =  task._evaFunc(); }
-                nlp_numerical_type obj() const { return _obj; }
-            private:
-                std::function<nlp_numerical_type(void)> _evaFunc; 
-                nlp_numerical_type _obj;
-        };
-
-        /// @brief The tasks for only wrapping a function
-        class FuncTask
-        {
-            public:
-                FuncTask() { _func = [](){}; }
-                FuncTask(const std::function<void(void)> &func) : _func(func) {}
-                FuncTask(const FuncTask &other) { _func = other._func; }
-                static void run(FuncTask &task) { task._func(); }
-            private:
-                std::function<void(void)> _func;
-        };
-
-        /// @brief The tasks for only wrapping a function returning integer
-        class ConditionTask
-        {
-            public:
-                ConditionTask() { _func = [](){ return 0; }; _cond = 0; }
-                ConditionTask(const std::function<IntType(void)> &func) : _func(func) { _cond = 0;}
-                ConditionTask(const ConditionTask &other) { _func = other._func; _cond = other._cond; }
-                static void run(ConditionTask &task) { task._cond = task._func(); }
-                IntType cond() const { return _cond; }
-            private:
-                std::function<IntType(void)> _func;
-                IntType _cond = 0;
-        };
-
+    
     public:
         explicit NlpGPlacerBase(Database &db) : _db(db) {}
         IntType solve();
@@ -181,28 +186,28 @@ class NlpGPlacerBase
         std::shared_ptr<EigenMap> _sym; ///< The symmetry axis variables
         /* Tasks */
         // Evaluating objectives
-        std::vector<Task<EvaObjTask>> _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives
-        std::vector<Task<EvaObjTask>> _evaOvlTasks; ///< The tasks for evaluating overlap objectives
-        std::vector<Task<EvaObjTask>> _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
-        std::vector<Task<EvaObjTask>> _evaAsymTasks;  ///< The tasks for evaluating asymmetry objectives
-        std::vector<Task<EvaObjTask>> _evaCosTasks;  ///< The tasks for evaluating signal path objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOvlTasks; ///< The tasks for evaluating overlap objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaAsymTasks;  ///< The tasks for evaluating asymmetry objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCosTasks;  ///< The tasks for evaluating signal path objectives
         // Sum the objectives
-        Task<FuncTask> _sumObjHpwlTask; ///< The task for summing hpwl objective
-        Task<FuncTask> _sumObjOvlTask; ///< The task for summing the overlapping objective
-        Task<FuncTask> _sumObjOobTask; ///< The task for summing the out of boundary objective
-        Task<FuncTask> _sumObjAsymTask; ///< The task for summing the asymmetry objective
-        Task<FuncTask> _sumObjCosTask; ///< The task for summing the cosine signal path objective
-        Task<FuncTask> _sumObjAllTask; ///< The task for summing the different objectives together
+        nt::Task<nt::FuncTask> _sumObjHpwlTask; ///< The task for summing hpwl objective
+        nt::Task<nt::FuncTask> _sumObjOvlTask; ///< The task for summing the overlapping objective
+        nt::Task<nt::FuncTask> _sumObjOobTask; ///< The task for summing the out of boundary objective
+        nt::Task<nt::FuncTask> _sumObjAsymTask; ///< The task for summing the asymmetry objective
+        nt::Task<nt::FuncTask> _sumObjCosTask; ///< The task for summing the cosine signal path objective
+        nt::Task<nt::FuncTask> _sumObjAllTask; ///< The task for summing the different objectives together
         // Optimization kernel
-        Task<ConditionTask> _checkStopConditionTask; ///< The task to check whether the optimization should stop
+        nt::Task<nt::ConditionTask> _checkStopConditionTask; ///< The task to check whether the optimization should stop
 #ifdef DEBUG_SINGLE_THREAD_GP
         // Wrapper tasks for debugging
-        Task<FuncTask> _wrapObjHpwlTask; ///< The task for wrap the objective 
-        Task<FuncTask> _wrapObjOvlTask;
-        Task<FuncTask> _wrapObjOobTask;
-        Task<FuncTask> _wrapObjAsymTask;
-        Task<FuncTask> _wrapObjCosTask;
-        Task<FuncTask> _wrapObjAllTask;
+        nt::Task<nt::FuncTask> _wrapObjHpwlTask; ///< The task for wrap the objective 
+        nt::Task<nt::FuncTask> _wrapObjOvlTask;
+        nt::Task<nt::FuncTask> _wrapObjOobTask;
+        nt::Task<nt::FuncTask> _wrapObjAsymTask;
+        nt::Task<nt::FuncTask> _wrapObjCosTask;
+        nt::Task<nt::FuncTask> _wrapObjAllTask;
 #endif //DEBUG_SINGLE_THREAD_GP
         /* Operators */
         std::vector<nlp_hpwl_type> _hpwlOps; ///< The HPWL cost 
