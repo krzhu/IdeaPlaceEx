@@ -478,6 +478,24 @@ void NlpGPlacerFirstOrder::optimize()
         update.run();
     }
     std::cout<<"ovl grad \n"<< _gradOvl;
+    for (auto & calc : _calcOobPartialTasks)
+    {
+        calc.run();
+    }
+    for (auto & update : _updateOobPartialTasks)
+    {
+        update.run();
+    }
+    std::cout<<"oob grad \n"<< _gradOob;
+    for (auto & calc : _calcAsymPartialTasks)
+    {
+        calc.run();
+    }
+    for (auto & update : _updateAsymPartialTasks)
+    {
+        update.run();
+    }
+    std::cout<<"asym grad \n"<< _gradAsym;
 }
 
 void NlpGPlacerFirstOrder::initProblem()
@@ -495,6 +513,8 @@ void NlpGPlacerFirstOrder::initFirstOrderGrad()
     _grad.resize(size);
     _gradHpwl.resize(size);
     _gradOvl.resize(size);
+    _gradOob.resize(size);
+    _gradAsym.resize(size);
 }
 
 void NlpGPlacerFirstOrder::constructTasks()
@@ -514,6 +534,8 @@ void NlpGPlacerFirstOrder::constructCalcPartialsTasks()
 {
     using Hpwl = CalculateOperatorPartialTask<nlp_hpwl_type>;
     using Ovl = CalculateOperatorPartialTask<nlp_ovl_type>;
+    using Oob = CalculateOperatorPartialTask<nlp_oob_type>;
+    using Asym = CalculateOperatorPartialTask<nlp_asym_type>;
     for (auto &hpwlOp : _hpwlOps)
     {
         _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
@@ -522,12 +544,22 @@ void NlpGPlacerFirstOrder::constructCalcPartialsTasks()
     {
         _calcOvlPartialTasks.emplace_back(Task<Ovl>(Ovl(&ovlOp)));
     }
+    for (auto &oobOp : _oobOps)
+    {
+        _calcOobPartialTasks.emplace_back(Task<Oob>(Oob(&oobOp)));
+    }
+    for (auto &asymOp : _asymOps)
+    {
+        _calcAsymPartialTasks.emplace_back(Task<Asym>(Asym(&asymOp)));
+    }
 }
 
 void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
 {
     using Hpwl = UpdateGradientFromPartialTask<nlp_hpwl_type>;
     using Ovl = UpdateGradientFromPartialTask<nlp_ovl_type>;
+    using Oob = UpdateGradientFromPartialTask<nlp_oob_type>;
+    using Asym = UpdateGradientFromPartialTask<nlp_asym_type>;
     auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
     for (auto &hpwl : _calcHpwlPartialTasks)
     {
@@ -536,6 +568,14 @@ void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
     for (auto &ovl : _calcOvlPartialTasks)
     {
         _updateOvlPartialTasks.emplace_back(Task<Ovl>(Ovl(ovl.taskDataPtr(), &_gradOvl, getIdxFunc)));
+    }
+    for (auto &oob : _calcOobPartialTasks)
+    {
+        _updateOobPartialTasks.emplace_back(Task<Oob>(Oob(oob.taskDataPtr(), &_gradOob, getIdxFunc)));
+    }
+    for (auto &asym : _calcAsymPartialTasks)
+    {
+        _updateAsymPartialTasks.emplace_back(Task<Asym>(Asym(asym.taskDataPtr(), &_gradAsym, getIdxFunc)));
     }
 }
 
