@@ -51,6 +51,22 @@ namespace nlp {
         typedef stop_after_num_outer_iterations stop_condition_type;
     };
 
+    struct nlp_types
+    {
+        typedef Eigen::Matrix<RealType, Eigen::Dynamic, Eigen::Dynamic> EigenMatrix;
+        typedef Eigen::Matrix<RealType, Eigen::Dynamic, 1> EigenVector;
+        typedef Eigen::Map<EigenVector> EigenMap;
+        typedef RealType nlp_coordinate_type;
+        typedef RealType nlp_numerical_type;
+        typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_hpwl_type;
+        typedef diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_ovl_type;
+        typedef diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_oob_type;
+        typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_asym_type;
+        typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_cos_type;
+
+    };
+
+
 }// namespace nlp
 
 namespace nt
@@ -69,9 +85,9 @@ namespace nt
     };
 
     /// @brief Evaluating objective tasks
-    template<typename nlp_numerical_type>
     class EvaObjTask
     {
+        typedef nlp::nlp_types::nlp_numerical_type nlp_numerical_type;
         public:
             EvaObjTask(const std::function<nlp_numerical_type(void)> &func) : _evaFunc(func) {}
             EvaObjTask(const EvaObjTask & other) { _evaFunc = other._evaFunc; }
@@ -114,17 +130,16 @@ namespace nt
 class NlpGPlacerBase
 {
     public:
-        using EigenMatrix = Eigen::Matrix<RealType, Eigen::Dynamic, Eigen::Dynamic>;
-        using EigenVector = Eigen::Matrix<RealType, Eigen::Dynamic, 1>;
-        using EigenXY = Eigen::Matrix<RealType, Eigen::Dynamic, 2, Eigen::ColMajor>;
-        using EigenMap = Eigen::Map<EigenVector>;
-        typedef RealType nlp_coordinate_type;
-        typedef RealType nlp_numerical_type;
-        typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_hpwl_type;
-        typedef diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_ovl_type;
-        typedef diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_oob_type;
-        typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_asym_type;
-        typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_cos_type;
+        typedef nlp::nlp_types::EigenMatrix EigenMatrix;
+        typedef nlp::nlp_types::EigenVector EigenVector;
+        typedef nlp::nlp_types::EigenMap EigenMap;
+        typedef nlp::nlp_types::nlp_coordinate_type nlp_coordinate_type;
+        typedef nlp::nlp_types::nlp_numerical_type nlp_numerical_type;
+        typedef nlp::nlp_types::nlp_hpwl_type nlp_hpwl_type;
+        typedef nlp::nlp_types::nlp_ovl_type nlp_ovl_type;
+        typedef nlp::nlp_types::nlp_oob_type nlp_oob_type;
+        typedef nlp::nlp_types::nlp_asym_type nlp_asym_type;
+        typedef nlp::nlp_types::nlp_cos_type nlp_cos_type;
 
         /* parameters */
         typedef nlp::nlp_parameters::stop_condition_type stop_condition_type;
@@ -168,9 +183,6 @@ class NlpGPlacerBase
         RealType _asymThreshold = NLP_WN_CONJ_ASYM_THRESHOLD; ///< The threshold for whether increasing the penalty for asymmetry
         RealType _defaultSymAxis = 0.0; ///< The default symmetric axis
         /* Optimization internal results */
-        //RealType _curOvlRatio = 1.0; ///< The current overlapping ratio
-        //RealType _curOOBRatio = 1.0; ///< The current out of boundry ratio
-        //RealType _curAsymDist = 1.0; ///< The current asymmetric distance
         RealType _objHpwl = 0.0; ///< The current value for hpwl
         RealType _objOvl = 0.0; ///< The current value for overlapping penalty
         RealType _objOob = 0.0; ///< The current value for out of boundary penalty
@@ -186,11 +198,11 @@ class NlpGPlacerBase
         std::shared_ptr<EigenMap> _sym; ///< The symmetry axis variables
         /* Tasks */
         // Evaluating objectives
-        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives
-        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOvlTasks; ///< The tasks for evaluating overlap objectives
-        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
-        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaAsymTasks;  ///< The tasks for evaluating asymmetry objectives
-        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCosTasks;  ///< The tasks for evaluating signal path objectives
+        std::vector<nt::Task<nt::EvaObjTask>> _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives
+        std::vector<nt::Task<nt::EvaObjTask>> _evaOvlTasks; ///< The tasks for evaluating overlap objectives
+        std::vector<nt::Task<nt::EvaObjTask>> _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
+        std::vector<nt::Task<nt::EvaObjTask>> _evaAsymTasks;  ///< The tasks for evaluating asymmetry objectives
+        std::vector<nt::Task<nt::EvaObjTask>> _evaCosTasks;  ///< The tasks for evaluating signal path objectives
         // Sum the objectives
         nt::Task<nt::FuncTask> _sumObjHpwlTask; ///< The task for summing hpwl objective
         nt::Task<nt::FuncTask> _sumObjOvlTask; ///< The task for summing the overlapping objective
@@ -300,7 +312,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
         };
 #endif
     protected:
-        EigenXY _grad; ///< The first order graident
+        EigenVector _grad; ///< The first order graident
 };
 
 PROJECT_NAMESPACE_END

@@ -303,27 +303,27 @@ void NlpGPlacerBase::constructObjectiveCalculationTasks()
     for (const auto &hpwl : _hpwlOps)
     {
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_hpwl_type>::evaluate(hpwl);};
-        _evaHpwlTasks.emplace_back(Task<EvaObjTask<nlp_numerical_type>>(EvaObjTask<nlp_numerical_type>(eva)));
+        _evaHpwlTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
     for (const auto &ovl : _ovlOps)
     {
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_ovl_type>::evaluate(ovl);};
-        _evaOvlTasks.emplace_back(Task<EvaObjTask<nlp_numerical_type>>(EvaObjTask<nlp_numerical_type>(eva)));
+        _evaOvlTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
     for (const auto &oob : _oobOps)
     {
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_oob_type>::evaluate(oob);};
-        _evaOobTasks.emplace_back(Task<EvaObjTask<nlp_numerical_type>>(EvaObjTask<nlp_numerical_type>(eva)));
+        _evaOobTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
     for (const auto &asym : _asymOps)
     {
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_asym_type>::evaluate(asym);};
-        _evaAsymTasks.emplace_back(Task<EvaObjTask<nlp_numerical_type>>(EvaObjTask<nlp_numerical_type>(eva)));
+        _evaAsymTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
     for (const auto &cos : _cosOps)
     {
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_cos_type>::evaluate(cos);};
-        _evaCosTasks.emplace_back(Task<EvaObjTask<nlp_numerical_type>>(EvaObjTask<nlp_numerical_type>(eva)));
+        _evaCosTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
 }
 
