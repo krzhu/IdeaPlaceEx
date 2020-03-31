@@ -460,17 +460,24 @@ void NlpGPlacerBase::constructStopConditionTask()
 
 void NlpGPlacerFirstOrder::optimize()
 {
-    IndexType idx = 0;
     for (auto & calc : _calcHpwlPartialTasks)
     {
         calc.run();
-        idx += 1;
     }
     for (auto & update : _updateHpwlPartialTasks)
     {
         update.run();
     }
     std::cout<<"hpwl grad \n"<< _gradHpwl;
+    for (auto & calc : _calcOvlPartialTasks)
+    {
+        calc.run();
+    }
+    for (auto & update : _updateOvlPartialTasks)
+    {
+        update.run();
+    }
+    std::cout<<"ovl grad \n"<< _gradOvl;
 }
 
 void NlpGPlacerFirstOrder::initProblem()
@@ -487,6 +494,7 @@ void NlpGPlacerFirstOrder::initFirstOrderGrad()
     IntType size = _db.numCells() * 2 + _db.numSymGroups();
     _grad.resize(size);
     _gradHpwl.resize(size);
+    _gradOvl.resize(size);
 }
 
 void NlpGPlacerFirstOrder::constructTasks()
@@ -505,19 +513,29 @@ void NlpGPlacerFirstOrder::constructFirstOrderTasks()
 void NlpGPlacerFirstOrder::constructCalcPartialsTasks()
 {
     using Hpwl = CalculateOperatorPartialTask<nlp_hpwl_type>;
+    using Ovl = CalculateOperatorPartialTask<nlp_ovl_type>;
     for (auto &hpwlOp : _hpwlOps)
     {
         _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
+    }
+    for (auto &ovlOp : _ovlOps)
+    {
+        _calcOvlPartialTasks.emplace_back(Task<Ovl>(Ovl(&ovlOp)));
     }
 }
 
 void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
 {
     using Hpwl = UpdateGradientFromPartialTask<nlp_hpwl_type>;
+    using Ovl = UpdateGradientFromPartialTask<nlp_ovl_type>;
     auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
-    for (auto & hpwl : _calcHpwlPartialTasks)
+    for (auto &hpwl : _calcHpwlPartialTasks)
     {
         _updateHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(hpwl.taskDataPtr(), &_gradHpwl, getIdxFunc)));
+    }
+    for (auto &ovl : _calcOvlPartialTasks)
+    {
+        _updateOvlPartialTasks.emplace_back(Task<Ovl>(Ovl(ovl.taskDataPtr(), &_gradOvl, getIdxFunc)));
     }
 }
 

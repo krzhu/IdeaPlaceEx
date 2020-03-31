@@ -205,7 +205,8 @@ namespace nt
             CalculateOperatorPartialTask(nlp_op_type *op) 
             { 
                 _op = op; 
-                calc_operator_partial_build_cellmap_trait<nlp_op_type>::build(*op, *this);
+                // Use this trait to speficify different number of cells for different operators
+                calc_operator_partial_build_cellmap_trait<nlp_op_type>::build(*op, *this); 
                 clear();
                 setAccumulateGradFunc();
             }
@@ -247,12 +248,10 @@ namespace nt
             IndexType _numCells;
     };
 
-    template<>
-    struct calc_operator_partial_build_cellmap_trait<diff::LseHpwlDifferentiable<nlp::nlp_types::nlp_numerical_type, nlp::nlp_types::nlp_coordinate_type>>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
     {
-        typedef nlp::nlp_types::nlp_numerical_type nlp_numerical_type;
-        typedef nlp::nlp_types::nlp_coordinate_type nlp_coordiante_type;
-        typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordiante_type> nlp_op_type;
+        typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
         typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
         static void build(nlp_op_type &op, calc_type &calc)
         {
@@ -265,6 +264,24 @@ namespace nt
                 calc._cellMap[op._cells[idx]] = idx;
                 calc._inverseCellMap[idx] = op._cells[idx];
             }
+        }
+    };
+
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    {
+        typedef diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
+        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
+        static void build(nlp_op_type &op, calc_type &calc)
+        {
+            calc._numCells = 2; // Always have exactly two cells
+            calc._partialsX.resize(calc._numCells);
+            calc._partialsY.resize(calc._numCells);
+            calc._inverseCellMap.resize(2);
+            calc._cellMap[op._cellIdxI] = 0;
+            calc._inverseCellMap[0] = op._cellIdxI;
+            calc._cellMap[op._cellIdxJ] = 1;
+            calc._inverseCellMap[1] = op._cellIdxJ;
         }
     };
 
@@ -417,13 +434,16 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
     protected:
         /* Optimization data */
         EigenVector _grad; ///< The first order graident
-        EigenVector _gradHpwl; ///< The first order graident of hpwl objective
+        EigenVector _gradHpwl; ///< The first order gradient of hpwl objective
+        EigenVector _gradOvl; ///< The first order gradient  of overlapping objective
         /* Tasks */
         virtual void constructTasks() override;
         // Calculate the partials
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_hpwl_type>>> _calcHpwlPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_ovl_type>>> _calcOvlPartialTasks;
         // Update the partials
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_hpwl_type>>> _updateHpwlPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_ovl_type>>> _updateOvlPartialTasks;
 };
 
 PROJECT_NAMESPACE_END
