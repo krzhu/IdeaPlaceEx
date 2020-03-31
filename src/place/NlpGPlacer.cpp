@@ -8,13 +8,18 @@ using namespace nt;
 
 IntType NlpGPlacerBase::solve()
 {
-    this->initProblem();
-    this->initRandomPlacement();
-    this->initOperators();
-    this->constructTasks();
+    initProblem();
+    initRandomPlacement();
+    initOperators();
+    constructTasks();
+    optimize();
+    return 0;
+}
+
+void NlpGPlacerBase::optimize()
+{
     _wrapObjAllTask.run();
     DBG("obj: %f %f %f %f %f %f \n", _obj, _objHpwl, _objOvl, _objOob, _objAsym, _objCos);
-    return 0;
 }
 
 void NlpGPlacerBase::initOptimizationKernelMembers()
@@ -78,11 +83,15 @@ void NlpGPlacerBase::initBoundaryParams()
 void NlpGPlacerBase::initVariables()
 {
     // The number of nlp problem variables
+    _numCells = _db.numCells();
     IntType size = _db.numCells() * 2 + _db.numSymGroups();
     _pl.resize(size);
-    _plx = std::make_shared<EigenMap>(EigenMap(_pl.data(), _db.numCells()));
-    _ply = std::make_shared<EigenMap>(EigenMap(_pl.data() + _db.numCells(), _db.numCells()));
-    _sym = std::make_shared<EigenMap>(EigenMap(_pl.data() + 2* _db.numCells(), _db.numSymGroups()));
+    _plx = std::make_shared<EigenMap>(EigenMap(_pl.data(), _numCells));
+    _ply = std::make_shared<EigenMap>(EigenMap(_pl.data() + _numCells, _db.numCells()));
+    _sym = std::make_shared<EigenMap>(EigenMap(_pl.data() + 2* _numCells, _db.numSymGroups()));
+#ifndef MULTI_SYM_GROUP
+    (*_sym)(0) = _defaultSymAxis; // Set the default symmtry axisx`
+#endif
 }
 
 void NlpGPlacerBase::initRandomPlacement()
@@ -132,22 +141,7 @@ void NlpGPlacerBase::initOperators()
     };
     auto getVarFunc = [&] (IndexType cellIdx, Orient2DType orient)
     {
-        if (orient == Orient2DType::HORIZONTAL)
-        {
-            return (*_plx)(cellIdx);
-        }
-        else if (orient == Orient2DType::VERTICAL)
-        {
-            return (*_ply)(cellIdx);
-        }
-        else
-        {
-#ifdef MULTI_SYM_GROUP
-            return (*_syms)(cellIdx);
-#else
-            return _defaultSymAxis;
-#endif
-        }
+        return _pl(plIdx(cellIdx, orient));
     };
 
     auto calculatePinOffset = [&](IndexType pinIdx)
@@ -459,6 +453,72 @@ void NlpGPlacerBase::constructStopConditionTask()
         return stop_condition_trait::stopPlaceCondition(_stopCondition, *this);
     };
     _checkStopConditionTask = Task<ConditionTask>(ConditionTask(stopCondition));
+}
+
+
+/* FirstOrder */
+
+void NlpGPlacerFirstOrder::optimize()
+{
+    IndexType idx = 0;
+    for (auto & calc : _calcHpwlPartialTasks)
+    {
+        calc.run();
+        idx += 1;
+    }
+    for (auto & update : _updateHpwlPartialTasks)
+    {
+        update.run();
+    }
+    std::cout<<"hpwl grad \n"<< _gradHpwl;
+}
+
+void NlpGPlacerFirstOrder::initProblem()
+{
+    initHyperParams();
+    initBoundaryParams();
+    initVariables();
+    initFirstOrderGrad();
+}
+
+void NlpGPlacerFirstOrder::initFirstOrderGrad()
+{
+    _numCells = _db.numCells();
+    IntType size = _db.numCells() * 2 + _db.numSymGroups();
+    _grad.resize(size);
+    _gradHpwl.resize(size);
+}
+
+void NlpGPlacerFirstOrder::constructTasks()
+{
+    constructObjTasks();
+    constructStopConditionTask();
+    constructFirstOrderTasks();
+}
+
+void NlpGPlacerFirstOrder::constructFirstOrderTasks()
+{
+    constructCalcPartialsTasks();
+    constructUpdatePartialsTasks();
+}
+
+void NlpGPlacerFirstOrder::constructCalcPartialsTasks()
+{
+    using Hpwl = CalculateOperatorPartialTask<nlp_hpwl_type>;
+    for (auto &hpwlOp : _hpwlOps)
+    {
+        _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
+    }
+}
+
+void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
+{
+    using Hpwl = UpdateGradientFromPartialTask<nlp_hpwl_type>;
+    auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
+    for (auto & hpwl : _calcHpwlPartialTasks)
+    {
+        _updateHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(hpwl.taskDataPtr(), &_gradHpwl, getIdxFunc)));
+    }
 }
 
 PROJECT_NAMESPACE_END
