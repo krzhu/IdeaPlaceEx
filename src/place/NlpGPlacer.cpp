@@ -14,6 +14,11 @@ IntType NlpGPlacerBase::solve()
     return 0;
 }
 
+void NlpGPlacerBase::initOptimizationKernelMembers()
+{
+    _stopCondition = stop_condition_trait::construct(*this);
+}
+
 void NlpGPlacerBase::initProblem()
 {
     initHyperParams();
@@ -277,6 +282,7 @@ void NlpGPlacerBase::writeOut()
 void NlpGPlacerBase::constructTasks()
 {
     constructObjTasks();
+    constructStopConditionTask();
 }
 
 void NlpGPlacerBase::constructObjTasks()
@@ -433,4 +439,19 @@ void NlpGPlacerBase::constructWrapObjTask()
     _wrapObjAllTask = Task<FuncTask>(FuncTask(all));
 }
 #endif //DEBUG_SINGLE_THREAD_GP
+
+void NlpGPlacerBase::constructOptimizationKernelTasks()
+{
+    constructStopConditionTask();
+}
+
+void NlpGPlacerBase::constructStopConditionTask()
+{
+    auto stopCondition = [&]()
+    {
+        return stop_condition_trait::stopPlaceCondition(_stopCondition, *this);
+    };
+    _checkStopConditionTask = Task<ConditionTask>(ConditionTask(stopCondition));
+}
+
 PROJECT_NAMESPACE_END
