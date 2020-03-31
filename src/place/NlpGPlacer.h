@@ -414,6 +414,26 @@ namespace nt
         }
     };
 
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    {
+        typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
+        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
+        static void build(nlp_op_type &op, calc_type &calc)
+        {
+            calc._numCells = 3; // Always have exactly two cells
+            calc._partialsX.resize(calc._numCells);
+            calc._partialsY.resize(calc._numCells);
+            calc._inverseCellMap.resize(3);
+            calc._cellMap[op._sCellIdx] = 0;
+            calc._inverseCellMap[0] = op._sCellIdx;
+            calc._cellMap[op._midCellIdx] = 1;
+            calc._inverseCellMap[1] = op._midCellIdx;
+            calc._cellMap[op._tCellIdx] = 2;
+            calc._inverseCellMap[2] = op._tCellIdx;
+        }
+    };
+
 
 }// namespace nt
 
@@ -567,6 +587,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
         EigenVector _gradOvl; ///< The first order gradient  of overlapping objective
         EigenVector _gradOob; ///< The first order gradient of out of boundary objective
         EigenVector _gradAsym; ///< The first order gradient of asymmetry objective
+        EigenVector _gradCos; ///< The first order gradient of cosine signal path objective
         /* Tasks */
         virtual void constructTasks() override;
         // Calculate the partials
@@ -574,11 +595,13 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_ovl_type>>> _calcOvlPartialTasks;
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_oob_type>>> _calcOobPartialTasks;
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_asym_type>>> _calcAsymPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_cos_type>>> _calcCosPartialTasks;
         // Update the partials
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_hpwl_type>>> _updateHpwlPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_ovl_type>>> _updateOvlPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_oob_type>>> _updateOobPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_asym_type>>> _updateAsymPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_cos_type>>> _updateCosPartialTasks;
 };
 
 PROJECT_NAMESPACE_END

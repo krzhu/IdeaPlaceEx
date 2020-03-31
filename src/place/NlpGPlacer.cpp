@@ -496,6 +496,17 @@ void NlpGPlacerFirstOrder::optimize()
         update.run();
     }
     std::cout<<"asym grad \n"<< _gradAsym;
+    for (auto & calc : _calcCosPartialTasks)
+    {
+        calc.run();
+        break;
+    }
+    for (auto & update : _updateCosPartialTasks)
+    {
+        update.run();
+        break;
+    }
+    std::cout<<"asym grad \n"<< _gradCos;
 }
 
 void NlpGPlacerFirstOrder::initProblem()
@@ -515,6 +526,7 @@ void NlpGPlacerFirstOrder::initFirstOrderGrad()
     _gradOvl.resize(size);
     _gradOob.resize(size);
     _gradAsym.resize(size);
+    _gradCos.resize(size);
 }
 
 void NlpGPlacerFirstOrder::constructTasks()
@@ -536,6 +548,7 @@ void NlpGPlacerFirstOrder::constructCalcPartialsTasks()
     using Ovl = CalculateOperatorPartialTask<nlp_ovl_type>;
     using Oob = CalculateOperatorPartialTask<nlp_oob_type>;
     using Asym = CalculateOperatorPartialTask<nlp_asym_type>;
+    using Cos = CalculateOperatorPartialTask<nlp_cos_type>;
     for (auto &hpwlOp : _hpwlOps)
     {
         _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
@@ -552,6 +565,10 @@ void NlpGPlacerFirstOrder::constructCalcPartialsTasks()
     {
         _calcAsymPartialTasks.emplace_back(Task<Asym>(Asym(&asymOp)));
     }
+    for (auto &cosOp : _cosOps)
+    {
+        _calcCosPartialTasks.emplace_back(Task<Cos>(Cos(&cosOp)));
+    }
 }
 
 void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
@@ -560,6 +577,7 @@ void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
     using Ovl = UpdateGradientFromPartialTask<nlp_ovl_type>;
     using Oob = UpdateGradientFromPartialTask<nlp_oob_type>;
     using Asym = UpdateGradientFromPartialTask<nlp_asym_type>;
+    using Cos = UpdateGradientFromPartialTask<nlp_cos_type>;
     auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
     for (auto &hpwl : _calcHpwlPartialTasks)
     {
@@ -576,6 +594,10 @@ void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
     for (auto &asym : _calcAsymPartialTasks)
     {
         _updateAsymPartialTasks.emplace_back(Task<Asym>(Asym(asym.taskDataPtr(), &_gradAsym, getIdxFunc)));
+    }
+    for (auto &cos : _calcCosPartialTasks)
+    {
+        _updateCosPartialTasks.emplace_back(Task<Cos>(Cos(cos.taskDataPtr(), &_gradCos, getIdxFunc)));
     }
 }
 
