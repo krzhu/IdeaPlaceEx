@@ -67,6 +67,11 @@ void IdeaPlaceEx::readSymNetFile(const std::string &symnetFile)
     WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
     ParserSymNet(_db).read(symnetFile);
 }
+void IdeaPlaceEx::readSigpathFile(const std::string &sigpathFile)
+{
+    WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
+    ParserSignalPath(_db).read(sigpathFile);
+}
 
 bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
 {
@@ -122,7 +127,7 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
     if (_args.sigpathFileIsSet())
     {
         INF("IdeaPlaceEx:%s Read in .sigpath ... \n", __FUNCTION__);
-        ParserSignalPath(_db).read(_args.sigpathFile());
+        readSigpathFile(_args.sigpathFile());
     }
 
 

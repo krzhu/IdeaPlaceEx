@@ -63,6 +63,9 @@ class IdeaPlaceEx
         /// @brief read the symnet file
         /// @param the filename for the symnet file
         void readSymNetFile(const std::string &symnetFile);
+        /// @brief read the sigpath file
+        /// @param the filename for the sigpath file
+        void readSigpathFile(const std::string &sigpathFile);
         /*------------------------------*/ 
         /* paramters                    */
         /*------------------------------*/ 
@@ -104,6 +107,13 @@ class IdeaPlaceEx
             _db.pin(pinIdx).setCellIdx(cellIdx);
             _db.cell(cellIdx).addPin(pinIdx);
             return pinIdx;
+        }
+        /// @brief set the name of a pin
+        /// @param the index of the pin
+        /// @param the name of the pin
+        void setPinName(IndexType pinIdx, const std::string &name)
+        {
+            _db.pin(pinIdx).setName(name);
         }
         /// @brief add pin shape for a pin
         /// @param the index of the pin
@@ -193,8 +203,8 @@ class IdeaPlaceEx
         /// @param first and second: two net indices. The order does not matter
         void addSymNetPair(IndexType netIdx1, IndexType netIdx2)
         {
-            _db.net(netIdx1).setSymNet(netIdx2);
-            _db.net(netIdx2).setSymNet(netIdx1);
+            _db.net(netIdx1).setSymNet(netIdx2, true);
+            _db.net(netIdx2).setSymNet(netIdx1, false);
         }
         /// @brief mark a net as self-symmmetric
         /// @param the net index
