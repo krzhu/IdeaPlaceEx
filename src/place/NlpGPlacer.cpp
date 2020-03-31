@@ -75,8 +75,11 @@ void NlpGPlacerBase::initBoundaryParams()
 void NlpGPlacerBase::initVariables()
 {
     // The number of nlp problem variables
-    _pl.resize(_db.numCells(), 2);
-    _sym.resize(_db.numSymGroups());
+    IntType size = _db.numCells() * 2 + _db.numSymGroups();
+    _pl.resize(size);
+    _plx = std::make_shared<EigenMap>(EigenMap(_pl.data(), _db.numCells()));
+    _ply = std::make_shared<EigenMap>(EigenMap(_pl.data() + _db.numCells(), _db.numCells()));
+    _sym = std::make_shared<EigenMap>(EigenMap(_pl.data() + 2* _db.numCells(), _db.numSymGroups()));
 }
 
 void NlpGPlacerBase::initRandomPlacement()
@@ -88,13 +91,13 @@ void NlpGPlacerBase::initRandomPlacement()
         RealType yRatio = _boundary.yHi() / _db.numCells();
         RealType x = (rand() % _db.numCells() ) * xRatio;
         RealType y = (rand() % _db.numCells() ) * yRatio;
-        _pl(idx, 0) = x;
-        _pl(idx, 1) = y;
+        (*_plx)(idx) = x;
+        (*_ply)(idx) = y;
     }
     // Set symmtry axis to the center
     for (IndexType idx = 0; idx < _db.numSymGroups(); ++idx)
     {
-        _sym(idx) = _defaultSymAxis;
+        (*_sym)(idx) = _defaultSymAxis;
     }
 }
 
@@ -128,16 +131,16 @@ void NlpGPlacerBase::initOperators()
     {
         if (orient == Orient2DType::HORIZONTAL)
         {
-            return _pl(cellIdx, 0);
+            return (*_plx)(cellIdx);
         }
         else if (orient == Orient2DType::VERTICAL)
         {
-            return _pl(cellIdx, 1);
+            return (*_ply)(cellIdx);
         }
         else
         {
 #ifdef MULTI_SYM_GROUP
-            return _syms(cellIdx);
+            return (*_syms)(cellIdx);
 #else
             return _defaultSymAxis;
 #endif
@@ -259,21 +262,21 @@ void NlpGPlacerBase::writeOut()
     RealType minY = 1e10;
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
-        if (_pl(cellIdx, 0) < minX)
+        if ((*_plx)(cellIdx) < minX)
         {
-            minX = _pl(cellIdx, 0);
+            minX = (*_plx)(cellIdx);
         }
-        if (_pl(cellIdx, 1) < minY)
+        if ((*_ply)(cellIdx) < minY)
         {
-            minY = _pl(cellIdx, 1);
+            minY = (*_ply)(cellIdx);
         }
     }
     // Dump the cell locations to database
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         auto & cell = _db.cell(cellIdx);
-        LocType xLo = ::klib::autoRound<LocType>((_pl(cellIdx, 0) - minX) / _scale + _db.parameters().layoutOffset());
-        LocType yLo = ::klib::autoRound<LocType>((_pl(cellIdx, 1) - minY) / _scale + _db.parameters().layoutOffset());
+        LocType xLo = ::klib::autoRound<LocType>(((*_plx)(cellIdx) - minX) / _scale + _db.parameters().layoutOffset());
+        LocType yLo = ::klib::autoRound<LocType>(((*_ply)(cellIdx) - minY) / _scale + _db.parameters().layoutOffset());
         _db.cell(cellIdx).setXLoc(xLo - cell.cellBBox().xLo());
         _db.cell(cellIdx).setYLoc(yLo - cell.cellBBox().yLo());
     }
@@ -435,6 +438,7 @@ void NlpGPlacerBase::constructWrapObjTask()
         _wrapObjOobTask.run();
         _wrapObjAsymTask.run();
         _wrapObjCosTask.run();
+        _sumObjAllTask.run();
     };
     _wrapObjAllTask = Task<FuncTask>(FuncTask(all));
 }

@@ -56,10 +56,11 @@ namespace nlp {
 /// @brief non-linear programming-based analog global placement
 class NlpGPlacerBase
 {
-    protected:
+    public:
         using EigenMatrix = Eigen::Matrix<RealType, Eigen::Dynamic, Eigen::Dynamic>;
         using EigenVector = Eigen::Matrix<RealType, Eigen::Dynamic, 1>;
         using EigenXY = Eigen::Matrix<RealType, Eigen::Dynamic, 2, Eigen::ColMajor>;
+        using EigenMap = Eigen::Map<EigenVector>;
         typedef RealType nlp_coordinate_type;
         typedef RealType nlp_numerical_type;
         typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_hpwl_type;
@@ -174,8 +175,10 @@ class NlpGPlacerBase
         /* NLP optimization kernel memebers */
         stop_condition_type _stopCondition;
         /* Optimization data */
-        EigenXY _pl; ///< The placement solutions
-        EigenVector _sym; ///< The symmetry axis variables
+        EigenVector _pl; ///< The placement solutions
+        std::shared_ptr<EigenMap> _plx; ///< The placement solutions for x coodinates
+        std::shared_ptr<EigenMap> _ply; ///< The placement solutions for y coordinates
+        std::shared_ptr<EigenMap> _sym; ///< The symmetry axis variables
         /* Tasks */
         // Evaluating objectives
         std::vector<Task<EvaObjTask>> _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives
@@ -216,6 +219,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
         NlpGPlacerFirstOrder(Database &db) : NlpGPlacerBase(db) {}
     protected:
 
+#if 0
         /// @brief The tasks for calculating the partials from a operator
         template<typename op_type>
         class CalculateOperatorPartialTask {};
@@ -289,6 +293,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
                 EigenXY *_target;
                 CalculateOperatorPartialTask<nlp_hpwl_type> *_calcTask;
         };
+#endif
     protected:
         EigenXY _grad; ///< The first order graident
 };
