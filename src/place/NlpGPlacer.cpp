@@ -289,7 +289,9 @@ void NlpGPlacerBase::constructObjTasks()
 {
     constructObjectiveCalculationTasks();
     constructSumObjTasks();
+#ifdef DEBUG_SINGLE_THREAD_GP
     constructWrapObjTask();
+#endif
 }
 
 void NlpGPlacerBase::constructObjectiveCalculationTasks()
@@ -460,53 +462,8 @@ void NlpGPlacerBase::constructStopConditionTask()
 
 void NlpGPlacerFirstOrder::optimize()
 {
-    for (auto & calc : _calcHpwlPartialTasks)
-    {
-        calc.run();
-    }
-    for (auto & update : _updateHpwlPartialTasks)
-    {
-        update.run();
-    }
-    std::cout<<"hpwl grad \n"<< _gradHpwl;
-    for (auto & calc : _calcOvlPartialTasks)
-    {
-        calc.run();
-    }
-    for (auto & update : _updateOvlPartialTasks)
-    {
-        update.run();
-    }
-    std::cout<<"ovl grad \n"<< _gradOvl;
-    for (auto & calc : _calcOobPartialTasks)
-    {
-        calc.run();
-    }
-    for (auto & update : _updateOobPartialTasks)
-    {
-        update.run();
-    }
-    std::cout<<"oob grad \n"<< _gradOob;
-    for (auto & calc : _calcAsymPartialTasks)
-    {
-        calc.run();
-    }
-    for (auto & update : _updateAsymPartialTasks)
-    {
-        update.run();
-    }
-    std::cout<<"asym grad \n"<< _gradAsym;
-    for (auto & calc : _calcCosPartialTasks)
-    {
-        calc.run();
-        break;
-    }
-    for (auto & update : _updateCosPartialTasks)
-    {
-        update.run();
-        break;
-    }
-    std::cout<<"asym grad \n"<< _gradCos;
+    _wrapCalcGradTask.run();
+    std::cout<<"overall grad \n" << _grad;
 }
 
 void NlpGPlacerFirstOrder::initProblem()
@@ -540,6 +497,11 @@ void NlpGPlacerFirstOrder::constructFirstOrderTasks()
 {
     constructCalcPartialsTasks();
     constructUpdatePartialsTasks();
+    constructClearGradTasks();
+    constructSumGradTask();
+#ifdef DEBUG_SINGLE_THREAD_GP
+    constructWrapCalcGradTask();
+#endif
 }
 
 void NlpGPlacerFirstOrder::constructCalcPartialsTasks()
@@ -600,5 +562,47 @@ void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
         _updateCosPartialTasks.emplace_back(Task<Cos>(Cos(cos.taskDataPtr(), &_gradCos, getIdxFunc)));
     }
 }
+
+void NlpGPlacerFirstOrder::constructClearGradTasks()
+{
+    _clearGradTask = Task<FuncTask>(FuncTask([&]() { _grad.setZero(); }));
+    _clearHpwlGradTask = Task<FuncTask>(FuncTask([&]() { _gradHpwl.setZero(); }));
+    _clearOvlGradTask = Task<FuncTask>(FuncTask([&]() { _gradOvl.setZero(); }));
+    _clearOobGradTask = Task<FuncTask>(FuncTask([&]() { _gradOob.setZero(); }));
+    _clearAsymGradTask = Task<FuncTask>(FuncTask([&]() { _gradAsym.setZero(); }));
+    _clearCosGradTask = Task<FuncTask>(FuncTask([&]() { _gradCos.setZero(); }));
+}
+
+void NlpGPlacerFirstOrder::constructSumGradTask()
+{
+    _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos; }));
+}
+
+#ifdef DEBUG_SINGLE_THREAD_GP
+void NlpGPlacerFirstOrder::constructWrapCalcGradTask()
+{
+    auto calcGrad = [&]()
+    {
+        _clearGradTask.run();
+        _clearHpwlGradTask.run();
+        _clearOvlGradTask.run();
+        _clearOobGradTask.run();
+        _clearAsymGradTask.run();
+        _clearCosGradTask.run();
+        for (auto & calc : _calcHpwlPartialTasks) { calc.run(); }
+        for (auto & update : _updateHpwlPartialTasks) { update.run(); }
+        for (auto & calc : _calcOvlPartialTasks) { calc.run(); }
+        for (auto & update : _updateOvlPartialTasks) { update.run(); }
+        for (auto & calc : _calcOobPartialTasks) { calc.run(); }
+        for (auto & update : _updateOobPartialTasks) { update.run(); }
+        for (auto & calc : _calcAsymPartialTasks) { calc.run(); }
+        for (auto & update : _updateAsymPartialTasks) { update.run(); }
+        for (auto & calc : _calcCosPartialTasks) { calc.run(); }
+        for (auto & update : _updateCosPartialTasks) { update.run(); }
+        _sumGradTask.run();
+    };
+    _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGrad));
+}
+#endif
 
 PROJECT_NAMESPACE_END

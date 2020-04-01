@@ -286,25 +286,6 @@ namespace nt
             IndexType _numCells;
     };
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
-    {
-        typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
-        static void build(nlp_op_type &op, calc_type &calc)
-        {
-            calc._numCells = op._cells.size(); // dx and dy for each cells
-            calc._partialsX.resize(calc._numCells);
-            calc._partialsY.resize(calc._numCells);
-            calc._inverseCellMap.resize(op._cells.size());
-            for (IndexType idx = 0; idx < op._cells.size(); ++idx)
-            {
-                calc._cellMap[op._cells[idx]] = idx;
-                calc._inverseCellMap[idx] = op._cells[idx];
-            }
-        }
-    };
-
 #ifdef MULTI_SYM_GROUP
     template<typename nlp_numerical_type, typename nlp_coordinate_type>
     class CalculateOperatorPartialTask<diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type>> 
@@ -346,6 +327,26 @@ namespace nt
             IndexType _symGrpIdx;
     };
 #endif
+
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    {
+        typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
+        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
+        static void build(nlp_op_type &op, calc_type &calc)
+        {
+            calc._numCells = op._cells.size(); // dx and dy for each cells
+            calc._partialsX.resize(calc._numCells);
+            calc._partialsY.resize(calc._numCells);
+            calc._inverseCellMap.resize(op._cells.size());
+            for (IndexType idx = 0; idx < op._cells.size(); ++idx)
+            {
+                calc._cellMap[op._cells[idx]] = idx;
+                calc._inverseCellMap[idx] = op._cells[idx];
+            }
+        }
+    };
+
     template<typename nlp_numerical_type, typename nlp_coordinate_type>
     struct calc_operator_partial_build_cellmap_trait<diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
     {
@@ -473,33 +474,16 @@ class NlpGPlacerBase
         /* Output functions */
         void writeOut();
         /* Util functions */
-        IndexType plIdx(IndexType cellIdx, Orient2DType orient) 
-        {
-            if (orient == Orient2DType::HORIZONTAL)
-            {
-                return cellIdx;
-            }
-            else if (orient == Orient2DType::VERTICAL)
-            {
-                return cellIdx + _numCells;
-            }
-            else
-            {
-#ifdef MULTI_SYM_GROUP
-                return cellIdx + 2 *  _numCells; // here cell index representing the idx of sym grp
-#else
-                return 2 * _numCells;
-#endif
-            }
-
-        }
+        IndexType plIdx(IndexType cellIdx, Orient2DType orient);
         /* construct tasks */
         virtual void constructTasks();
         // Obj-related
         void constructObjTasks();
         void constructObjectiveCalculationTasks();
         void constructSumObjTasks();
+#ifdef DEBUG_SINGLE_THREAD_GP
         void constructWrapObjTask();
+#endif
         // Optimization kernel-related
         void constructOptimizationKernelTasks();
         void constructStopConditionTask();
@@ -564,6 +548,26 @@ class NlpGPlacerBase
         std::vector<nlp_cos_type> _cosOps;
 };
 
+inline IndexType NlpGPlacerBase::plIdx(IndexType cellIdx, Orient2DType orient)
+{
+    if (orient == Orient2DType::HORIZONTAL)
+    {
+        return cellIdx;
+    }
+    else if (orient == Orient2DType::VERTICAL)
+    {
+        return cellIdx + _numCells;
+    }
+    else
+    {
+#ifdef MULTI_SYM_GROUP
+        return cellIdx + 2 *  _numCells; // here cell index representing the idx of sym grp
+#else
+        return 2 * _numCells;
+#endif
+    }
+}
+
 /// @brief first-order optimization
 class NlpGPlacerFirstOrder : public NlpGPlacerBase
 {
@@ -574,9 +578,15 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
         virtual void initProblem() override;
         void initFirstOrderGrad();
         /* Construct tasks */
+        virtual void constructTasks() override;
         void constructFirstOrderTasks();
         void constructCalcPartialsTasks();
         void constructUpdatePartialsTasks();
+        void constructClearGradTasks();
+        void constructSumGradTask();
+#ifdef DEBUG_SINGLE_THREAD_GP
+        void constructWrapCalcGradTask();
+#endif
         /* optimization */
         virtual void optimize() override;
 
@@ -589,7 +599,6 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
         EigenVector _gradAsym; ///< The first order gradient of asymmetry objective
         EigenVector _gradCos; ///< The first order gradient of cosine signal path objective
         /* Tasks */
-        virtual void constructTasks() override;
         // Calculate the partials
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_hpwl_type>>> _calcHpwlPartialTasks;
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_ovl_type>>> _calcOvlPartialTasks;
@@ -602,6 +611,18 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_oob_type>>> _updateOobPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_asym_type>>> _updateAsymPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_cos_type>>> _updateCosPartialTasks;
+        // Clear the gradient. Use to clear the _gradxxx records. Needs to call before updating the partials
+        nt::Task<nt::FuncTask> _clearGradTask;
+        nt::Task<nt::FuncTask> _clearHpwlGradTask;
+        nt::Task<nt::FuncTask> _clearOvlGradTask;
+        nt::Task<nt::FuncTask> _clearOobGradTask;
+        nt::Task<nt::FuncTask> _clearAsymGradTask;
+        nt::Task<nt::FuncTask> _clearCosGradTask;
+        // Sum the _grad from individual
+        nt::Task<nt::FuncTask> _sumGradTask;
+#ifdef DEBUG_SINGLE_THREAD_GP
+        nt::Task<nt::FuncTask> _wrapCalcGradTask; ///< For debugging: calculating the gradient and sum them
+#endif
 };
 
 PROJECT_NAMESPACE_END
