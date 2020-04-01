@@ -64,6 +64,16 @@ message(STATUS "Find Lemon: ${LEMON_ROOT_DIR}")
 unset(LEMON_DIR CACHE)
 
 
+# Find cpp_task
+if (CPP_TASKFLOW_DIR)
+    set(CPP_TASKFLOW_ROOT_DIR ${CPP_TASKFLOW_DIR})
+else()
+    set(CPP_TASKFLOW_ROOT_DIR $ENV{CPP_TASKFLOW_DIR})
+endif()
+message(STATUS "Find cpp_taskflow: ${CPP_TASKFLOW_ROOT_DIR}")
+unset(CPP_TASKFLOW_DIR CACHE)
+
+
 # Find Eigen
 if (EIGEN_DIR)
     set(EIGEN_ROOT_DIR ${EIGEN_DIR})
@@ -251,6 +261,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
     ${LEMON_ROOT_DIR}/include
     ${EIGEN_ROOT_DIR}
     ${GUROBI_ROOT_DIR}/include
+    ${CPP_TASKFLOW_ROOT_DIR}
 )
 
 
