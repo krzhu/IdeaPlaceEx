@@ -486,7 +486,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::initProblem()
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::initFirstOrderGrad()
 {
-    const IntType size = base_type::_db.numCells() * 2 + base_type::_db.numSymGroups();
+    const IntType size = this->_db.numCells() * 2 + this->_db.numSymGroups();
     _grad.resize(size);
     _gradHpwl.resize(size);
     _gradOvl.resize(size);
@@ -523,23 +523,23 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
     using Oob = CalculateOperatorPartialTask<nlp_oob_type, EigenVector>;
     using Asym = CalculateOperatorPartialTask<nlp_asym_type, EigenVector>;
     using Cos = CalculateOperatorPartialTask<nlp_cos_type, EigenVector>;
-    for (auto &hpwlOp : base_type::_hpwlOps)
+    for (auto &hpwlOp : this->_hpwlOps)
     {
         _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
     }
-    for (auto &ovlOp : base_type::_ovlOps)
+    for (auto &ovlOp : this->_ovlOps)
     {
         _calcOvlPartialTasks.emplace_back(Task<Ovl>(Ovl(&ovlOp)));
     }
-    for (auto &oobOp : base_type::_oobOps)
+    for (auto &oobOp : this->_oobOps)
     {
         _calcOobPartialTasks.emplace_back(Task<Oob>(Oob(&oobOp)));
     }
-    for (auto &asymOp : base_type::_asymOps)
+    for (auto &asymOp : this->_asymOps)
     {
         _calcAsymPartialTasks.emplace_back(Task<Asym>(Asym(&asymOp)));
     }
-    for (auto &cosOp : base_type::_cosOps)
+    for (auto &cosOp : this->_cosOps)
     {
         _calcCosPartialTasks.emplace_back(Task<Cos>(Cos(&cosOp)));
     }
@@ -553,7 +553,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
     using Oob = UpdateGradientFromPartialTask<nlp_oob_type, EigenVector>;
     using Asym = UpdateGradientFromPartialTask<nlp_asym_type, EigenVector>;
     using Cos = UpdateGradientFromPartialTask<nlp_cos_type, EigenVector>;
-    auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return base_type::plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
+    auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return this->plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
     for (auto &hpwl : _calcHpwlPartialTasks)
     {
         _updateHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(hpwl.taskDataPtr(), &_gradHpwl, getIdxFunc)));
