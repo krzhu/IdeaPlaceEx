@@ -1,6 +1,5 @@
 #include "NlpGPlacer.h"
 #include "place/signalPathMgr.h"
-#include <random>
 
 
 PROJECT_NAMESPACE_BEGIN
@@ -11,7 +10,7 @@ template<typename nlp_settings>
 IntType NlpGPlacerBase<nlp_settings>::solve()
 {
     this->initProblem();
-    this->initRandomPlacement();
+    this->initPlace();
     this->initOperators();
     this->constructTasks();
     this->optimize();
@@ -102,10 +101,10 @@ void NlpGPlacerBase<nlp_settings>::initVariables()
 }
 
 template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::initRandomPlacement()
+void NlpGPlacerBase<nlp_settings>::initPlace()
 {
-    auto initPlace = init_placement_trait::construct(*this);
-    init_placement_trait::initPlacement(initPlace, *this);
+    auto initPlace = init_place_trait::construct(*this);
+    init_place_trait::initPlace(initPlace, *this);
 }
 
 template<typename nlp_settings>
