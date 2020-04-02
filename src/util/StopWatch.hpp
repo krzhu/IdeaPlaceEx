@@ -49,7 +49,7 @@ namespace klib
     {
         public:
             StopWatch(std::uint32_t idx) : _idx(idx) { _count = false; start(); _us = 0; }
-            StopWatch(StopWatch &o) = delete;
+            StopWatch(const StopWatch &o) = delete;
             StopWatch(StopWatch &&o)
                 : _last(std::move(o._last)),  _count(std::move(o._count)), _us(std::move(o._us)), _idx(std::move(o._idx)) {}
             ~StopWatch()
