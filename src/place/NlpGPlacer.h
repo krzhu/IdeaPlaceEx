@@ -9,6 +9,7 @@
 #define IDEAPLACE_NLPGPLACER_H_
 
 #include <Eigen/Dense>
+#include <taskflow/taskflow.hpp>
 #include "db/Database.h"
 #include "place/different.h"
 
@@ -85,8 +86,16 @@ namespace nt
             const task_type &taskData() const { return *_task; } 
             task_type &taskData() { return *_task; }
             std::shared_ptr<task_type> taskDataPtr() { return _task; }
+            void regTask(tf::Taskflow &taskflow)
+            {
+                _tfTask = taskflow.emplace([&](){ this->run(); });
+            }
+            tf::Task &tfTask() { return _tfTask; }
+            template<typename _task_type>
+            void precede(Task<_task_type> &other) { _tfTask.precede(other.tfTask()); }
         private:
             std::shared_ptr<task_type> _task;
+            tf::Task _tfTask; ///< the cpp-taskflow task
     };
 
     /// @brief Evaluating objective tasks
@@ -546,6 +555,8 @@ class NlpGPlacerBase
         std::vector<nlp_oob_type> _oobOps; ///< The cell out of boundary penalty operators 
         std::vector<nlp_asym_type> _asymOps; ///< The asymmetric penalty operators
         std::vector<nlp_cos_type> _cosOps;
+        /* taskflow */
+        tf::Taskflow _taskflow; ///< The taskflow of cpp-taskflow
 };
 
 inline IndexType NlpGPlacerBase::plIdx(IndexType cellIdx, Orient2DType orient)

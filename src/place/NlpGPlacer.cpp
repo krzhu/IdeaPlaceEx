@@ -1,5 +1,6 @@
 #include "NlpGPlacer.h"
 #include "place/signalPathMgr.h"
+#include <chrono>
 
 
 PROJECT_NAMESPACE_BEGIN
@@ -462,8 +463,10 @@ void NlpGPlacerBase::constructStopConditionTask()
 
 void NlpGPlacerFirstOrder::optimize()
 {
-    _wrapCalcGradTask.run();
-    std::cout<<"overall grad \n" << _grad;
+    tf::Executor exe; 
+    _wrapObjAllTask.regTask(_taskflow);
+    _wrapCalcGradTask.regTask(_taskflow);
+    exe.run(_taskflow).wait();
 }
 
 void NlpGPlacerFirstOrder::initProblem()
