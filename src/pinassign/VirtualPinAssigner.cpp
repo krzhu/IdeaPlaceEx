@@ -12,11 +12,17 @@ bool VirtualPinAssigner::solveFromDB()
 #ifdef DEBUG_PINASSIGN
     DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
 #endif
-    reconfigureVirtualPinLocationFromDB();
-    return pinAssignmentFromDB();
+    IndexType iter = 0;
+    reconfigureVirtualPinLocationFromDB(iter);
+    while(! pinAssignmentFromDB())
+    {
+        ++iter;
+        reconfigureVirtualPinLocationFromDB(iter);
+    }
+    return true;
 }
 
-void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
+void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB(IndexType iter)
 {
 #ifdef DEBUG_PINASSIGN
     DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
@@ -27,6 +33,7 @@ void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
         const auto &cell = _db.cell(cellIdx);
         boundary.unionBox(cell.cellBBoxOff());
     }
+    boundary.enlargeBy(iter * _boundary.yLen() / 10);
     reconfigureVirtualPinLocations(boundary);
 }
 
@@ -516,7 +523,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
 
     if (m < ns or 2 * m < ns + na)
     {
-        AssertMsg(false, "Ideaplace: assign IO pins: Not enought pin candidates. Please implement the fixing routine.\n");
         return false;
     }
 

@@ -25,7 +25,7 @@ constexpr RealType NLP_WN_CONJ_ALPHA = 1; ///< "alpha" should be a very small va
 constexpr RealType NLP_WN_CONJ_EXP_DECAY_TARGET = 0.05; ///< The exponential decay facor for global placement step size. 
 constexpr IndexType NLP_WN_CONJ_DEFAULT_MAX_ITER = 20; ///< The default maxmimum iterations for the global placement
 constexpr RealType NLP_WN_CONJ_EPISLON = 200 / NLP_WN_CONJ_DEFAULT_MAX_ITER ;
-constexpr RealType NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE = 0.8; ///< The default extra white space for setting the boundry
+constexpr RealType NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE = 2; ///< The default extra white space for setting the boundry
 constexpr RealType NLP_WN_MAX_PENALTY = 1024;
 constexpr RealType NLP_WN_REDUCE_PENALTY = 512 / NLP_WN_MAX_PENALTY ;
 

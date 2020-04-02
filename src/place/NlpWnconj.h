@@ -177,6 +177,7 @@ class NlpWnconj
         RealType _lambda2; ///< The cofficient for out of boundry penalty
         RealType _lambda3; ///< The coefficient for wire length penalty
         RealType _lambda4; ///< The coefficient for asymmetry penalty
+        RealType _lambda5;
         RealType _maxWhiteSpace;
         RealType _alpha; ///< Used in objective function
         Box<RealType> _boundary; ///< The boundary constraint for the placement
@@ -188,6 +189,7 @@ class NlpWnconj
         RealType _fOOB = 0;
         RealType _fHpwl = 0;
         RealType _fAsym = 0;
+        RealType _fCos = 0;
         RealType _epsilon = NLP_WN_CONJ_EPISLON;///< For updating penalty multipliers
         IndexType _iter = 0; ///< Current iteration
         RealType _tao = 0.5; ///< The exponential decay factor for step size
@@ -235,6 +237,7 @@ inline RealType NlpWnconj::objFunc(RealType *values)
     _fOOB = 0;
     _fHpwl = 0;
     _fAsym = 0;
+    _fCos = 0.0;
     std::vector<nlp_numerical_type> ovl, oob, hpwl, asym, cos;
     ovl.resize(_ovlOps.size());
     oob.resize(_oobOps.size());
@@ -274,8 +277,9 @@ inline RealType NlpWnconj::objFunc(RealType *values)
     _fOOB = std::accumulate(oob.begin(), oob.end(), 0.0);
     _fHpwl = std::accumulate(hpwl.begin(), hpwl.end(), 0.0);
     _fAsym = std::accumulate(asym.begin(), asym.end(), 0.0);
+    _fCos = std::accumulate(cos.begin(), cos.end(), 0.0);
 
-    result = _fOverlap + _fOOB + _fHpwl + _fAsym;
+    result = _fOverlap + _fOOB + _fHpwl + _fAsym + _fCos;
 
 
     return result;

@@ -81,21 +81,20 @@ RealType NlpWnconj::stepSize()
 bool NlpWnconj::updateMultipliers()
 {
     auto mu = stepSize();
-#ifdef DEBUG_GR
-    DBG("\n\niter %d mu %f lambda1 %f lambda2 %f lambda4 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4);
-#endif
-    RealType violate = _fOverlap  + _fOOB + _fAsym + _fHpwl ;
+    RealType violate = _fOverlap  + _fOOB + _fAsym + _fHpwl + _fCos ;
     _lambda1 = _lambda1  + mu * _fOverlap  / violate;
-    _lambda2 = _lambda2 + mu * _fOOB  / violate;
+    //_lambda2 = _lambda2 + mu * _fOOB  / violate;
     _lambda4 = _lambda4 + mu *_fAsym  / violate;
-    if (_lambda1 + _lambda2 + _lambda4 > NLP_WN_MAX_PENALTY)
+    _lambda5 = _lambda5 + mu * _fCos / violate;
+    if (_lambda1 + _lambda2 + _lambda4 + _lambda5 > NLP_WN_MAX_PENALTY)
     {
         _lambda1 *= NLP_WN_REDUCE_PENALTY;
         _lambda2 *= NLP_WN_REDUCE_PENALTY;
         _lambda4 *= NLP_WN_REDUCE_PENALTY;
+        _lambda5 *= NLP_WN_REDUCE_PENALTY;
     }
 #ifdef DEBUG_GR
-    DBG("\n\niter %d after mu %f lambda1 %f lambda2 %f lambda4 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4);
+    DBG("\n\niter %d after mu %f lambda1 %f lambda2 %f lambda4 %f lambda5 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4, _lambda5);
 #endif
     return false;
 }
@@ -141,6 +140,8 @@ bool NlpWnconj::updateMultipliers2()
     {
         alignSym();
     }
+    _lambda5 *= 0.75;
+    DBG("fcos %f violate %f \n", _fCos, violate);
     if (_lambda1 + _lambda2 + _lambda4 > NLP_WN_MAX_PENALTY)
     {
         //_lambda1 /= 2; 
@@ -151,7 +152,7 @@ bool NlpWnconj::updateMultipliers2()
         _lambda4 *= NLP_WN_REDUCE_PENALTY;
     }
 #ifdef DEBUG_GR
-    DBG("\n\niter %d after mu %f lambda1 %f lambda2 %f lambda4 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4);
+    DBG("\n\niter %d after mu %f lambda1 %f lambda2 %f lambda4 %f lambda5 %f\n", _iter, mu,  _lambda1, _lambda2, _lambda4, _lambda5);
 #endif
 
     // Break if all criterials are met
@@ -216,23 +217,13 @@ bool NlpWnconj::initVars()
 
     // The penalty coefficients
     _lambda1 = LAMBDA_1Init;
-    _lambda2 = LAMBDA_2Init;
+    _lambda2 = 0.00000001;
     _lambda3 = LAMBDA_3Init;
     _lambda4 = LAMBDA_4Init;
+    _lambda5 = 220;
 
     // max white space
     _maxWhiteSpace = NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE;
-
-    if (_toughModel)
-    {
-        INF("NLP global placement: trying hard mode \n");
-        _lambda1 = 4;
-        _lambda2 = 1;
-        _lambda3 = 4;
-        _lambda4 = 32;
-        _maxWhiteSpace = 8;
-        _maxIter = 48;
-    }
 
     // Other static variables
     _alpha = NLP_WN_CONJ_ALPHA;
@@ -255,8 +246,17 @@ bool NlpWnconj::initVars()
     }
     else
     {
+        IndexType numSyms = 0;
+        for (const auto &symGrp : _db.symGrps())
+        {
+            numSyms += symGrp.numSelfSyms();
+        }
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
         RealType aspectRatio = 0.85;
+        if (numSyms > 10)
+        {
+            aspectRatio = 0.5;
+        }
         RealType xLo = 0; RealType yLo = 0; 
         RealType tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
         RealType xHi = std::sqrt(tolerentArea * aspectRatio);
@@ -385,21 +385,10 @@ bool NlpWnconj::nlpKernel()
             DBG("cell %d x %f y %f \n", cellIdx, _solutionVect[cellIdx * 2], _solutionVect[cellIdx *2 + 1]);
         }
 #endif
-        if (_toughModel)
+        if (updateMultipliers2())
         {
-            if (updateMultipliers2())
-            {
-                INF("Global placement terminates \n");
-                break;
-            }
-        }
-        else
-        {
-            if (updateMultipliers2())
-            {
-                INF("Global placement terminates \n");
-                break;
-            }
+            INF("Global placement terminates \n");
+            break;
         }
         RealType objective = objFunc(_solutionVect);
 #ifdef DEBUG_GR
@@ -432,7 +421,7 @@ void NlpWnconj::initOperators()
     {
         return _lambda4;
     };
-    auto getLambdaCosineFunc = []() { return 64; };
+    auto getLambdaCosineFunc = [&]() { return _lambda5; };
 
     auto calculatePinOffset = [&](IndexType pinIdx)
     {
@@ -517,6 +506,7 @@ void NlpWnconj::initOperators()
     SigPathMgr pathMgr(_db);
     for (const auto &seg : pathMgr.vSegList())
     {
+        _lambda3 = 4;
         IndexType sPinIdx = seg.beginPinFirstSeg();
         IndexType midPinIdxA = seg.endPinFirstSeg();
         IndexType midPinIdxB = seg.beginPinSecondSeg();
