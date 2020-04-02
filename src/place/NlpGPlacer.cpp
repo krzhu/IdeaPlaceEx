@@ -1,6 +1,5 @@
 #include "NlpGPlacer.h"
 #include "place/signalPathMgr.h"
-#include <chrono>
 
 
 PROJECT_NAMESPACE_BEGIN
