@@ -168,7 +168,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     ProximityMgr proximityMgr(_db);
     proximityMgr.applyProximityWithDummyNets();
 
-    NlpGPlacerFirstOrder placer(_db);
+    NlpGPlacerFirstOrder<nlp::nlp_default_settings> placer(_db);
     placer.solve();
     exit(0);
 

@@ -1,45 +1,52 @@
 #include "NlpGPlacer.h"
 #include "place/signalPathMgr.h"
+#include <random>
 
 
 PROJECT_NAMESPACE_BEGIN
 
 using namespace nt;
 
-IntType NlpGPlacerBase::solve()
+template<typename nlp_settings>
+IntType NlpGPlacerBase<nlp_settings>::solve()
 {
-    initProblem();
-    initRandomPlacement();
-    initOperators();
-    constructTasks();
-    optimize();
+    this->initProblem();
+    this->initRandomPlacement();
+    this->initOperators();
+    this->constructTasks();
+    this->optimize();
     return 0;
 }
 
-void NlpGPlacerBase::optimize()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::optimize()
 {
     _wrapObjAllTask.run();
     DBG("obj: %f %f %f %f %f %f \n", _obj, _objHpwl, _objOvl, _objOob, _objAsym, _objCos);
 }
 
-void NlpGPlacerBase::initOptimizationKernelMembers()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::initOptimizationKernelMembers()
 {
     _stopCondition = stop_condition_trait::construct(*this);
 }
 
-void NlpGPlacerBase::initProblem()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::initProblem()
 {
     initHyperParams();
     initBoundaryParams();
     initVariables();
 }
 
-void NlpGPlacerBase::initHyperParams()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::initHyperParams()
 {
     _alpha = NLP_WN_CONJ_ALPHA;
 }
 
-void NlpGPlacerBase::initBoundaryParams()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::initBoundaryParams()
 {
     auto maxWhiteSpace = _db.parameters().maxWhiteSpace();
     // Total cell area
@@ -61,11 +68,10 @@ void NlpGPlacerBase::initBoundaryParams()
     {
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
         RealType aspectRatio = 0.85;
-        RealType xLo = 0; RealType yLo = 0; 
-        RealType tolerentArea = _totalCellArea * (1 + maxWhiteSpace);
-        RealType xHi = std::sqrt(tolerentArea * aspectRatio);
-        RealType yHi = tolerentArea / xHi;
-        _boundary.set(xLo , yLo , xHi , yHi );
+        const RealType tolerentArea = _totalCellArea * (1 + maxWhiteSpace);
+        const RealType xLen = std::sqrt(tolerentArea * aspectRatio);
+        const RealType yLen= tolerentArea / xLen;
+        _boundary.set(-xLen  / 2 , - yLen / 2 , xLen / 2 , yLen / 2 );
         INF("NlpWnconj::%s: automatical set boundary to be %s \n", __FUNCTION__, _boundary.toStr().c_str());
     }
 
@@ -80,7 +86,8 @@ void NlpGPlacerBase::initBoundaryParams()
     _defaultSymAxis = (_boundary.xLo() + _boundary.xHi()) / 2;
 }
 
-void NlpGPlacerBase::initVariables()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::initVariables()
 {
     // The number of nlp problem variables
     _numCells = _db.numCells();
@@ -94,26 +101,15 @@ void NlpGPlacerBase::initVariables()
 #endif
 }
 
-void NlpGPlacerBase::initRandomPlacement()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::initRandomPlacement()
 {
-    srand(6); //just a arbitary number
-    for (IndexType idx = 0; idx < _db.numCells(); ++idx)
-    {
-        RealType xRatio = _boundary.xHi() / _db.numCells();
-        RealType yRatio = _boundary.yHi() / _db.numCells();
-        RealType x = (rand() % _db.numCells() ) * xRatio;
-        RealType y = (rand() % _db.numCells() ) * yRatio;
-        (*_plx)(idx) = x;
-        (*_ply)(idx) = y;
-    }
-    // Set symmtry axis to the center
-    for (IndexType idx = 0; idx < _db.numSymGroups(); ++idx)
-    {
-        (*_sym)(idx) = _defaultSymAxis;
-    }
+    auto initPlace = init_placement_trait::construct(*this);
+    init_placement_trait::initPlacement(initPlace, *this);
 }
 
-void NlpGPlacerBase::initOperators()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::initOperators()
 {
     auto getAlphaFunc = [&]()
     {
@@ -252,7 +248,8 @@ void NlpGPlacerBase::initOperators()
 }
 
 
-void NlpGPlacerBase::writeOut()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::writeOut()
 {
     // find the min value
     RealType minX =1e10; 
@@ -279,13 +276,15 @@ void NlpGPlacerBase::writeOut()
     }
 }
 
-void NlpGPlacerBase::constructTasks()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::constructTasks()
 {
     constructObjTasks();
     constructStopConditionTask();
 }
 
-void NlpGPlacerBase::constructObjTasks()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::constructObjTasks()
 {
     constructObjectiveCalculationTasks();
     constructSumObjTasks();
@@ -294,8 +293,10 @@ void NlpGPlacerBase::constructObjTasks()
 #endif
 }
 
-void NlpGPlacerBase::constructObjectiveCalculationTasks()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::constructObjectiveCalculationTasks()
 {
+    using EvaObjTask = EvaObjTask<nlp_numerical_type>;
     for (const auto &hpwl : _hpwlOps)
     {
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_hpwl_type>::evaluate(hpwl);};
@@ -323,7 +324,8 @@ void NlpGPlacerBase::constructObjectiveCalculationTasks()
     }
 }
 
-void NlpGPlacerBase::constructSumObjTasks()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
 {
     auto hpwl = [&]() 
     {
@@ -383,7 +385,8 @@ void NlpGPlacerBase::constructSumObjTasks()
 }
 
 #ifdef DEBUG_SINGLE_THREAD_GP
-void NlpGPlacerBase::constructWrapObjTask()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
 {
     auto hpwl = [&]()
     {
@@ -443,12 +446,14 @@ void NlpGPlacerBase::constructWrapObjTask()
 }
 #endif //DEBUG_SINGLE_THREAD_GP
 
-void NlpGPlacerBase::constructOptimizationKernelTasks()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::constructOptimizationKernelTasks()
 {
     constructStopConditionTask();
 }
 
-void NlpGPlacerBase::constructStopConditionTask()
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::constructStopConditionTask()
 {
     auto stopCondition = [&]()
     {
@@ -460,26 +465,29 @@ void NlpGPlacerBase::constructStopConditionTask()
 
 /* FirstOrder */
 
-void NlpGPlacerFirstOrder::optimize()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::optimize()
 {
     tf::Executor exe; 
-    _wrapObjAllTask.regTask(_taskflow);
-    _wrapCalcGradTask.regTask(_taskflow);
-    exe.run(_taskflow).wait();
+    this->_wrapObjAllTask.regTask(this->_taskflow);
+    this->_wrapCalcGradTask.regTask(this->_taskflow);
+    exe.run(this->_taskflow).wait();
+    std::cout<<this->_pl <<std::endl;
 }
 
-void NlpGPlacerFirstOrder::initProblem()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::initProblem()
 {
-    initHyperParams();
-    initBoundaryParams();
-    initVariables();
-    initFirstOrderGrad();
+    this->initHyperParams();
+    this->initBoundaryParams();
+    this->initVariables();
+    this->initFirstOrderGrad();
 }
 
-void NlpGPlacerFirstOrder::initFirstOrderGrad()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::initFirstOrderGrad()
 {
-    _numCells = _db.numCells();
-    IntType size = _db.numCells() * 2 + _db.numSymGroups();
+    const IntType size = base_type::_db.numCells() * 2 + base_type::_db.numSymGroups();
     _grad.resize(size);
     _gradHpwl.resize(size);
     _gradOvl.resize(size);
@@ -488,14 +496,16 @@ void NlpGPlacerFirstOrder::initFirstOrderGrad()
     _gradCos.resize(size);
 }
 
-void NlpGPlacerFirstOrder::constructTasks()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::constructTasks()
 {
-    constructObjTasks();
-    constructStopConditionTask();
+    this->constructObjTasks();
+    this->constructStopConditionTask();
     constructFirstOrderTasks();
 }
 
-void NlpGPlacerFirstOrder::constructFirstOrderTasks()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::constructFirstOrderTasks()
 {
     constructCalcPartialsTasks();
     constructUpdatePartialsTasks();
@@ -506,43 +516,45 @@ void NlpGPlacerFirstOrder::constructFirstOrderTasks()
 #endif
 }
 
-void NlpGPlacerFirstOrder::constructCalcPartialsTasks()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
 {
-    using Hpwl = CalculateOperatorPartialTask<nlp_hpwl_type>;
-    using Ovl = CalculateOperatorPartialTask<nlp_ovl_type>;
-    using Oob = CalculateOperatorPartialTask<nlp_oob_type>;
-    using Asym = CalculateOperatorPartialTask<nlp_asym_type>;
-    using Cos = CalculateOperatorPartialTask<nlp_cos_type>;
-    for (auto &hpwlOp : _hpwlOps)
+    using Hpwl = CalculateOperatorPartialTask<nlp_hpwl_type, EigenVector>;
+    using Ovl = CalculateOperatorPartialTask<nlp_ovl_type, EigenVector>;
+    using Oob = CalculateOperatorPartialTask<nlp_oob_type, EigenVector>;
+    using Asym = CalculateOperatorPartialTask<nlp_asym_type, EigenVector>;
+    using Cos = CalculateOperatorPartialTask<nlp_cos_type, EigenVector>;
+    for (auto &hpwlOp : base_type::_hpwlOps)
     {
         _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
     }
-    for (auto &ovlOp : _ovlOps)
+    for (auto &ovlOp : base_type::_ovlOps)
     {
         _calcOvlPartialTasks.emplace_back(Task<Ovl>(Ovl(&ovlOp)));
     }
-    for (auto &oobOp : _oobOps)
+    for (auto &oobOp : base_type::_oobOps)
     {
         _calcOobPartialTasks.emplace_back(Task<Oob>(Oob(&oobOp)));
     }
-    for (auto &asymOp : _asymOps)
+    for (auto &asymOp : base_type::_asymOps)
     {
         _calcAsymPartialTasks.emplace_back(Task<Asym>(Asym(&asymOp)));
     }
-    for (auto &cosOp : _cosOps)
+    for (auto &cosOp : base_type::_cosOps)
     {
         _calcCosPartialTasks.emplace_back(Task<Cos>(Cos(&cosOp)));
     }
 }
 
-void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
 {
-    using Hpwl = UpdateGradientFromPartialTask<nlp_hpwl_type>;
-    using Ovl = UpdateGradientFromPartialTask<nlp_ovl_type>;
-    using Oob = UpdateGradientFromPartialTask<nlp_oob_type>;
-    using Asym = UpdateGradientFromPartialTask<nlp_asym_type>;
-    using Cos = UpdateGradientFromPartialTask<nlp_cos_type>;
-    auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
+    using Hpwl = UpdateGradientFromPartialTask<nlp_hpwl_type, EigenVector>;
+    using Ovl = UpdateGradientFromPartialTask<nlp_ovl_type, EigenVector>;
+    using Oob = UpdateGradientFromPartialTask<nlp_oob_type, EigenVector>;
+    using Asym = UpdateGradientFromPartialTask<nlp_asym_type, EigenVector>;
+    using Cos = UpdateGradientFromPartialTask<nlp_cos_type, EigenVector>;
+    auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return base_type::plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
     for (auto &hpwl : _calcHpwlPartialTasks)
     {
         _updateHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(hpwl.taskDataPtr(), &_gradHpwl, getIdxFunc)));
@@ -565,7 +577,8 @@ void NlpGPlacerFirstOrder::constructUpdatePartialsTasks()
     }
 }
 
-void NlpGPlacerFirstOrder::constructClearGradTasks()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::constructClearGradTasks()
 {
     _clearGradTask = Task<FuncTask>(FuncTask([&]() { _grad.setZero(); }));
     _clearHpwlGradTask = Task<FuncTask>(FuncTask([&]() { _gradHpwl.setZero(); }));
@@ -575,13 +588,15 @@ void NlpGPlacerFirstOrder::constructClearGradTasks()
     _clearCosGradTask = Task<FuncTask>(FuncTask([&]() { _gradCos.setZero(); }));
 }
 
-void NlpGPlacerFirstOrder::constructSumGradTask()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask()
 {
     _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos; }));
 }
 
 #ifdef DEBUG_SINGLE_THREAD_GP
-void NlpGPlacerFirstOrder::constructWrapCalcGradTask()
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
 {
     auto calcGrad = [&]()
     {
@@ -606,5 +621,10 @@ void NlpGPlacerFirstOrder::constructWrapCalcGradTask()
     _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGrad));
 }
 #endif
+
+
+// declare the default settings for linking
+template class NlpGPlacerBase<nlp::nlp_default_settings>;
+template class NlpGPlacerFirstOrder<nlp::nlp_default_settings>;
 
 PROJECT_NAMESPACE_END

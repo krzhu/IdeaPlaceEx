@@ -17,6 +17,8 @@ PROJECT_NAMESPACE_BEGIN
 
 namespace nlp {
 
+    /* for base */
+    /* Stop outer problem condition */
     template<typename T>
     struct stop_condition_trait 
     {
@@ -27,7 +29,7 @@ namespace nlp {
     /// @brief stop condition with number of iterations
     struct stop_after_num_outer_iterations
     {
-        IntType maxIter = 20;
+        static constexpr IntType maxIter = 20;
         IntType curIter = 0;
     };
     
@@ -49,12 +51,68 @@ namespace nlp {
         }
     };
 
-    struct nlp_parameters
+    /* Initial placement */
+    template<typename T>
+    struct init_placement_trait
     {
-        typedef stop_after_num_outer_iterations stop_condition_type;
+        // static T construct(NlpType &)
+        // static void initPlacement(T&, NlpType &)
     };
 
-    struct nlp_types
+    // @brief random spread among the boundary. With grid of number of cells
+    struct init_random_placement_with_number_of_cells_uniform_distribution
+    {
+        static constexpr RealType range = 0.8; ///< Distrubute the location into range ratio of the boundary
+    };
+
+    template<>
+    struct init_placement_trait<init_random_placement_with_number_of_cells_uniform_distribution>
+    {
+        typedef init_random_placement_with_number_of_cells_uniform_distribution T;
+        template<typename NlpType>
+        static T construct(NlpType &) { return T(); }
+        template<typename NlpType>
+        static void initPlacement(T &, NlpType &nlp)
+        {
+            using coord_type = typename NlpType::nlp_coordinate_type;
+            const auto xCenter = (nlp._boundary.xLo() + nlp._boundary.xHi()) / 2;
+            const auto yCenter = (nlp._boundary.yLo() + nlp._boundary.yHi()) / 2;
+            XY<coord_type> initLoc(xCenter, yCenter);
+            const IndexType numCells = nlp._db.numCells();
+            for (IndexType cellIdx = 0; cellIdx < numCells; ++cellIdx)
+            {
+                const auto xIdx = nlp.plIdx(cellIdx, Orient2DType::HORIZONTAL);
+                const auto yIdx = nlp.plIdx(cellIdx, Orient2DType::HORIZONTAL);
+                const IntType ranx = rand() % numCells;
+                const IntType rany = rand() % numCells;
+                const IntType adjustx =  ranx - numCells / 2;
+                const IntType adjusty =  rany - numCells / 2;
+                const auto ranfx = static_cast<RealType>(adjustx);
+                const auto ranfy = static_cast<RealType>(adjusty);
+                const auto locx = ranfx * T::range + xCenter;
+                const auto locy = ranfy * T::range + xCenter;
+                nlp._pl(xIdx) = locx;
+                nlp._pl(yIdx) = locy;
+            }
+        }
+    };
+
+    struct nlp_default_hyperparamters
+    {
+        static constexpr RealType init_random_placement_center_ratio = 0.5; ///< Try to ,1
+    };
+
+    struct nlp_default_zero_order_algorithms
+    {
+        typedef stop_after_num_outer_iterations stop_condition_type;
+        typedef init_random_placement_with_number_of_cells_uniform_distribution init_place_type;
+    };
+
+    struct nlp_default_first_order_algorithms
+    {
+    };
+
+    struct nlp_default_types
     {
         typedef Eigen::Matrix<RealType, Eigen::Dynamic, Eigen::Dynamic> EigenMatrix;
         typedef Eigen::Matrix<RealType, Eigen::Dynamic, 1> EigenVector;
@@ -67,6 +125,14 @@ namespace nlp {
         typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_asym_type;
         typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_cos_type;
 
+    };
+
+    struct nlp_default_settings
+    {
+        typedef nlp_default_zero_order_algorithms nlp_zero_order_algorithms_type;
+        typedef nlp_default_first_order_algorithms nlp_first_order_algorithms_type;
+        typedef nlp_default_hyperparamters nlp_hyperparamters_type;
+        typedef nlp_default_types nlp_types_type;
     };
 
 
@@ -99,9 +165,9 @@ namespace nt
     };
 
     /// @brief Evaluating objective tasks
+    template<typename nlp_numerical_type>
     class EvaObjTask
     {
-        typedef nlp::nlp_types::nlp_numerical_type nlp_numerical_type;
         public:
             EvaObjTask(const std::function<nlp_numerical_type(void)> &func) : _evaFunc(func) {}
             EvaObjTask(const EvaObjTask & other) { _evaFunc = other._evaFunc; }
@@ -140,25 +206,25 @@ namespace nt
 
     /// @brief The tasks for calculating the partials from a operator.
     /// @tparam the differentiable operator type
-    template<typename op_type>
+    template<typename op_type, typename eigen_vector_type>
     class CalculateOperatorPartialTask;
 
     // @brief The tasks for transfer from CalculateOperatorPartialTask to a target matrix
-    template<typename nlp_op_type>
+    template<typename nlp_op_type, typename eigen_vector_type>
     class UpdateGradientFromPartialTask
     {
         typedef typename nlp_op_type::numerical_type nlp_numerical_type;
         typedef typename nlp_op_type::coordinate_type nlp_coordiante_type;
-        typedef nlp::nlp_types::EigenVector EigenVector;
+        typedef eigen_vector_type EigenVector;
         public:
             UpdateGradientFromPartialTask() = delete;
-            UpdateGradientFromPartialTask(const UpdateGradientFromPartialTask<nlp_op_type> &other)  = delete;
-            UpdateGradientFromPartialTask(UpdateGradientFromPartialTask<nlp_op_type> &other)  = delete;
-            UpdateGradientFromPartialTask(UpdateGradientFromPartialTask<nlp_op_type> &&other)
+            UpdateGradientFromPartialTask(const UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type> &other)  = delete;
+            UpdateGradientFromPartialTask(UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type> &other)  = delete;
+            UpdateGradientFromPartialTask(UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type> &&other)
                 : _calcTask(std::move(other._calcTask)), _target(std::move(other._target)), _idxFunc(std::move(other._idxFunc))
             {
             }
-            UpdateGradientFromPartialTask(std::shared_ptr<CalculateOperatorPartialTask<nlp_op_type>> calcTask, EigenVector *target,
+            UpdateGradientFromPartialTask(std::shared_ptr<CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type>> calcTask, EigenVector *target,
                     const std::function<IndexType(IndexType, Orient2DType)> &idxFunc) 
             { 
                 _calcTask = calcTask; 
@@ -175,26 +241,26 @@ namespace nt
                 }
             }
         private:
-            std::shared_ptr<CalculateOperatorPartialTask<nlp_op_type>> _calcTask;
+            std::shared_ptr<CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type>> _calcTask;
             EigenVector *_target;
             std::function<IndexType(IndexType, Orient2DType)> _idxFunc; //< convert cell idx to eigen vector idx
     };
 
 #ifdef MULTI_SYM_GROUP
-    template<typename nlp_numerical_type, typename nlp_coordinate_type>
-    class UpdateGradientFromPartialTask<diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
+    class UpdateGradientFromPartialTask<diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
     {
         typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef nlp::nlp_types::EigenVector EigenVector;
+        typedef eigen_vector_type EigenVector;
         public:
             UpdateGradientFromPartialTask() {}
-            UpdateGradientFromPartialTask(const UpdateGradientFromPartialTask<nlp_op_type> &other)  = delete;
-            UpdateGradientFromPartialTask(UpdateGradientFromPartialTask<nlp_op_type> &other)  = delete;
-            UpdateGradientFromPartialTask(UpdateGradientFromPartialTask<nlp_op_type> &&other)
+            UpdateGradientFromPartialTask(const UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type> &other)  = delete;
+            UpdateGradientFromPartialTask(UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type> &other)  = delete;
+            UpdateGradientFromPartialTask(UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type> &&other)
                 : _calcTask(std::move(other._calcTask)), _target(std::move(other._target)), _idxFunc(std::move(other._idxFunc))
             {
             }
-            UpdateGradientFromPartialTask(std::shared_ptr<CalculateOperatorPartialTask<nlp_op_type>> calcTask, EigenVector *target,
+            UpdateGradientFromPartialTask(std::shared_ptr<CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type>> calcTask, EigenVector *target,
                     const std::function<IndexType(IndexType, Orient2DType)> &idxFunc) 
             { 
                 _calcTask = calcTask; 
@@ -212,7 +278,7 @@ namespace nt
                 (*task._target)(task._idxFunc(task._calcTask->_symGrpIdx, Orient2DType::HORIZONTAL)) = task._calcTask->_partialsX(idx);
             }
         private:
-            std::shared_ptr<CalculateOperatorPartialTask<nlp_op_type>> _calcTask;
+            std::shared_ptr<CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type>> _calcTask;
             EigenVector *_target;
             std::function<IndexType(IndexType, Orient2DType)> _idxFunc; //< convert cell idx to eigen vector idx
     };
@@ -220,24 +286,24 @@ namespace nt
 
     /// @brief trait template for building the _cellMap and _inverseCellMap from the different types opeartor. This template need partial specification.
     /// @tparam the differentiable operator type
-    template<typename op_type>
+    template<typename op_type, typename eigen_vector_type>
     struct calc_operator_partial_build_cellmap_trait 
     {
         typedef op_type nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
+        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
         static void build(op_type *, calc_type *) {}
     };
 
 
-    template<typename op_type>
+    template<typename op_type, typename eigen_vector_type>
     class CalculateOperatorPartialTask
     {
         typedef op_type nlp_op_type;
         typedef typename nlp_op_type::numerical_type nlp_numerical_type;
         typedef typename nlp_op_type::coordinate_type nlp_coordiante_type;
-        typedef nlp::nlp_types::EigenVector EigenVector;
-        friend UpdateGradientFromPartialTask<nlp_op_type>;
-        friend calc_operator_partial_build_cellmap_trait<nlp_op_type>;
+        typedef eigen_vector_type EigenVector;
+        friend UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type>;
+        friend calc_operator_partial_build_cellmap_trait<nlp_op_type, eigen_vector_type>;
         static constexpr IntType MAX_NUM_CELLS = IDEAPLACE_DEFAULT_MAX_NUM_CELLS;
         public:
             CalculateOperatorPartialTask() = delete;
@@ -253,7 +319,7 @@ namespace nt
             { 
                 _op = op; 
                 // Use this trait to speficify different number of cells for different operators
-                calc_operator_partial_build_cellmap_trait<nlp_op_type>::build(*op, *this); 
+                calc_operator_partial_build_cellmap_trait<nlp_op_type, eigen_vector_type>::build(*op, *this); 
                 clear();
                 setAccumulateGradFunc();
             }
@@ -296,16 +362,16 @@ namespace nt
     };
 
 #ifdef MULTI_SYM_GROUP
-    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
     class CalculateOperatorPartialTask<diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type>> 
     : public CalculateOperatorPartialTask<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
     {
         typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef nlp::nlp_types::EigenVector EigenVector;
-        friend UpdateGradientFromPartialTask<nlp_op_type>;
-        friend calc_operator_partial_build_cellmap_trait<nlp_op_type>;
+        typedef eigen_vector_type EigenVector;
+        friend UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type>;
+        friend calc_operator_partial_build_cellmap_trait<nlp_op_type, eigen_vector_type>;
         static constexpr IntType MAX_NUM_CELLS = IDEAPLACE_DEFAULT_MAX_NUM_CELLS;
-        typedef CalculateOperatorPartialTask<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>> base_type;
+        typedef CalculateOperatorPartialTask<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type> base_type;
         public:
             virtual void accumatePartial(nlp_numerical_type num, IndexType cellIdx, Orient2DType orient)
             {
@@ -337,11 +403,11 @@ namespace nt
     };
 #endif
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
     {
         typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
+        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = op._cells.size(); // dx and dy for each cells
@@ -356,11 +422,11 @@ namespace nt
         }
     };
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
     {
         typedef diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
+        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = 2; // Always have exactly two cells
@@ -374,11 +440,11 @@ namespace nt
         }
     };
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
     {
         typedef diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
+        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = 1; // Always have exactly two cells
@@ -391,11 +457,11 @@ namespace nt
     };
 
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
     {
         typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
+        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = op._pairCells.size() * 2 + op._selfSymCells.size(); // Always have exactly two cells
@@ -424,11 +490,11 @@ namespace nt
         }
     };
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
     {
         typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type> calc_type;
+        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = 3; // Always have exactly two cells
@@ -448,24 +514,32 @@ namespace nt
 }// namespace nt
 
 /// @brief non-linear programming-based analog global placement
+template<typename nlp_settings>
 class NlpGPlacerBase
 {
     public:
-        typedef nlp::nlp_types::EigenMatrix EigenMatrix;
-        typedef nlp::nlp_types::EigenVector EigenVector;
-        typedef nlp::nlp_types::EigenMap EigenMap;
-        typedef nlp::nlp_types::nlp_coordinate_type nlp_coordinate_type;
-        typedef nlp::nlp_types::nlp_numerical_type nlp_numerical_type;
-        typedef nlp::nlp_types::nlp_hpwl_type nlp_hpwl_type;
-        typedef nlp::nlp_types::nlp_ovl_type nlp_ovl_type;
-        typedef nlp::nlp_types::nlp_oob_type nlp_oob_type;
-        typedef nlp::nlp_types::nlp_asym_type nlp_asym_type;
-        typedef nlp::nlp_types::nlp_cos_type nlp_cos_type;
+        typedef typename nlp_settings::nlp_types_type nlp_types;
+        typedef typename nlp_settings::nlp_zero_order_algorithms_type nlp_zero_order_algorithms;
+        typedef typename nlp_settings::nlp_hyperparamters_type nlp_hyperparamters;
 
-        /* parameters */
-        typedef nlp::nlp_parameters::stop_condition_type stop_condition_type;
+        typedef typename nlp_types::EigenMatrix EigenMatrix;
+        typedef typename nlp_types::EigenVector EigenVector;
+        typedef typename nlp_types::EigenMap EigenMap;
+        typedef typename nlp_types::nlp_coordinate_type nlp_coordinate_type;
+        typedef typename nlp_types::nlp_numerical_type nlp_numerical_type;
+        typedef typename nlp_types::nlp_hpwl_type nlp_hpwl_type;
+        typedef typename nlp_types::nlp_ovl_type nlp_ovl_type;
+        typedef typename nlp_types::nlp_oob_type nlp_oob_type;
+        typedef typename nlp_types::nlp_asym_type nlp_asym_type;
+        typedef typename nlp_types::nlp_cos_type nlp_cos_type;
+
+        /* algorithms */
+        typedef typename nlp_zero_order_algorithms::stop_condition_type stop_condition_type;
         typedef nlp::stop_condition_trait<stop_condition_type> stop_condition_trait;
         friend stop_condition_trait;
+        typedef typename nlp_zero_order_algorithms::init_place_type init_placement_type;
+        typedef nlp::init_placement_trait<init_placement_type> init_placement_trait;
+        friend init_placement_trait;
     
     public:
         explicit NlpGPlacerBase(Database &db) : _db(db) {}
@@ -526,11 +600,11 @@ class NlpGPlacerBase
         std::shared_ptr<EigenMap> _sym; ///< The symmetry axis variables
         /* Tasks */
         // Evaluating objectives
-        std::vector<nt::Task<nt::EvaObjTask>> _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives
-        std::vector<nt::Task<nt::EvaObjTask>> _evaOvlTasks; ///< The tasks for evaluating overlap objectives
-        std::vector<nt::Task<nt::EvaObjTask>> _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
-        std::vector<nt::Task<nt::EvaObjTask>> _evaAsymTasks;  ///< The tasks for evaluating asymmetry objectives
-        std::vector<nt::Task<nt::EvaObjTask>> _evaCosTasks;  ///< The tasks for evaluating signal path objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOvlTasks; ///< The tasks for evaluating overlap objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaAsymTasks;  ///< The tasks for evaluating asymmetry objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCosTasks;  ///< The tasks for evaluating signal path objectives
         // Sum the objectives
         nt::Task<nt::FuncTask> _sumObjHpwlTask; ///< The task for summing hpwl objective
         nt::Task<nt::FuncTask> _sumObjOvlTask; ///< The task for summing the overlapping objective
@@ -559,7 +633,8 @@ class NlpGPlacerBase
         tf::Taskflow _taskflow; ///< The taskflow of cpp-taskflow
 };
 
-inline IndexType NlpGPlacerBase::plIdx(IndexType cellIdx, Orient2DType orient)
+template<typename nlp_settings>
+inline IndexType NlpGPlacerBase<nlp_settings>::plIdx(IndexType cellIdx, Orient2DType orient)
 {
     if (orient == Orient2DType::HORIZONTAL)
     {
@@ -580,10 +655,20 @@ inline IndexType NlpGPlacerBase::plIdx(IndexType cellIdx, Orient2DType orient)
 }
 
 /// @brief first-order optimization
-class NlpGPlacerFirstOrder : public NlpGPlacerBase
+template<typename nlp_settings>
+class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
 {
     public:
-        NlpGPlacerFirstOrder(Database &db) : NlpGPlacerBase(db) {}
+        typedef NlpGPlacerBase<nlp_settings> base_type;
+        typedef typename base_type::EigenVector EigenVector;
+        typedef typename base_type::nlp_hpwl_type nlp_hpwl_type;
+        typedef typename base_type::nlp_ovl_type nlp_ovl_type;
+        typedef typename base_type::nlp_oob_type nlp_oob_type;
+        typedef typename base_type::nlp_asym_type nlp_asym_type;
+        typedef typename base_type::nlp_cos_type nlp_cos_type;
+        typedef typename nlp_settings::nlp_first_order_algorithms_type nlp_first_order_algorithms;
+
+        NlpGPlacerFirstOrder(Database &db) : NlpGPlacerBase<nlp_settings>(db) {}
     protected:
         /* Init */
         virtual void initProblem() override;
@@ -611,17 +696,17 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase
         EigenVector _gradCos; ///< The first order gradient of cosine signal path objective
         /* Tasks */
         // Calculate the partials
-        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_hpwl_type>>> _calcHpwlPartialTasks;
-        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_ovl_type>>> _calcOvlPartialTasks;
-        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_oob_type>>> _calcOobPartialTasks;
-        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_asym_type>>> _calcAsymPartialTasks;
-        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_cos_type>>> _calcCosPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_hpwl_type, EigenVector>>> _calcHpwlPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_ovl_type,  EigenVector>>> _calcOvlPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_oob_type,  EigenVector>>> _calcOobPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_asym_type, EigenVector>>> _calcAsymPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_cos_type,  EigenVector>>> _calcCosPartialTasks;
         // Update the partials
-        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_hpwl_type>>> _updateHpwlPartialTasks;
-        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_ovl_type>>> _updateOvlPartialTasks;
-        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_oob_type>>> _updateOobPartialTasks;
-        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_asym_type>>> _updateAsymPartialTasks;
-        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_cos_type>>> _updateCosPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_hpwl_type, EigenVector>>> _updateHpwlPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_ovl_type,  EigenVector>>> _updateOvlPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_oob_type,  EigenVector>>> _updateOobPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_asym_type, EigenVector>>> _updateAsymPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_cos_type,  EigenVector>>> _updateCosPartialTasks;
         // Clear the gradient. Use to clear the _gradxxx records. Needs to call before updating the partials
         nt::Task<nt::FuncTask> _clearGradTask;
         nt::Task<nt::FuncTask> _clearHpwlGradTask;
