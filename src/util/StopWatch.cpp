@@ -6,12 +6,12 @@ namespace klib
     std::unordered_map<std::string, std::uint32_t> StopWatchMgr::_nameToIdxMap;
     StopWatch StopWatchMgr::_watch = StopWatch(0); 
 
-    std::shared_ptr<StopWatch> StopWatchMgr::createNewStopWatch(const std::string &name) 
+    std::unique_ptr<StopWatch> StopWatchMgr::createNewStopWatch(std::string &&name) 
     {
         auto idx = _us.size();
         _us.emplace_back(std::numeric_limits<uint64_t>::max());
-        _nameToIdxMap[name] = idx;
-        return std::make_shared<StopWatch>(StopWatch(idx));
+        _nameToIdxMap[std::move(name)] = idx;
+        return std::make_unique<StopWatch>(StopWatch(idx));
     }
     void StopWatchMgr::quickStart()
     {
@@ -24,3 +24,4 @@ namespace klib
         return _watch.record();
     }
 }
+

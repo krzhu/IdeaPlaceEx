@@ -12,9 +12,8 @@
 #include <unordered_map>
 #include <vector>
 #include <memory>
-#include "Assert.h"
-#include "MsgPrinter.h"
 #include <iostream>
+#include <cassert>
 
 namespace klib
 {
@@ -23,7 +22,7 @@ namespace klib
     class StopWatchMgr
     {
         public:
-            static std::shared_ptr<StopWatch> createNewStopWatch(const std::string &name);
+            static std::unique_ptr<StopWatch> createNewStopWatch(std::string &&name);
             static void recordTime(std::uint64_t time, std::uint32_t idx)
             {
                 _us[idx] = time;
@@ -31,8 +30,7 @@ namespace klib
             static std::uint64_t time(const std::string &name)
             {
                 auto iter = _nameToIdxMap.find(name);
-                //AssertMsg(iter != _nameToIdxMap.end(), "Did not found the stop watch with name %s \n", name.c_str());
-                //Assert(iter != _nameToIdxMap.end());
+                assert(iter != _nameToIdxMap.end());
                 return _us[iter->second];
             }
             /// @brief start the default timer. The time will return on the end, and won't be recorded
@@ -51,6 +49,9 @@ namespace klib
     {
         public:
             StopWatch(std::uint32_t idx) : _idx(idx) { _count = false; start(); _us = 0; }
+            StopWatch(StopWatch &o) = delete;
+            StopWatch(StopWatch &&o)
+                : _last(std::move(o._last)),  _count(std::move(o._count)), _us(std::move(o._us)), _idx(std::move(o._idx)) {}
             ~StopWatch()
             {
                 stop();
@@ -61,6 +62,7 @@ namespace klib
                 if (_count == false) { return; }
                 _us += curTime();
                 _count = false;
+                StopWatchMgr::recordTime(_us, _idx);
             }
             void start()
             {
