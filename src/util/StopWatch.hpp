@@ -27,9 +27,9 @@ namespace klib
             {
                 _us[idx] = time;
             }
-            static std::uint64_t time(const std::string &name)
+            static std::uint64_t time(std::string &&name)
             {
-                auto iter = _nameToIdxMap.find(name);
+                auto iter = _nameToIdxMap.find(std::move(name));
                 assert(iter != _nameToIdxMap.end());
                 return _us[iter->second];
             }

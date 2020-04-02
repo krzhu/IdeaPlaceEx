@@ -170,7 +170,6 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
 
     NlpGPlacerFirstOrder placer(_db);
     placer.solve();
-    DBG("out %u \n", WATCH_LOOK_RECORD_TIME("test"));
     exit(0);
 
     INF("Ideaplace: Entering global placement...\n");
