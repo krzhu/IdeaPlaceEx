@@ -28,7 +28,14 @@ namespace nt
             std::shared_ptr<task_type> taskDataPtr() { return _task; }
             void regTask(tf::Taskflow &taskflow)
             {
+                Assert(!_isReg);
                 _tfTask = taskflow.emplace([&](){ this->run(); });
+                _isReg = true;
+            }
+            void unReg()
+            {
+                _isReg = false;
+                // _tfTask is not been changed. The outer should manage to deprecate the taskflow
             }
             tf::Task &tfTask() { return _tfTask; }
             template<typename _task_type>
@@ -36,6 +43,14 @@ namespace nt
         private:
             std::shared_ptr<task_type> _task;
             tf::Task _tfTask; ///< the cpp-taskflow task
+            bool _isReg = false;
+    };
+
+    /// @brief an empty task. Usually for indicating status
+    class EmptyTask
+    {
+        public:
+            static void run(EmptyTask &) { }
     };
 
     /// @brief Evaluating objective tasks

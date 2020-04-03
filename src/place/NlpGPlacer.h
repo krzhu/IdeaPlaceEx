@@ -121,6 +121,13 @@ class NlpGPlacerBase
         void constructStopConditionTask();
         /* Optimization  kernel */
         virtual void optimize();
+        /* build the computational graph */
+        void regEvaHpwlTaskflow(tf::Taskflow & tfFlow);
+        void regEvaOvlTaskflow(tf::Taskflow & tfFlow);
+        void regEvaOobTaskflow(tf::Taskflow & tfFlow);
+        void regEvaAsymTaskflow(tf::Taskflow & tfFlow);
+        void regEvaCosTaskflow(tf::Taskflow & tfFlow);
+        void regEvaAllObjTaskflow(tf::Taskflow & tfFlow);
     protected:
         Database &_db; ///< The placement engine database
         /* NLP problem parameters */
@@ -234,6 +241,14 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
 #endif
         /* optimization */
         virtual void optimize() override;
+        /* Build the computational graph */
+        void regCalcHpwlGradTaskFlow(tf::Taskflow &tfFlow);
+        void regCalcOvlGradTaskFlow(tf::Taskflow &tfFlow);
+        void regCalcOobGradTaskFlow(tf::Taskflow &tfFlow);
+        void regCalcAsymGradTaskFlow(tf::Taskflow &tfFlow);
+        void regCalcCosGradTaskFlow(tf::Taskflow &tfFlow);
+        void regCalcAllGradTaskFlow(tf::Taskflow &tfFlow);
+        
 
     protected:
         /* Optimization data */
@@ -263,6 +278,12 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _clearOobGradTask;
         nt::Task<nt::FuncTask> _clearAsymGradTask;
         nt::Task<nt::FuncTask> _clearCosGradTask;
+        // Task to indicate the updating partial gradient finished
+        nt::Task<nt::EmptyTask> _readyHpwlGradTask;
+        nt::Task<nt::EmptyTask> _readyOvlGradTask;
+        nt::Task<nt::EmptyTask> _readyOobGradTask;
+        nt::Task<nt::EmptyTask> _readyAsymGradTask;
+        nt::Task<nt::EmptyTask> _readyCosGradTask;
         // Sum the _grad from individual
         nt::Task<nt::FuncTask> _sumGradTask;
 #ifdef DEBUG_SINGLE_THREAD_GP

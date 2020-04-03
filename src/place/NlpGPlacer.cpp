@@ -461,17 +461,95 @@ void NlpGPlacerBase<nlp_settings>::constructStopConditionTask()
     _checkStopConditionTask = Task<ConditionTask>(ConditionTask(stopCondition));
 }
 
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::regEvaHpwlTaskflow(tf::Taskflow &tfFlow)
+{
+    _sumObjHpwlTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < _hpwlOps.size(); ++idx)
+    {
+        _evaHpwlTasks[idx].regTask(tfFlow);
+        _evaHpwlTasks[idx].precede(_sumObjHpwlTask);
+    }
+}
+
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::regEvaOvlTaskflow(tf::Taskflow &tfFlow)
+{
+    _sumObjOvlTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < _ovlOps.size(); ++idx)
+    {
+        _evaOvlTasks[idx].regTask(tfFlow);
+        _evaOvlTasks[idx].precede(_sumObjOvlTask);
+    }
+}
+
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::regEvaOobTaskflow(tf::Taskflow &tfFlow)
+{
+    _sumObjOobTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < _oobOps.size(); ++idx)
+    {
+        _evaOobTasks[idx].regTask(tfFlow);
+        _evaOobTasks[idx].precede(_sumObjOobTask);
+    }
+}
+
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::regEvaAsymTaskflow(tf::Taskflow &tfFlow)
+{
+    _sumObjAsymTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < _asymOps.size(); ++idx)
+    {
+        _evaAsymTasks[idx].regTask(tfFlow);
+        _evaAsymTasks[idx].precede(_sumObjAsymTask);
+    }
+}
+
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::regEvaCosTaskflow(tf::Taskflow &tfFlow)
+{
+    _sumObjCosTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < _cosOps.size(); ++idx)
+    {
+        _evaCosTasks[idx].regTask(tfFlow);
+        _evaCosTasks[idx].precede(_sumObjCosTask);
+    }
+}
+
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::regEvaAllObjTaskflow(tf::Taskflow &tfFlow)
+{
+    _sumObjAllTask.regTask(tfFlow);
+    this->regEvaHpwlTaskflow(tfFlow);
+    this->regEvaOvlTaskflow(tfFlow);
+    this->regEvaOobTaskflow(tfFlow);
+    this->regEvaAsymTaskflow(tfFlow);
+    this->regEvaCosTaskflow(tfFlow);
+    _sumObjHpwlTask.precede(_sumObjAllTask);
+    _sumObjOvlTask.precede(_sumObjAllTask);
+    _sumObjOobTask.precede(_sumObjAllTask);
+    _sumObjAsymTask.precede(_sumObjAllTask);
+    _sumObjCosTask.precede(_sumObjAllTask);
+}
+
 
 /* FirstOrder */
 
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::optimize()
 {
-    tf::Executor exe; 
-    this->_wrapObjAllTask.regTask(this->_taskflow);
-    this->_wrapCalcGradTask.regTask(this->_taskflow);
-    exe.run(this->_taskflow).wait();
-    std::cout<<this->_pl <<std::endl;
+    tf::Executor exe(10); 
+    //this->_wrapObjAllTask.regTask(this->_taskflow);
+    //this->_wrapCalcGradTask.regTask(this->_taskflow);
+    //this->regEvaAllObjTaskflow(this->_taskflow);
+    this->regCalcAllGradTaskFlow(this->_taskflow);
+    WATCH_QUICK_START();
+    exe.run_n(this->_taskflow, 10000).wait();
+    //this->_wrapCalcGradTask.run();
+    auto end = WATCH_QUICK_END();
+    DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
+    std::cout<<"grad"<<"\n"<< _grad <<std::endl;
+    std::cout<<"time "<< end / 1000 <<" ms" <<std::endl;
 }
 
 template<typename nlp_settings>
@@ -597,29 +675,137 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask()
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
 {
-    auto calcGrad = [&]()
+    auto calcGradLambda = [&]()
     {
+        for (int i =0; i< 10000; ++i) {
         _clearGradTask.run();
         _clearHpwlGradTask.run();
         _clearOvlGradTask.run();
         _clearOobGradTask.run();
         _clearAsymGradTask.run();
         _clearCosGradTask.run();
-        for (auto & calc : _calcHpwlPartialTasks) { calc.run(); }
-        for (auto & update : _updateHpwlPartialTasks) { update.run(); }
-        for (auto & calc : _calcOvlPartialTasks) { calc.run(); }
-        for (auto & update : _updateOvlPartialTasks) { update.run(); }
-        for (auto & calc : _calcOobPartialTasks) { calc.run(); }
-        for (auto & update : _updateOobPartialTasks) { update.run(); }
-        for (auto & calc : _calcAsymPartialTasks) { calc.run(); }
-        for (auto & update : _updateAsymPartialTasks) { update.run(); }
-        for (auto & calc : _calcCosPartialTasks) { calc.run(); }
-        for (auto & update : _updateCosPartialTasks) { update.run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcHpwlPartialTasks.size(); ++i ) { _calcHpwlPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _updateHpwlPartialTasks.size(); ++i ) { _updateHpwlPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcOvlPartialTasks.size(); ++i ) { _calcOvlPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _updateOvlPartialTasks.size(); ++i ) { _updateOvlPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcOobPartialTasks.size(); ++i ) { _calcOobPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _updateOobPartialTasks.size(); ++i ) { _updateOobPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcAsymPartialTasks.size(); ++i ) { _calcAsymPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _updateAsymPartialTasks.size(); ++i ) { _updateAsymPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcCosPartialTasks.size(); ++i ) { _calcCosPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _updateCosPartialTasks.size(); ++i ) { _updateCosPartialTasks[i].run(); }
         _sumGradTask.run();
+        }
     };
-    _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGrad));
+    _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGradLambda));
 }
 #endif
+
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::regCalcHpwlGradTaskFlow(tf::Taskflow &tfFlow)
+{
+    _clearHpwlGradTask.regTask(tfFlow);
+    _readyHpwlGradTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < this->_hpwlOps.size(); ++idx)
+    {
+        _calcHpwlPartialTasks[idx].regTask(tfFlow);
+        _updateHpwlPartialTasks[idx].regTask(tfFlow);
+        _clearHpwlGradTask.precede(_calcHpwlPartialTasks[idx]);
+        _calcHpwlPartialTasks[idx].precede(_updateHpwlPartialTasks[idx]);
+        _updateHpwlPartialTasks[idx].precede(_readyHpwlGradTask);
+    }
+}
+
+
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::regCalcOvlGradTaskFlow(tf::Taskflow &tfFlow)
+{
+    _clearOvlGradTask.regTask(tfFlow);
+    _readyOvlGradTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < this->_ovlOps.size(); ++idx)
+    {
+        _calcOvlPartialTasks[idx].regTask(tfFlow);
+        _updateOvlPartialTasks[idx].regTask(tfFlow);
+        _clearOvlGradTask.precede(_calcOvlPartialTasks[idx]);
+        _calcOvlPartialTasks[idx].precede(_updateOvlPartialTasks[idx]);
+        _updateOvlPartialTasks[idx].precede(_readyOvlGradTask);
+    }
+}
+
+
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::regCalcOobGradTaskFlow(tf::Taskflow &tfFlow)
+{
+    _clearOobGradTask.regTask(tfFlow);
+    _readyOobGradTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < this->_oobOps.size(); ++idx)
+    {
+        _calcOobPartialTasks[idx].regTask(tfFlow);
+        _updateOobPartialTasks[idx].regTask(tfFlow);
+        _clearOobGradTask.precede(_calcOobPartialTasks[idx]);
+        _calcOobPartialTasks[idx].precede(_updateOobPartialTasks[idx]);
+        _updateOobPartialTasks[idx].precede(_readyOobGradTask);
+    }
+}
+
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::regCalcAsymGradTaskFlow(tf::Taskflow &tfFlow)
+{
+    _clearAsymGradTask.regTask(tfFlow);
+    _readyAsymGradTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < this->_asymOps.size(); ++idx)
+    {
+        _calcAsymPartialTasks[idx].regTask(tfFlow);
+        _updateAsymPartialTasks[idx].regTask(tfFlow);
+        _clearAsymGradTask.precede(_calcAsymPartialTasks[idx]);
+        _calcAsymPartialTasks[idx].precede(_updateAsymPartialTasks[idx]);
+        _updateAsymPartialTasks[idx].precede(_readyAsymGradTask);
+    }
+}
+
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::regCalcCosGradTaskFlow(tf::Taskflow &tfFlow)
+{
+    _clearCosGradTask.regTask(tfFlow);
+    _readyCosGradTask.regTask(tfFlow);
+    for (IndexType idx = 0; idx < this->_cosOps.size(); ++idx)
+    {
+        _calcCosPartialTasks[idx].regTask(tfFlow);
+        _updateCosPartialTasks[idx].regTask(tfFlow);
+        _clearCosGradTask.precede(_calcCosPartialTasks[idx]);
+        _calcCosPartialTasks[idx].precede(_updateCosPartialTasks[idx]);
+        _updateCosPartialTasks[idx].precede(_readyCosGradTask);
+    }
+}
+
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::regCalcAllGradTaskFlow(tf::Taskflow &tfFlow)
+{
+    _clearGradTask.regTask(tfFlow);
+    _sumGradTask.regTask(tfFlow);
+    this->regCalcHpwlGradTaskFlow(tfFlow);
+    this->regCalcOvlGradTaskFlow(tfFlow);
+    this->regCalcOobGradTaskFlow(tfFlow);
+    this->regCalcAsymGradTaskFlow(tfFlow);
+    this->regCalcCosGradTaskFlow(tfFlow);
+    _readyHpwlGradTask.precede(_sumGradTask);
+    _readyOvlGradTask.precede(_sumGradTask);
+    _readyOobGradTask.precede(_sumGradTask);
+    _readyAsymGradTask.precede(_sumGradTask);
+    _readyCosGradTask.precede(_sumGradTask);
+}
+
+
 
 
 // declare the default settings for linking
