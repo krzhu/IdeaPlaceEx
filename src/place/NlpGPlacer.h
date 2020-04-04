@@ -29,7 +29,7 @@ namespace nlp
     struct nlp_default_zero_order_algorithms
     {
         typedef outer_stop_condition::stop_after_num_outer_iterations stop_condition_type;
-        typedef init_place::init_random_placement_with_normal_distribution_near_center init_place_type;
+        typedef init_place::init_random_placement_with_number_of_cells_uniform_distribution init_place_type;
     };
 
     struct nlp_default_first_order_algorithms
@@ -272,20 +272,19 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_asym_type, EigenVector>>> _updateAsymPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_cos_type,  EigenVector>>> _updateCosPartialTasks;
         // Clear the gradient. Use to clear the _gradxxx records. Needs to call before updating the partials
-        nt::Task<nt::FuncTask> _clearGradTask;
+        nt::Task<nt::FuncTask> _clearGradTask; //FIXME: not used right now
         nt::Task<nt::FuncTask> _clearHpwlGradTask;
         nt::Task<nt::FuncTask> _clearOvlGradTask;
         nt::Task<nt::FuncTask> _clearOobGradTask;
         nt::Task<nt::FuncTask> _clearAsymGradTask;
         nt::Task<nt::FuncTask> _clearCosGradTask;
-        // Task to indicate the updating partial gradient finished
-        nt::Task<nt::EmptyTask> _readyHpwlGradTask;
-        nt::Task<nt::EmptyTask> _readyOvlGradTask;
-        nt::Task<nt::EmptyTask> _readyOobGradTask;
-        nt::Task<nt::EmptyTask> _readyAsymGradTask;
-        nt::Task<nt::EmptyTask> _readyCosGradTask;
         // Sum the _grad from individual
         nt::Task<nt::FuncTask> _sumGradTask;
+        nt::Task<nt::FuncTask> _sumHpwlGradTask;
+        nt::Task<nt::FuncTask> _sumOvlGradTask;
+        nt::Task<nt::FuncTask> _sumOobGradTask;
+        nt::Task<nt::FuncTask> _sumAsymGradTask;
+        nt::Task<nt::FuncTask> _sumCosGradTask;
 #ifdef DEBUG_SINGLE_THREAD_GP
         nt::Task<nt::FuncTask> _wrapCalcGradTask; ///< For debugging: calculating the gradient and sum them
 #endif

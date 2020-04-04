@@ -545,7 +545,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
     this->regCalcAllGradTaskFlow(this->_taskflow);
     WATCH_QUICK_START();
     exe.run_n(this->_taskflow, 10000).wait();
-    //this->_wrapCalcGradTask.run();
+    //for (int i = 0; i < 10000; ++i) {this->_wrapCalcGradTask.run();}
+    //for (int i = 0; i < 1; ++i) {this->_wrapCalcGradTask.run();}
     auto end = WATCH_QUICK_END();
     DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
     std::cout<<"grad"<<"\n"<< _grad <<std::endl;
@@ -668,6 +669,11 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructClearGradTasks()
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask()
 {
+    _sumHpwlGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateHpwlPartialTasks){ upd.run(); }}));
+    _sumOvlGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateOvlPartialTasks){ upd.run(); }}));
+    _sumOobGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateOobPartialTasks){ upd.run(); }}));
+    _sumAsymGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateAsymPartialTasks){ upd.run(); }}));
+    _sumCosGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateCosPartialTasks){ upd.run(); }}));
     _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos; }));
 }
 
@@ -677,7 +683,6 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
 {
     auto calcGradLambda = [&]()
     {
-        for (int i =0; i< 10000; ++i) {
         _clearGradTask.run();
         _clearHpwlGradTask.run();
         _clearOvlGradTask.run();
@@ -686,26 +691,20 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         _clearCosGradTask.run();
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcHpwlPartialTasks.size(); ++i ) { _calcHpwlPartialTasks[i].run(); }
-        #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _updateHpwlPartialTasks.size(); ++i ) { _updateHpwlPartialTasks[i].run(); }
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcOvlPartialTasks.size(); ++i ) { _calcOvlPartialTasks[i].run(); }
-        #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _updateOvlPartialTasks.size(); ++i ) { _updateOvlPartialTasks[i].run(); }
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcOobPartialTasks.size(); ++i ) { _calcOobPartialTasks[i].run(); }
-        #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _updateOobPartialTasks.size(); ++i ) { _updateOobPartialTasks[i].run(); }
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcAsymPartialTasks.size(); ++i ) { _calcAsymPartialTasks[i].run(); }
-        #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _updateAsymPartialTasks.size(); ++i ) { _updateAsymPartialTasks[i].run(); }
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcCosPartialTasks.size(); ++i ) { _calcCosPartialTasks[i].run(); }
-        #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _updateCosPartialTasks.size(); ++i ) { _updateCosPartialTasks[i].run(); }
         _sumGradTask.run();
-        }
     };
     _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGradLambda));
 }
@@ -714,95 +713,89 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::regCalcHpwlGradTaskFlow(tf::Taskflow &tfFlow)
 {
+    IntType opSize = this->_hpwlOps.size();
     _clearHpwlGradTask.regTask(tfFlow);
-    _readyHpwlGradTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < this->_hpwlOps.size(); ++idx)
-    {
-        _calcHpwlPartialTasks[idx].regTask(tfFlow);
-        _updateHpwlPartialTasks[idx].regTask(tfFlow);
-        _clearHpwlGradTask.precede(_calcHpwlPartialTasks[idx]);
-        _calcHpwlPartialTasks[idx].precede(_updateHpwlPartialTasks[idx]);
-        _updateHpwlPartialTasks[idx].precede(_readyHpwlGradTask);
-    }
+    _sumHpwlGradTask.regTask(tfFlow);
+    auto taskIntEndCalc = tfFlow.parallel_for(0, opSize, 1, [&] (const int idx)
+            {
+                _calcHpwlPartialTasks[idx].run();
+            });
+    _clearHpwlGradTask.precede(taskIntEndCalc.first);
+    taskIntEndCalc.second.precede(_sumHpwlGradTask.tfTask());
 }
 
 
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::regCalcOvlGradTaskFlow(tf::Taskflow &tfFlow)
 {
+    IntType opSize = this->_ovlOps.size();
     _clearOvlGradTask.regTask(tfFlow);
-    _readyOvlGradTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < this->_ovlOps.size(); ++idx)
-    {
-        _calcOvlPartialTasks[idx].regTask(tfFlow);
-        _updateOvlPartialTasks[idx].regTask(tfFlow);
-        _clearOvlGradTask.precede(_calcOvlPartialTasks[idx]);
-        _calcOvlPartialTasks[idx].precede(_updateOvlPartialTasks[idx]);
-        _updateOvlPartialTasks[idx].precede(_readyOvlGradTask);
-    }
+    _sumOvlGradTask.regTask(tfFlow);
+    auto taskIntEndCalc = tfFlow.parallel_for(0, opSize, 1, [&] (const int idx)
+            {
+                _calcOvlPartialTasks[idx].run();
+            });
+    _clearOvlGradTask.precede(taskIntEndCalc.first);
+    taskIntEndCalc.second.precede(_sumOvlGradTask.tfTask());
 }
 
 
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::regCalcOobGradTaskFlow(tf::Taskflow &tfFlow)
 {
+    IntType opSize = this->_oobOps.size();
     _clearOobGradTask.regTask(tfFlow);
-    _readyOobGradTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < this->_oobOps.size(); ++idx)
-    {
-        _calcOobPartialTasks[idx].regTask(tfFlow);
-        _updateOobPartialTasks[idx].regTask(tfFlow);
-        _clearOobGradTask.precede(_calcOobPartialTasks[idx]);
-        _calcOobPartialTasks[idx].precede(_updateOobPartialTasks[idx]);
-        _updateOobPartialTasks[idx].precede(_readyOobGradTask);
-    }
+    _sumOobGradTask.regTask(tfFlow);
+    auto taskIntEndCalc = tfFlow.parallel_for(0, opSize, 1, [&] (const int idx)
+            {
+                _calcOobPartialTasks[idx].run();
+            });
+    _clearOobGradTask.precede(taskIntEndCalc.first);
+    taskIntEndCalc.second.precede(_sumOobGradTask.tfTask());
 }
 
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::regCalcAsymGradTaskFlow(tf::Taskflow &tfFlow)
 {
+    IntType opSize = this->_asymOps.size();
     _clearAsymGradTask.regTask(tfFlow);
-    _readyAsymGradTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < this->_asymOps.size(); ++idx)
-    {
-        _calcAsymPartialTasks[idx].regTask(tfFlow);
-        _updateAsymPartialTasks[idx].regTask(tfFlow);
-        _clearAsymGradTask.precede(_calcAsymPartialTasks[idx]);
-        _calcAsymPartialTasks[idx].precede(_updateAsymPartialTasks[idx]);
-        _updateAsymPartialTasks[idx].precede(_readyAsymGradTask);
-    }
+    _sumAsymGradTask.regTask(tfFlow);
+    auto taskIntEndCalc = tfFlow.parallel_for(0, opSize, 1, [&] (const int idx)
+            {
+                _calcAsymPartialTasks[idx].run();
+            });
+    _clearAsymGradTask.precede(taskIntEndCalc.first);
+    taskIntEndCalc.second.precede(_sumAsymGradTask.tfTask());
 }
 
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::regCalcCosGradTaskFlow(tf::Taskflow &tfFlow)
 {
+    IntType opSize = this->_cosOps.size();
     _clearCosGradTask.regTask(tfFlow);
-    _readyCosGradTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < this->_cosOps.size(); ++idx)
-    {
-        _calcCosPartialTasks[idx].regTask(tfFlow);
-        _updateCosPartialTasks[idx].regTask(tfFlow);
-        _clearCosGradTask.precede(_calcCosPartialTasks[idx]);
-        _calcCosPartialTasks[idx].precede(_updateCosPartialTasks[idx]);
-        _updateCosPartialTasks[idx].precede(_readyCosGradTask);
-    }
+    _sumCosGradTask.regTask(tfFlow);
+    auto taskIntEndCalc = tfFlow.parallel_for(0, opSize, 1, [&] (const int idx)
+            {
+                _calcCosPartialTasks[idx].run();
+            });
+    _clearCosGradTask.precede(taskIntEndCalc.first);
+    taskIntEndCalc.second.precede(_sumCosGradTask.tfTask());
 }
 
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::regCalcAllGradTaskFlow(tf::Taskflow &tfFlow)
 {
-    _clearGradTask.regTask(tfFlow);
     _sumGradTask.regTask(tfFlow);
     this->regCalcHpwlGradTaskFlow(tfFlow);
     this->regCalcOvlGradTaskFlow(tfFlow);
     this->regCalcOobGradTaskFlow(tfFlow);
     this->regCalcAsymGradTaskFlow(tfFlow);
     this->regCalcCosGradTaskFlow(tfFlow);
-    _readyHpwlGradTask.precede(_sumGradTask);
-    _readyOvlGradTask.precede(_sumGradTask);
-    _readyOobGradTask.precede(_sumGradTask);
-    _readyAsymGradTask.precede(_sumGradTask);
-    _readyCosGradTask.precede(_sumGradTask);
+    _sumHpwlGradTask.precede(_sumGradTask);
+    _sumOvlGradTask.precede(_sumGradTask);
+    _sumOobGradTask.precede(_sumGradTask);
+    _sumAsymGradTask.precede(_sumGradTask);
+    _sumCosGradTask.precede(_sumGradTask);
 }
 
 
