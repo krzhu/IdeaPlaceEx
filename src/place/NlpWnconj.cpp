@@ -140,7 +140,7 @@ bool NlpWnconj::updateMultipliers2()
     {
         alignSym();
     }
-    _lambda5 *= 0.75;
+    _lambda5 *= 0.99;
     DBG("fcos %f violate %f \n", _fCos, violate);
     if (_lambda1 + _lambda2 + _lambda4 > NLP_WN_MAX_PENALTY)
     {
@@ -252,10 +252,10 @@ bool NlpWnconj::initVars()
             numSyms += symGrp.numSelfSyms();
         }
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
-        RealType aspectRatio = 0.85;
+        RealType aspectRatio = 1.2;
         if (numSyms > 10)
         {
-            aspectRatio = 0.5;
+            aspectRatio = 0.6;
         }
         RealType xLo = 0; RealType yLo = 0; 
         RealType tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
@@ -528,6 +528,36 @@ void NlpWnconj::initOperators()
                 tCellIdx, tOffset,
                 getLambdaCosineFunc);
         _ops.emplace_back(OpIdxType(_cosOps.size()-1, diff::OpEnumType::cosine));
+    }
+    for (const auto &path : pathMgr.vvSegList())
+    {
+        for (IndexType i = 0; i <path.size(); ++i )
+        {
+            for (IndexType j = i + 2; j < path.size(); j+=1)
+            {
+                IndexType sPinIdx = path.at(i).beginPinFirstSeg();
+                IndexType midPinIdxA = path.at(i).endPinFirstSeg();
+                IndexType midPinIdxB = path.at(i).beginPinSecondSeg();
+                IndexType tPinIdx = path.at(j).endPinSecondSeg();
+
+                const auto &sPin = _db.pin(sPinIdx);
+                IndexType sCellIdx = sPin.cellIdx();
+                const auto &mPinA = _db.pin(midPinIdxA);
+                IndexType mCellIdx = mPinA.cellIdx();
+                const auto &tPin = _db.pin(tPinIdx);
+                IndexType tCellIdx = tPin.cellIdx();
+
+                auto sOffset = calculatePinOffset(sPinIdx);
+                auto midOffsetA = calculatePinOffset(midPinIdxA);
+                auto midOffsetB = calculatePinOffset(midPinIdxB);
+                auto tOffset = calculatePinOffset(tPinIdx);
+                _cosOps.emplace_back(sCellIdx, sOffset,
+                        mCellIdx, midOffsetA, midOffsetB,
+                        tCellIdx, tOffset,
+                        getLambdaCosineFunc);
+                _ops.emplace_back(OpIdxType(_cosOps.size()-1, diff::OpEnumType::cosine));
+            }
+        }
     }
 }
 

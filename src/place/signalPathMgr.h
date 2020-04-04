@@ -44,11 +44,13 @@ class SigPathMgr
         explicit SigPathMgr(Database &db);
         /// @brief get the segment list
         const std::vector<SigPathSeg> vSegList() const { return _segs; }
+        const std::vector<std::vector<SigPathSeg>> vvSegList() const { return _segByPath; }
     private:
         void decomposeSignalPaths();
     private:
         Database &_db;
         std::vector<SigPathSeg> _segs; ///< The decomposed segments
+        std::vector<std::vector<SigPathSeg>> _segByPath;
 };
 
 PROJECT_NAMESPACE_END
