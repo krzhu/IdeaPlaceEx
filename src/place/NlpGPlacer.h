@@ -122,12 +122,14 @@ class NlpGPlacerBase
         /* Optimization  kernel */
         virtual void optimize();
         /* build the computational graph */
+#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
         void regEvaHpwlTaskflow(tf::Taskflow & tfFlow);
         void regEvaOvlTaskflow(tf::Taskflow & tfFlow);
         void regEvaOobTaskflow(tf::Taskflow & tfFlow);
         void regEvaAsymTaskflow(tf::Taskflow & tfFlow);
         void regEvaCosTaskflow(tf::Taskflow & tfFlow);
         void regEvaAllObjTaskflow(tf::Taskflow & tfFlow);
+#endif
     protected:
         Database &_db; ///< The placement engine database
         /* NLP problem parameters */
@@ -170,7 +172,6 @@ class NlpGPlacerBase
         nt::Task<nt::FuncTask> _sumObjAllTask; ///< The task for summing the different objectives together
         // Optimization kernel
         nt::Task<nt::ConditionTask> _checkStopConditionTask; ///< The task to check whether the optimization should stop
-#ifdef DEBUG_SINGLE_THREAD_GP
         // Wrapper tasks for debugging
         nt::Task<nt::FuncTask> _wrapObjHpwlTask; ///< The task for wrap the objective 
         nt::Task<nt::FuncTask> _wrapObjOvlTask;
@@ -178,7 +179,6 @@ class NlpGPlacerBase
         nt::Task<nt::FuncTask> _wrapObjAsymTask;
         nt::Task<nt::FuncTask> _wrapObjCosTask;
         nt::Task<nt::FuncTask> _wrapObjAllTask;
-#endif //DEBUG_SINGLE_THREAD_GP
         /* Operators */
         std::vector<nlp_hpwl_type> _hpwlOps; ///< The HPWL cost 
         std::vector<nlp_ovl_type> _ovlOps; ///< The cell pair overlapping penalty operators
@@ -236,18 +236,19 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         void constructUpdatePartialsTasks();
         void constructClearGradTasks();
         void constructSumGradTask();
-#ifdef DEBUG_SINGLE_THREAD_GP
         void constructWrapCalcGradTask();
-#endif
         /* optimization */
         virtual void optimize() override;
         /* Build the computational graph */
+#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
         void regCalcHpwlGradTaskFlow(tf::Taskflow &tfFlow);
         void regCalcOvlGradTaskFlow(tf::Taskflow &tfFlow);
         void regCalcOobGradTaskFlow(tf::Taskflow &tfFlow);
         void regCalcAsymGradTaskFlow(tf::Taskflow &tfFlow);
         void regCalcCosGradTaskFlow(tf::Taskflow &tfFlow);
         void regCalcAllGradTaskFlow(tf::Taskflow &tfFlow);
+        void regCalcGradForLoop(tf::Taskflow &tfFlow);
+#endif
         
 
     protected:
@@ -285,9 +286,12 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _sumOobGradTask;
         nt::Task<nt::FuncTask> _sumAsymGradTask;
         nt::Task<nt::FuncTask> _sumCosGradTask;
-#ifdef DEBUG_SINGLE_THREAD_GP
-        nt::Task<nt::FuncTask> _wrapCalcGradTask; ///< For debugging: calculating the gradient and sum them
+        // all the grads has been calculated but have not updated
+#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
+        nt::Task<nt::EmptyTask> _endGradCalcTask;
+        nt::Task<nt::EmptyTask> _beginGradCalcTask;
 #endif
+        nt::Task<nt::FuncTask> _wrapCalcGradTask; ///< For debugging: calculating the gradient and sum them
 };
 
 PROJECT_NAMESPACE_END

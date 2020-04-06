@@ -234,8 +234,8 @@ set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -fopenmp ")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline ")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_PROFILE "-O3 -pg -Winline")
-#set(CMAKE_EXE_LINKER_FLAGS "-pthread -static-libgcc -static-libstdc++ -static")
-set(CMAKE_EXE_LINKER_FLAGS "-pthread")
+set(CMAKE_EXE_LINKER_FLAGS "-pthread -static-libgcc -static-libstdc++")
+#set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 
 set(TO_LINK_LIBS ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES})
