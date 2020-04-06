@@ -22,7 +22,7 @@ namespace nt
             explicit Task() {}
             explicit Task(const task_type &) =  delete;
             explicit Task(task_type &&task) : _task(std::make_shared<task_type>(std::move(task))) {}
-            explicit Task(const tf::Task &tfTask);
+            explicit Task(const tf::Task &tfTask) = delete;
             void run() { task_type::run(*_task); }
             const task_type &taskData() const { return *_task; } 
             task_type &taskData() { return *_task; }
@@ -47,12 +47,6 @@ namespace nt
             tf::Task _tfTask; ///< the cpp-taskflow task
             bool _isReg = false;
     };
-
-    template<typename task_type>
-    inline Task<task_type>::Task(const tf::Task &)
-    {
-        AssertMsg(false, "nt:: nlp task: try to construct a task from taskflow task");
-    }
 
     /// @brief an empty task. Usually for indicating status
     class EmptyTask

@@ -272,7 +272,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_asym_type, EigenVector>>> _updateAsymPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_cos_type,  EigenVector>>> _updateCosPartialTasks;
         // Clear the gradient. Use to clear the _gradxxx records. Needs to call before updating the partials
-        nt::Task<nt::FuncTask> _clearGradTask; //FIXME: not used right now
+        nt::Task<nt::FuncTask> _clearGradTask; //FIXME: not used right noe
         nt::Task<nt::FuncTask> _clearHpwlGradTask;
         nt::Task<nt::FuncTask> _clearOvlGradTask;
         nt::Task<nt::FuncTask> _clearOobGradTask;
