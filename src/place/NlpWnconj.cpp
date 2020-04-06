@@ -220,7 +220,7 @@ bool NlpWnconj::initVars()
     _lambda2 = 0.00000001;
     _lambda3 = LAMBDA_3Init;
     _lambda4 = LAMBDA_4Init;
-    _lambda5 = 220;
+    _lambda5 = 480;
 
     // max white space
     _maxWhiteSpace = NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE;
@@ -255,7 +255,7 @@ bool NlpWnconj::initVars()
         RealType aspectRatio = 1.2;
         if (numSyms > 10)
         {
-            aspectRatio = 0.6;
+            aspectRatio = 1.2;
         }
         RealType xLo = 0; RealType yLo = 0; 
         RealType tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
@@ -373,7 +373,7 @@ bool NlpWnconj::nlpKernel()
     {
         if ((_iter +1) %3 == 0) {this->assignPin(); }
         _innerIter = 0;
-        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 10000);
+        wn_conj_gradient_method(&_code, &_valMin, _solutionVect, _len, objFuncWrapper, gradFuncWrapper, 3000);
         //wn_conj_direction_method(&_code, &_valMin, _solutionVect, initial_coord_x0s, _len, objFuncWrapper, 1000);
         if (_toughModel && _iter >= _maxIter / 5)
         {
@@ -506,7 +506,7 @@ void NlpWnconj::initOperators()
     SigPathMgr pathMgr(_db);
     for (const auto &seg : pathMgr.vSegList())
     {
-        _lambda3 = 4;
+        //_lambda3 = 2;
         IndexType sPinIdx = seg.beginPinFirstSeg();
         IndexType midPinIdxA = seg.endPinFirstSeg();
         IndexType midPinIdxB = seg.beginPinSecondSeg();
