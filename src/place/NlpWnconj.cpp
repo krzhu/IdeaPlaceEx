@@ -506,7 +506,7 @@ void NlpWnconj::initOperators()
     SigPathMgr pathMgr(_db);
     for (const auto &seg : pathMgr.vSegList())
     {
-        //_lambda3 = 2;
+        _lambda3 = 6;
         IndexType sPinIdx = seg.beginPinFirstSeg();
         IndexType midPinIdxA = seg.endPinFirstSeg();
         IndexType midPinIdxB = seg.beginPinSecondSeg();
