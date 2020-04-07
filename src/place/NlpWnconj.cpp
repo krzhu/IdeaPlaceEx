@@ -252,10 +252,10 @@ bool NlpWnconj::initVars()
             numSyms += symGrp.numSelfSyms();
         }
         // If the constraint is not set, calculate a rough boundry with 1 aspect ratio
-        RealType aspectRatio = 1.2;
+        RealType aspectRatio = 1.0;
         if (numSyms > 10)
         {
-            aspectRatio = 1.2;
+            aspectRatio = 1.0;
         }
         RealType xLo = 0; RealType yLo = 0; 
         RealType tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
@@ -299,7 +299,7 @@ bool NlpWnconj::initVars()
     */
     
     // My alternative intialization, just give the variables fixed linear value
-    srand(6); //just a arbitary number
+    srand(0); //just a arbitary number
     if (1)
     {
         for (IndexType idx = 0; idx < _db.numCells() * 2; ++idx)
@@ -367,6 +367,8 @@ bool NlpWnconj::nlpKernel()
 
     // Init the opeartors
     this->initOperators();
+
+    this->assignPin();
 
     // Iteratively solving NLP
     while (_iter < _maxIter)
@@ -506,7 +508,7 @@ void NlpWnconj::initOperators()
     SigPathMgr pathMgr(_db);
     for (const auto &seg : pathMgr.vSegList())
     {
-        _lambda3 = 6;
+        _lambda3 = 4;
         IndexType sPinIdx = seg.beginPinFirstSeg();
         IndexType midPinIdxA = seg.endPinFirstSeg();
         IndexType midPinIdxB = seg.beginPinSecondSeg();

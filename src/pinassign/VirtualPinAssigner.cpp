@@ -324,6 +324,10 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         {
             return false;
         }
+        if (_db.net(netIdx).isVdd() or _db.net(netIdx).isVss())
+        {
+            return false;
+        }
         //if (_db.net(netIdx).isSelfSym())
         //{
         //    return false;
@@ -375,6 +379,10 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     auto useSymNet = [&](IndexType netIdx)
     {
         if (!_db.net(netIdx).isIo())
+        {
+            return false;
+        }
+        if (_db.net(netIdx).isVdd() or _db.net(netIdx).isVss())
         {
             return false;
         }

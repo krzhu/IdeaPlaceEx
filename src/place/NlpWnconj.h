@@ -282,6 +282,33 @@ inline RealType NlpWnconj::objFunc(RealType *values)
     result = _fOverlap + _fOOB + _fHpwl + _fAsym + _fCos;
 
 
+    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+    {
+        const auto &net = _db.net(netIdx);
+        if (net.isVdd())
+        {
+            for (IndexType pinIdx : net.pinIdxArray())
+            {
+                IndexType cellIdx = _db.pin(pinIdx).cellIdx();
+                if (values[cellIdx * 2 + 1] < _boundary.yHi())
+                {
+                    result += (_boundary.yHi() - values[cellIdx * 2 + 1] ) * 40;
+                }
+            }
+        }
+        if (net.isVss())
+        {
+            for (IndexType pinIdx : net.pinIdxArray())
+            {
+                IndexType cellIdx = _db.pin(pinIdx).cellIdx();
+                if (values[cellIdx * 2 + 1] > _boundary.yLo())
+                {
+                    result +=  (values[cellIdx * 2 + 1] - _boundary.yLo()) * 40;
+                }
+            }
+        }
+    }
+
     return result;
 }
 
@@ -379,6 +406,33 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
         for (const auto &partial : part._ds)
         {
             grad[partial.idx] += partial.value;
+        }
+    }
+
+    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+    {
+        const auto &net = _db.net(netIdx);
+        if (net.isVdd())
+        {
+            for (IndexType pinIdx : net.pinIdxArray())
+            {
+                IndexType cellIdx = _db.pin(pinIdx).cellIdx();
+                if (values[cellIdx * 2 + 1] < _boundary.yHi())
+                {
+                    grad[cellIdx * 2 + 1] += (_boundary.yHi() - values[cellIdx * 2 + 1]) * 40;
+                }
+            }
+        }
+        if (net.isVss())
+        {
+            for (IndexType pinIdx : net.pinIdxArray())
+            {
+                IndexType cellIdx = _db.pin(pinIdx).cellIdx();
+                if (values[cellIdx * 2 + 1] > _boundary.yLo())
+                {
+                    grad[cellIdx * 2 + 1] +=  (values[cellIdx * 2 + 1] - _boundary.yLo()) * 40;
+                }
+            }
         }
     }
 
