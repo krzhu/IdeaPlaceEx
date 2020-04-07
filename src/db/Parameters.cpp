@@ -9,7 +9,7 @@ Parameters::Parameters()
     _virtualBoundaryExtension = 200; ///< The extension of current virtual boundary to the bounding box of placement
     _virtualPinInterval = 400; ///< The interval between each virtual pin
     _layoutOffset = 1000; ///< The default offset for the placement
-    _defaultAspectRatio = 0.85;
-    _maxWhiteSpace = 0.3;
+    _defaultAspectRatio = 1.2;
+    _maxWhiteSpace = 2;
 }
 PROJECT_NAMESPACE_END

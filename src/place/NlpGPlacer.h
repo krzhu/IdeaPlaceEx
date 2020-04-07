@@ -9,12 +9,17 @@
 #define IDEAPLACE_NLPGPLACER_H_
 
 #include <Eigen/Dense>
+#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
 #include <taskflow/taskflow.hpp>
+#endif // IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ
 #include "db/Database.h"
 #include "place/different.h"
 #include "place/nlp/nlpStopCondition.hpp"
 #include "place/nlp/nlpInitPlace.hpp"
 #include "place/nlp/nlpTasks.hpp"
+#include "place/nlp/nlpTypes.hpp"
+#include "place/nlp/nlpOptmKernels.hpp"
+#include "place/nlp/nlpFirstOrderKernel.hpp"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -23,16 +28,6 @@ namespace nlp
     /* The wrapper of settings */
 
     struct nlp_default_hyperparamters
-    {
-    };
-
-    struct nlp_default_zero_order_algorithms
-    {
-        typedef outer_stop_condition::stop_after_num_outer_iterations stop_condition_type;
-        typedef init_place::init_random_placement_with_number_of_cells_uniform_distribution init_place_type;
-    };
-
-    struct nlp_default_first_order_algorithms
     {
     };
 
@@ -51,6 +46,21 @@ namespace nlp
 
     };
 
+
+    struct nlp_default_zero_order_algorithms
+    {
+        typedef outer_stop_condition::stop_after_num_outer_iterations stop_condition_type;
+        typedef init_place::init_random_placement_with_normal_distribution_near_center init_place_type;
+    };
+
+    struct nlp_default_first_order_algorithms
+    {
+        typedef converge::converge_criteria_list<
+                    converge::converge_criteria_max_iter<1000> 
+                    >
+                converge_type;
+        typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
+    };
     struct nlp_default_settings
     {
         typedef nlp_default_zero_order_algorithms nlp_zero_order_algorithms_type;
@@ -82,6 +92,7 @@ class NlpGPlacerBase
         typedef typename nlp_types::nlp_asym_type nlp_asym_type;
         typedef typename nlp_types::nlp_cos_type nlp_cos_type;
 
+
         /* algorithms */
         typedef typename nlp_zero_order_algorithms::stop_condition_type stop_condition_type;
         typedef nlp::outer_stop_condition::stop_condition_trait<stop_condition_type> stop_condition_trait;
@@ -95,6 +106,11 @@ class NlpGPlacerBase
         IntType solve();
 
     protected:
+        /* calculating obj */
+        void calcObj()
+        {
+            _wrapObjAllTask.run();
+        }
         /* Init functions */
         virtual void initProblem();
         void initHyperParams();
@@ -185,8 +201,10 @@ class NlpGPlacerBase
         std::vector<nlp_oob_type> _oobOps; ///< The cell out of boundary penalty operators 
         std::vector<nlp_asym_type> _asymOps; ///< The asymmetric penalty operators
         std::vector<nlp_cos_type> _cosOps;
+#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
         /* taskflow */
         tf::Taskflow _taskflow; ///< The taskflow of cpp-taskflow
+#endif
 };
 
 template<typename nlp_settings>
@@ -223,9 +241,24 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         typedef typename base_type::nlp_asym_type nlp_asym_type;
         typedef typename base_type::nlp_cos_type nlp_cos_type;
         typedef typename nlp_settings::nlp_first_order_algorithms_type nlp_first_order_algorithms;
+        typedef typename nlp_first_order_algorithms::converge_type converge_type;
+        typedef typename nlp::converge::converge_criteria_trait<converge_type> converge_trait;
+        typedef typename nlp_first_order_algorithms::optm_type optm_type;
+        typedef typename nlp::optm::optm_trait<optm_type> optm_trait;
+        
+        friend converge_type;
+        template<typename converge_criteria_type>
+        friend struct nlp::converge::converge_criteria_trait;
+        friend optm_type;
+        friend optm_trait;
 
         NlpGPlacerFirstOrder(Database &db) : NlpGPlacerBase<nlp_settings>(db) {}
     protected:
+        /* calculating gradient */
+        void calcGrad()
+        {
+            _wrapCalcGradTask.run();
+        }
         /* Init */
         virtual void initProblem() override;
         void initFirstOrderGrad();

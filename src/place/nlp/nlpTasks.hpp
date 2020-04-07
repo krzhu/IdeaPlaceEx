@@ -7,7 +7,9 @@
 
 #pragma once
 #include "global/global.h"
+#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
 #include <taskflow/taskflow.hpp>
+#endif // IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ
 #include "place/different.h"
 
 PROJECT_NAMESPACE_BEGIN
@@ -22,30 +24,34 @@ namespace nt
             explicit Task() {}
             explicit Task(const task_type &) =  delete;
             explicit Task(task_type &&task) : _task(std::make_shared<task_type>(std::move(task))) {}
-            explicit Task(const tf::Task &tfTask) = delete;
             void run() { task_type::run(*_task); }
             const task_type &taskData() const { return *_task; } 
             task_type &taskData() { return *_task; }
             std::shared_ptr<task_type> taskDataPtr() { return _task; }
+#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
+            template<typename _task_type>
+            explicit Task(const tf::Task &tfTask) = delete;
             void regTask(tf::Taskflow &taskflow)
             {
                 Assert(!_isReg);
                 _tfTask = taskflow.emplace([&](){ this->run(); });
                 _isReg = true;
             }
+            tf::Task &tfTask() { return _tfTask; }
+            void precede(Task<_task_type> &other) { _tfTask.precede(other.tfTask()); }
+            void precede(tf::Task &tfTask) { _tfTask.precede(tfTask); }
             void unReg()
             {
                 _isReg = false;
                 // _tfTask is not been changed. The outer should manage to deprecate the taskflow
             }
-            tf::Task &tfTask() { return _tfTask; }
-            template<typename _task_type>
-            void precede(Task<_task_type> &other) { _tfTask.precede(other.tfTask()); }
-            void precede(tf::Task &tfTask) { _tfTask.precede(tfTask); }
+#endif // IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ
         protected:
             std::shared_ptr<task_type> _task;
+#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
             tf::Task _tfTask; ///< the cpp-taskflow task
             bool _isReg = false;
+#endif // IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ
     };
 
     /// @brief an empty task. Usually for indicating status
@@ -55,6 +61,7 @@ namespace nt
             static void run(EmptyTask &) { }
     };
 
+#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
     // allow generate a empty task from taskflow task
     template<>
     inline Task<EmptyTask>::Task(const tf::Task &tfTask)
@@ -62,7 +69,7 @@ namespace nt
         _tfTask = tfTask;
         _isReg = true;
     }
-
+#endif // IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ
 
     /// @brief Evaluating objective tasks
     template<typename nlp_numerical_type>

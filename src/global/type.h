@@ -20,6 +20,7 @@ using IntType    = std::int32_t;
 using RealType   = double;
 using Byte       = std::uint8_t;
 using LocType    = std::int32_t; // Location/design unit // Location/design unit
+using BoolType   = Byte;
  // Location/design unit
 // Built-in type constants
 constexpr IndexType INDEX_TYPE_MAX  = UINT32_MAX;

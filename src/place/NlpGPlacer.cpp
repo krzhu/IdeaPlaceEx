@@ -544,22 +544,9 @@ void NlpGPlacerBase<nlp_settings>::regEvaAllObjTaskflow(tf::Taskflow &tfFlow)
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::optimize()
 {
-    //tf::Executor exe(4); 
-    //auto obs = exe.make_observer<tf::ExecutorObserver>();
-    //this->_wrapObjAllTask.regTask(this->_taskflow);
-    //this->_wrapCalcGradTask.regTask(this->_taskflow);
-    //this->regEvaAllObjTaskflow(this->_taskflow);
-    //this->regCalcAllGradTaskFlow(this->_taskflow);
     WATCH_QUICK_START();
-    //for (int i=0; i < 10000; ++i) { exe.run(this->_taskflow).wait(); }
-    //exe.run_n(this->_taskflow, 5).wait();
-    for (int i = 0; i < 10000; ++i) 
-    {
-        this->_wrapObjAllTask.run();
-        this->_wrapCalcGradTask.run();
-        this->_pl -= 0.0001 * _grad; 
-        DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
-    }
+    optm_type optm;
+    optm_trait::optimize(*this, optm);
     auto end = WATCH_QUICK_END();
     DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
     //std::cout<<"grad"<<"\n"<< _grad <<std::endl;
