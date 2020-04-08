@@ -292,7 +292,7 @@ inline RealType NlpWnconj::objFunc(RealType *values)
                 IndexType cellIdx = _db.pin(pinIdx).cellIdx();
                 if (values[cellIdx * 2 + 1] < _boundary.yHi())
                 {
-                    result += (_boundary.yHi() - values[cellIdx * 2 + 1] ) * 40;
+                    result += (_boundary.yHi() - values[cellIdx * 2 + 1] ) * 128;
                 }
             }
         }
@@ -303,7 +303,7 @@ inline RealType NlpWnconj::objFunc(RealType *values)
                 IndexType cellIdx = _db.pin(pinIdx).cellIdx();
                 if (values[cellIdx * 2 + 1] > _boundary.yLo())
                 {
-                    result +=  (values[cellIdx * 2 + 1] - _boundary.yLo()) * 40;
+                    result +=  (values[cellIdx * 2 + 1] - _boundary.yLo()) * 128;
                 }
             }
         }
@@ -419,7 +419,7 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
                 IndexType cellIdx = _db.pin(pinIdx).cellIdx();
                 if (values[cellIdx * 2 + 1] < _boundary.yHi())
                 {
-                    grad[cellIdx * 2 + 1] += (_boundary.yHi() - values[cellIdx * 2 + 1]) * 40;
+                    grad[cellIdx * 2 + 1] += (_boundary.yHi() - values[cellIdx * 2 + 1]) * 128;
                 }
             }
         }
@@ -430,7 +430,7 @@ inline void NlpWnconj::gradFunc(RealType *grad, RealType *values)
                 IndexType cellIdx = _db.pin(pinIdx).cellIdx();
                 if (values[cellIdx * 2 + 1] > _boundary.yLo())
                 {
-                    grad[cellIdx * 2 + 1] +=  (values[cellIdx * 2 + 1] - _boundary.yLo()) * 40;
+                    grad[cellIdx * 2 + 1] +=  (values[cellIdx * 2 + 1] - _boundary.yLo()) * 128;
                 }
             }
         }
