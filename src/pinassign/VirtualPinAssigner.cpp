@@ -309,6 +309,10 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
             auto pinOff = findRealPinLoc(pinIdx);
             dist = std::min(::klib::manhattanDistance(iopinLoc, pinOff), dist);
         }
+        if (iopinLoc.x() < _boundary.center().x())
+        {
+            dist *= 1.2;
+        }
         return dist;
     };
 

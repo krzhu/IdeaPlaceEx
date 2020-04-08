@@ -217,10 +217,10 @@ bool NlpWnconj::initVars()
 
     // The penalty coefficients
     _lambda1 = LAMBDA_1Init;
-    _lambda2 = 0.00000001;
+    _lambda2 = 0.001;
     _lambda3 = LAMBDA_3Init;
     _lambda4 = LAMBDA_4Init;
-    _lambda5 = 480;
+    _lambda5 = 370;
 
     // max white space
     _maxWhiteSpace = NLP_WN_CONJ_DEFAULT_MAX_WHITE_SPACE;
@@ -255,7 +255,8 @@ bool NlpWnconj::initVars()
         RealType aspectRatio = 1.0;
         if (numSyms > 10)
         {
-            aspectRatio = 1.0;
+            aspectRatio = 0.5;
+            _maxWhiteSpace = 3;
         }
         RealType xLo = 0; RealType yLo = 0; 
         RealType tolerentArea = _totalCellArea * (1 + _maxWhiteSpace);
@@ -368,7 +369,7 @@ bool NlpWnconj::nlpKernel()
     // Init the opeartors
     this->initOperators();
 
-    this->assignPin();
+    //this->assignPin();
 
     // Iteratively solving NLP
     while (_iter < _maxIter)
