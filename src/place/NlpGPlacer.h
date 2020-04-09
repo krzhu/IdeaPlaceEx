@@ -55,9 +55,9 @@ namespace nlp
 
     struct nlp_default_first_order_algorithms
     {
-        typedef converge::converge_criteria_list<
-                    converge::converge_criteria_max_iter<1000> 
-                    >
+        typedef converge::converge_list<1,
+                    converge::converge_criteria_max_iter<1000>
+                        >
                 converge_type;
         typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
     };

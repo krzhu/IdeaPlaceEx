@@ -44,9 +44,9 @@ namespace nlp
                 do 
                 {
                     n.calcGrad();
-                    n._pl -= o._stepSize * n._grad;
+                    n._pl -= optm_type::_stepSize * n._grad;
                     n.calcObj();
-                } while (!converge_trait::stopCriteria(n, o, o._converge));
+                } while (!converge_trait::stopCriteria(n, o, o._converge) );
             }
         };
     } // namespace optm

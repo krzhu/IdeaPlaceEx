@@ -86,8 +86,8 @@ namespace nlp
                 {
                     if ((c._fLastLastStep - n._obj) / c._fLastLastStep < c._stopThreshold)
                     {
-                        //clear(c);
-                        //return true;
+                        clear(c);
+                        return true;
                     }
                 }
                 c._fLastLastStep = c._fLastStep;
@@ -96,56 +96,66 @@ namespace nlp
             }
         };
 
-        template<typename converge_type_1=converge_criteria_empty,
-            typename converge_type_2=converge_criteria_empty,
-            typename converge_type_3=converge_criteria_empty,
-            typename converge_type_4=converge_criteria_empty,
-            typename converge_type_5=converge_criteria_empty>
-        struct converge_criteria_list
+        template<IndexType len, typename converge_type, typename... others>
+        struct converge_list 
         {
-            typedef converge_type_1 c1_type;
-            typedef converge_type_2 c2_type;
-            typedef converge_type_3 c3_type;
-            typedef converge_type_4 c4_type;
-            typedef converge_type_5 c5_type;
-            converge_type_1 _c1;
-            converge_type_2 _c2;
-            converge_type_3 _c3;
-            converge_type_4 _c4;
-            converge_type_5 _c5;
+            typedef converge_list<sizeof...(others), others...> base_type;
+            converge_type  _converge;
+            converge_list<sizeof...(others), others...> _list;
         };
-        template<typename converge_type_1,
-            typename converge_type_2,
-            typename converge_type_3,
-            typename converge_type_4,
-            typename converge_type_5>
-        struct converge_criteria_trait<converge_criteria_list<converge_type_1, converge_type_2, converge_type_3, converge_type_4, converge_type_5>>
+
+        template<typename converge_type, typename... others>
+        struct converge_list<1, converge_type,  others...>
         {
-            typedef converge_criteria_list<converge_type_1, converge_type_2, converge_type_3, converge_type_4, converge_type_5> converge_type;
-            typedef typename converge_type::c1_type c1_type;
-            typedef typename converge_type::c2_type c2_type;
-            typedef typename converge_type::c3_type c3_type;
-            typedef typename converge_type::c4_type c4_type;
-            typedef typename converge_type::c5_type c5_type;
-            static void clear(converge_type &c)
+            converge_type _converge;
+        };
+
+        template<IndexType len, typename converge_type, typename... others>
+        struct converge_criteria_trait<converge_list<len, converge_type, others...>>
+        {
+            typedef typename converge_list<len, converge_type, others...>::base_type base_type;
+            static void clear(converge_list<len, converge_type, others...> &c)
             {
-                converge_criteria_trait<c1_type>::clear(c._c1);
-                converge_criteria_trait<c2_type>::clear(c._c2);
-                converge_criteria_trait<c3_type>::clear(c._c3);
-                converge_criteria_trait<c4_type>::clear(c._c4);
-                converge_criteria_trait<c5_type>::clear(c._c5);
+                converge_criteria_trait<converge_type>::clear(c._converge);
+                converge_criteria_trait<base_type>::clear(c._list);
             }
             template<typename nlp_type, typename optm_type>
-            static constexpr BoolType stopCriteria(nlp_type &n, optm_type &o, converge_type&c) 
-            { 
+            static constexpr BoolType stopCriteria(nlp_type &n, optm_type &o, converge_list<len, converge_type, others...>&c) 
+            {
                 BoolType stop = false;
-                stop = converge_criteria_trait<c1_type>::stopCriteria(n, o, c._c1);
-                if (!stop) { stop = converge_criteria_trait<c2_type>::stopCriteria(n, o, c._c2); }
-                if (!stop) { stop = converge_criteria_trait<c3_type>::stopCriteria(n, o, c._c3); }
-                if (!stop) { stop = converge_criteria_trait<c4_type>::stopCriteria(n, o, c._c4); }
-                if (!stop) { stop = converge_criteria_trait<c5_type>::stopCriteria(n, o, c._c5); }
-                if (stop) { clear(c); } // might redundantly clear the criteria. But it's okay for now.
+                if (converge_criteria_trait<converge_type>::stopCriteria(n, o, c._converge))
+                {
+                    stop = true;
+                }
+                if (converge_criteria_trait<base_type>::stopCriteria(n, o, c._list))
+                {
+                    stop = true;
+                }
+                if (stop)
+                {
+                    converge_criteria_trait<converge_type>::clear(c._converge);
+                }
                 return stop;
+            }
+        };
+
+
+        template<typename converge_type, typename... others>
+        struct converge_criteria_trait<converge_list<1, converge_type, others...>>
+        {
+            static void clear(converge_list<1, converge_type, others...> &c)
+            {
+                converge_criteria_trait<converge_type>::clear(c._converge);
+            }
+            template<typename nlp_type, typename optm_type>
+            static constexpr BoolType stopCriteria(nlp_type &n, optm_type &o, converge_list<1, converge_type, others...>&c) 
+            {
+                if (converge_criteria_trait<converge_type>::stopCriteria(n, o, c._converge))
+                {
+                    converge_criteria_trait<converge_type>::clear(c._converge);
+                    return true;
+                }
+                return false;
             }
         };
     } // namespace converge
