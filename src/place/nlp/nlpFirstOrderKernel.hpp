@@ -25,7 +25,7 @@ namespace nlp
             struct naive_gradient_descent
             {
                 typedef converge_criteria_type converge_type;
-                static constexpr RealType _stepSize = 0.01;
+                static constexpr RealType _stepSize = 0.001;
                 converge_criteria_type _converge;
                 friend nlp::converge::converge_criteria_trait<converge_criteria_type>;
                 friend nlp::optm::optm_trait<naive_gradient_descent<converge_criteria_type>>;
@@ -46,6 +46,7 @@ namespace nlp
                     n.calcGrad();
                     n._pl -= optm_type::_stepSize * n._grad;
                     n.calcObj();
+                    DBG("naive gradiend descent: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
                 } while (!converge_trait::stopCriteria(n, o, o._converge) );
             }
         };

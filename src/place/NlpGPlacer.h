@@ -14,7 +14,7 @@
 #endif // IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ
 #include "db/Database.h"
 #include "place/different.h"
-#include "place/nlp/nlpStopCondition.hpp"
+#include "place/nlp/nlpOuterOptm.hpp"
 #include "place/nlp/nlpInitPlace.hpp"
 #include "place/nlp/nlpTasks.hpp"
 #include "place/nlp/nlpTypes.hpp"
@@ -51,6 +51,9 @@ namespace nlp
     {
         typedef outer_stop_condition::stop_after_num_outer_iterations stop_condition_type;
         typedef init_place::init_random_placement_with_normal_distribution_near_center init_place_type;
+        typedef outer_multiplier::init::hard_code_init mult_init_type;
+        typedef outer_multiplier::update::shared_constant_increase_penalty mult_update_type;
+        typedef outer_multiplier::mult_const_hpwl_cos_and_penalty_by_type<nlp_default_types::nlp_numerical_type, mult_init_type, mult_update_type> mult_type;
     };
 
     struct nlp_default_first_order_algorithms
@@ -100,6 +103,15 @@ class NlpGPlacerBase
         typedef typename nlp_zero_order_algorithms::init_place_type init_placement_type;
         typedef nlp::init_place::init_place_trait<init_placement_type> init_place_trait;
         friend init_place_trait;
+        typedef typename nlp_zero_order_algorithms::mult_init_type mult_init_type;
+        typedef nlp::outer_multiplier::init::multiplier_init_trait<mult_init_type> mult_init_trait;
+        friend mult_init_trait;
+        typedef typename nlp_zero_order_algorithms::mult_update_type mult_update_type;
+        typedef nlp::outer_multiplier::update::multiplier_update_trait<mult_update_type> mult_update_trait;
+        friend mult_update_trait;
+        typedef typename nlp_zero_order_algorithms::mult_type mult_type;
+        typedef nlp::outer_multiplier::multiplier_trait<mult_type> mult_trait;
+        friend mult_trait;
     
     public:
         explicit NlpGPlacerBase(Database &db) : _db(db) {}
@@ -137,6 +149,7 @@ class NlpGPlacerBase
         void constructStopConditionTask();
         /* Optimization  kernel */
         virtual void optimize();
+        virtual void setupMultipliers();
         /* build the computational graph */
 #ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
         void regEvaHpwlTaskflow(tf::Taskflow & tfFlow);
@@ -167,6 +180,7 @@ class NlpGPlacerBase
         RealType _obj = 0.0; ///< The current value for the total objective penalty
         /* NLP optimization kernel memebers */
         stop_condition_type _stopCondition;
+        mult_type _multiplier; ///< Multipliers for the objective function
         /* Optimization data */
         EigenVector _pl; ///< The placement solutions
         std::shared_ptr<EigenMap> _plx; ///< The placement solutions for x coodinates

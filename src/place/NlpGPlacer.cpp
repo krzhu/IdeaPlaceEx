@@ -21,13 +21,21 @@ template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::optimize()
 {
     _wrapObjAllTask.run();
+    setupMultipliers();
     DBG("obj: %f %f %f %f %f %f \n", _obj, _objHpwl, _objOvl, _objOob, _objAsym, _objCos);
+}
+
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::setupMultipliers()
+{
+    mult_trait::init(*this, _multiplier);
 }
 
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::initOptimizationKernelMembers()
 {
     _stopCondition = stop_condition_trait::construct(*this);
+    _multiplier = mult_trait::construct(*this);
 }
 
 template<typename nlp_settings>
@@ -36,6 +44,7 @@ void NlpGPlacerBase<nlp_settings>::initProblem()
     initHyperParams();
     initBoundaryParams();
     initVariables();
+    initOptimizationKernelMembers();
 }
 
 template<typename nlp_settings>
@@ -459,7 +468,7 @@ void NlpGPlacerBase<nlp_settings>::constructStopConditionTask()
 {
     auto stopCondition = [&]()
     {
-        return stop_condition_trait::stopPlaceCondition(_stopCondition, *this);
+        return stop_condition_trait::stopPlaceCondition(*this, _stopCondition);
     };
     _checkStopConditionTask = Task<ConditionTask>(ConditionTask(stopCondition));
 }
@@ -545,12 +554,24 @@ template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::optimize()
 {
     WATCH_QUICK_START();
+    // setting up the multipliers
+    this->_wrapObjAllTask.run();
+    _wrapCalcGradTask.run();
+    this->setupMultipliers();
     optm_type optm;
-    optm_trait::optimize(*this, optm);
+    IntType iter = 0;
+    do
+    {
+        DBG("iter %d \n", iter);
+        optm_trait::optimize(*this, optm);
+        base_type::mult_trait::update(*this, this->_multiplier);
+        ++iter;
+    } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
     auto end = WATCH_QUICK_END();
     DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
     //std::cout<<"grad"<<"\n"<< _grad <<std::endl;
     std::cout<<"time "<< end / 1000 <<" ms" <<std::endl;
+    this->writeOut();
 }
 
 template<typename nlp_settings>
@@ -559,6 +580,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::initProblem()
     this->initHyperParams();
     this->initBoundaryParams();
     this->initVariables();
+    this->initOptimizationKernelMembers();
     this->initFirstOrderGrad();
 }
 
