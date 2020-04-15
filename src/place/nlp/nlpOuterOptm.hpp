@@ -24,19 +24,20 @@ namespace nlp
         };
 
         /// @brief stop condition with number of iterations
+        template<IntType MaxIter=10>
         struct stop_after_num_outer_iterations
         {
-            static constexpr IntType maxIter = 10;
+            static constexpr IntType maxIter = MaxIter;
             IntType curIter = 0;
         };
         
-        template<>
-        struct stop_condition_trait<stop_after_num_outer_iterations>
+        template<IntType MaxIter>
+        struct stop_condition_trait<stop_after_num_outer_iterations<MaxIter>>
         {
             template<typename NlpType>
-            static stop_after_num_outer_iterations construct(NlpType &) { return stop_after_num_outer_iterations(); }
+            static stop_after_num_outer_iterations<MaxIter> construct(NlpType &) { return stop_after_num_outer_iterations<MaxIter>(); }
             template<typename NlpType>
-            static IntType stopPlaceCondition(NlpType &, stop_after_num_outer_iterations &stop)
+            static IntType stopPlaceCondition(NlpType &, stop_after_num_outer_iterations<MaxIter> &stop)
             {
                 if (stop.curIter >= stop.maxIter)
                 {

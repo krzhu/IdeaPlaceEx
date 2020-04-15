@@ -27,8 +27,6 @@ namespace nlp
                 typedef converge_criteria_type converge_type;
                 static constexpr RealType _stepSize = 0.001;
                 converge_criteria_type _converge;
-                friend nlp::converge::converge_criteria_trait<converge_criteria_type>;
-                friend nlp::optm::optm_trait<naive_gradient_descent<converge_criteria_type>>;
             };
         } // namspace first_order
         template<typename converge_criteria_type>
@@ -50,6 +48,7 @@ namespace nlp
                 } while (!converge_trait::stopCriteria(n, o, o._converge) );
             }
         };
+
     } // namespace optm
 } // namespace nlp
 

@@ -107,6 +107,7 @@ void NlpGPlacerBase<nlp_settings>::initVariables()
 #ifndef MULTI_SYM_GROUP
     (*_sym)(0) = _defaultSymAxis; // Set the default symmtry axisx`
 #endif
+    _numVariables = size;
 }
 
 template<typename nlp_settings>

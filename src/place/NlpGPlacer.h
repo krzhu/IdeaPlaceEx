@@ -20,6 +20,7 @@
 #include "place/nlp/nlpTypes.hpp"
 #include "place/nlp/nlpOptmKernels.hpp"
 #include "place/nlp/nlpFirstOrderKernel.hpp"
+#include "place/nlp/conjugateGradientWnlib.hpp" // TODO: remove after no need
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -49,7 +50,7 @@ namespace nlp
 
     struct nlp_default_zero_order_algorithms
     {
-        typedef outer_stop_condition::stop_after_num_outer_iterations stop_condition_type;
+        typedef outer_stop_condition::stop_after_num_outer_iterations<5> stop_condition_type;
         typedef init_place::init_random_placement_with_normal_distribution_near_center init_place_type;
         typedef outer_multiplier::init::hard_code_init mult_init_type;
         typedef outer_multiplier::update::shared_constant_increase_penalty mult_update_type;
@@ -62,7 +63,8 @@ namespace nlp
                     converge::converge_criteria_max_iter<1000>
                         >
                 converge_type;
-        typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
+        //typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
+        typedef optm::first_order::conjugate_gradient_wnlib optm_type;
     };
     struct nlp_default_settings
     {
@@ -171,6 +173,7 @@ class NlpGPlacerBase
         RealType _oobThreshold = NLP_WN_CONJ_OOB_THRESHOLD; ///< The threshold for wehther increasing the penalty for out of boundry
         RealType _asymThreshold = NLP_WN_CONJ_ASYM_THRESHOLD; ///< The threshold for whether increasing the penalty for asymmetry
         RealType _defaultSymAxis = 0.0; ///< The default symmetric axis
+        IndexType _numVariables = 0; ///< The number of variables
         /* Optimization internal results */
         RealType _objHpwl = 0.0; ///< The current value for hpwl
         RealType _objOvl = 0.0; ///< The current value for overlapping penalty
