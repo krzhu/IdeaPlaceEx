@@ -63,8 +63,8 @@ namespace nlp
                     converge::converge_criteria_max_iter<10000>
                         >
                 converge_type;
-        //typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
-        typedef optm::first_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
+        typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
+        //typedef optm::first_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
         //typedef optm::first_order::conjugate_gradient_wnlib optm_type;
     };
     struct nlp_default_settings

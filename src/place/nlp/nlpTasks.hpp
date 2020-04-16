@@ -143,8 +143,8 @@ namespace nt
                 for (IndexType idx = 0; idx < task._calcTask->numCells(); ++idx)
                 {
                     IndexType cellIdx = task._calcTask->_inverseCellMap[idx];
-                    (*task._target)(task._idxFunc(cellIdx, Orient2DType::HORIZONTAL)) = task._calcTask->_partialsX(idx);
-                    (*task._target)(task._idxFunc(cellIdx, Orient2DType::VERTICAL)) = task._calcTask->_partialsY(idx);
+                    (*task._target)(task._idxFunc(cellIdx, Orient2DType::HORIZONTAL)) += task._calcTask->_partialsX(idx);
+                    (*task._target)(task._idxFunc(cellIdx, Orient2DType::VERTICAL)) += task._calcTask->_partialsY(idx);
                 }
             }
         private:

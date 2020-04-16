@@ -272,43 +272,19 @@ struct CellPairOverlapPenaltyDifferentiable
     
     NumType evaluate() const
     {
+        const NumType xi = op::conv<NumType>(_getVarFunc(_cellIdxI, Orient2DType::HORIZONTAL));
+        const NumType yi = op::conv<NumType>(_getVarFunc(_cellIdxI, Orient2DType::VERTICAL));
+        const NumType xj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL));
+        const NumType yj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::VERTICAL));
+        const NumType wi = op::conv<NumType>(_cellWidthI);
+        const NumType hi = op::conv<NumType>(_cellHeightI);
+        const NumType wj = op::conv<NumType>(_cellWidthJ);
+        const NumType hj = op::conv<NumType>(_cellHeightJ);
         const NumType alpha = _getAlphaFunc();
-        const NumType lambda  = _getLambdaFunc();
-        const CoordType xLoI = _getVarFunc(_cellIdxI, Orient2DType::HORIZONTAL);
-        const CoordType xHiI = xLoI + _cellWidthI;
-        const CoordType yLoI = _getVarFunc(_cellIdxI, Orient2DType::VERTICAL);
-        const CoordType yHiI = yLoI + _cellHeightI;
-        const CoordType xLoJ = _getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL);
-        const CoordType xHiJ = xLoJ + _cellWidthJ;
-        const CoordType yLoJ = _getVarFunc(_cellIdxJ, Orient2DType::VERTICAL);
-        const CoordType yHiJ = yLoJ + _cellHeightJ;
-        // max (min(xHiI - xLoJ, xHiJ - xLoI), 0), vice versa
-        // Notice that the calculation results for changing the order of i and j.
-        // In the gradient, the results will be different
-        const CoordType var1X = xHiI - xLoJ;
-        const CoordType var2X = xHiJ - xLoI;
-        NumType overlapX = op::logSumExp(
-            op::conv<NumType>(var1X),
-            op::conv<NumType>(var2X),
-            - alpha
-            );
-        overlapX = op::logSumExp0(
-                overlapX,
-                alpha
-                );
-        // y
-        const CoordType var1Y = yHiI - yLoJ;
-        const CoordType var2Y = yHiJ - yLoI;
-        NumType overlapY = op::logSumExp(
-            op::conv<NumType>(var1Y),
-            op::conv<NumType>(var2Y),
-            - alpha
-            );
-        overlapY = op::logSumExp0(
-                overlapY,
-                alpha
-                );
-        return lambda * overlapX * overlapY;
+        const NumType lambda = _getLambdaFunc();
+        
+        const NumType ovl =pow(alpha, 2) *log(1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*log(1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1);
+        return lambda * ovl;
     }
 
     void accumlateGradient() const
@@ -370,6 +346,7 @@ struct CellPairOverlapPenaltyDifferentiable
         NumType dyi = (alpha * alpha *log(1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*(exp(-(hi + yi - yj)/alpha)/alpha - exp(-(hj - yi + yj)/alpha)/alpha))/((1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*(pow(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha), 2)));
         dyi *= (lambda);
         NumType dyj = -dyi;
+
 
 
         // accumulate the computed partials
