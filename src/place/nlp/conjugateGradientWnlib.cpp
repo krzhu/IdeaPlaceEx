@@ -20,14 +20,28 @@ RealType objFuncWrapper(RealType *vec)
 
 void gradFuncWrapper(RealType *vec1, RealType *vec2)
 {
-    return wrapperwrapperPtr->gradFunc(vec1, vec2);
+    wrapperwrapperPtr->gradFunc(vec1, vec2);
 }
 
 template<typename nlp_numerical_type>
 void wnlibWrapper<nlp_numerical_type>::optimize()
 {
     int code;
-    wn_conj_gradient_method(&code, &_lowerBoundary, _pl, _numVariables, objFuncWrapper, gradFuncWrapper, 5000);
+    double valMin;
+    RealType *sol;
+    sol = (RealType*)malloc(sizeof(RealType) * _numVariables);
+    for (IndexType i = 0; i < _numVariables; ++i)
+    {
+        sol[i] = 1.0;
+    }
+
+    wn_conj_gradient_method(&code, &valMin, sol, _numVariables, objFuncWrapper, gradFuncWrapper, 10000);
+    //wn_conj_direction_method(&code, &valMin, _pl, initial_coord_x0s, _numVariables, objFuncWrapper, 1000);
+    for (IndexType i = 0; i < _numVariables; ++i)
+    {
+        _pl[i] = sol[i];
+    }
+    free(sol);
 }
 
 template struct wnlibWrapper<double>;

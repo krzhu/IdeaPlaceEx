@@ -97,6 +97,7 @@ namespace nlp {
                     nlp._pl(xIdx) = locx;
                     nlp._pl(yIdx) = locy;
                 }
+                //nlp.alignToSym();
             }
         };
     } // namespace init_placement

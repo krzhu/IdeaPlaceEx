@@ -63,8 +63,8 @@ namespace nlp
                     converge::converge_criteria_max_iter<1000>
                         >
                 converge_type;
-        //typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
-        typedef optm::first_order::conjugate_gradient_wnlib optm_type;
+        typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
+        //typedef optm::first_order::conjugate_gradient_wnlib optm_type;
     };
     struct nlp_default_settings
     {
@@ -137,6 +137,7 @@ class NlpGPlacerBase
         void writeOut();
         /* Util functions */
         IndexType plIdx(IndexType cellIdx, Orient2DType orient);
+        void alignToSym();
         /* construct tasks */
         virtual void constructTasks();
         // Obj-related
@@ -160,6 +161,12 @@ class NlpGPlacerBase
         void regEvaAsymTaskflow(tf::Taskflow & tfFlow);
         void regEvaCosTaskflow(tf::Taskflow & tfFlow);
         void regEvaAllObjTaskflow(tf::Taskflow & tfFlow);
+#endif
+        /* Debugging function */
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
+        void drawCurrentLayout(const std::string &name);
+#endif 
 #endif
     protected:
         Database &_db; ///< The placement engine database

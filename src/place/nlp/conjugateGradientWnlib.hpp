@@ -33,7 +33,7 @@ namespace nlp
                         }
                         return _evaObj();
                     }
-                    void gradFunc(nlp_numerical_type *sol,  nlp_numerical_type *grad)
+                    void gradFunc(nlp_numerical_type *grad,  nlp_numerical_type *sol)
                     {
                         for (IndexType i = 0; i < _numVariables; ++i)
                         {

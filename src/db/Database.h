@@ -62,6 +62,9 @@ class Database
         /// @brief get a symmetric group
         /// @param the index of the symmetric group
         SymGroup & symGroup(IndexType idx) { return _symGroups.at(idx); }
+        /// @brief get the vector of symmetric groups
+        /// @return the vector of symmetric groups
+        const std::vector<SymGroup> & vSymGrpArray() const { return _symGroups; }
         /// @brief get the number of cells
         /// @return the number of cells
         IndexType numCells() const { return _cellArray.size(); }

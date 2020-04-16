@@ -256,6 +256,24 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
     }
 }
 
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::alignToSym()
+{
+    for (const auto &symGrp : _db.vSymGrpArray())
+    {
+        for (const auto &symPair : symGrp.vSymPairs())
+        {
+            IndexType cell1 = symPair.firstCell();
+            IndexType cell2 = symPair.secondCell();
+            _pl(plIdx(cell2, Orient2DType::HORIZONTAL)) = 2 * _defaultSymAxis - _pl(plIdx(cell1, Orient2DType::HORIZONTAL)) + _db.cell(cell1).cellBBox().xLen() * _scale;
+            _pl(plIdx(cell2, Orient2DType::VERTICAL)) = _pl(plIdx(cell1, Orient2DType::VERTICAL));
+        }
+        for (const auto cellIdx : symGrp.vSelfSyms())
+        {
+            _pl(plIdx(cellIdx, Orient2DType::HORIZONTAL)) = _defaultSymAxis + _db.cell(cellIdx).cellBBox().xLen() * _scale ;
+        }
+    }
+}
 
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::writeOut()
@@ -563,13 +581,17 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
     IntType iter = 0;
     do
     {
+        std::string debugGdsFilename  = "./debug/";
+        debugGdsFilename += "gp_iter_" + std::to_string(iter)+".gds";
+        base_type::drawCurrentLayout(debugGdsFilename);
         DBG("iter %d \n", iter);
         optm_trait::optimize(*this, optm);
+        DBG("finishiteroptimize\n");
         base_type::mult_trait::update(*this, this->_multiplier);
+        DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
         ++iter;
     } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
     auto end = WATCH_QUICK_END();
-    DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
     //std::cout<<"grad"<<"\n"<< _grad <<std::endl;
     std::cout<<"time "<< end / 1000 <<" ms" <<std::endl;
     this->writeOut();
@@ -876,6 +898,54 @@ void NlpGPlacerFirstOrder<nlp_settings>::regCalcAllGradTaskFlow(tf::Taskflow &tf
 #endif // IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
 
 
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
+PROJECT_NAMESPACE_END
+#include "writer/gdsii/WriteGds.h"
+PROJECT_NAMESPACE_BEGIN
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::drawCurrentLayout(const std::string &filename)
+{
+    auto wg = std::make_shared<WriteGds>(filename);
+    if (!wg->initWriter())
+    {
+        return;
+    }
+    if (!wg->createLib("TOP", 2000, 1e-6/2000)) // Hardcoded numbers
+    {
+        return;
+    }
+    if (!wg->writeCellBgn("DEBUG"))
+    {
+        return;
+    }
+    // Write all the cells
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+    {
+        const auto &cell = _db.cell(cellIdx);
+        Box<LocType> cellBox = cell.cellBBox();
+        LocType xLo = static_cast<LocType>(_pl(plIdx(cellIdx, Orient2DType::HORIZONTAL)) / _scale);
+        LocType yLo = static_cast<LocType>(_pl(plIdx(cellIdx, Orient2DType::VERTICAL)) / _scale);
+        Box<LocType> cellShape = Box<LocType>(xLo, yLo, xLo + cellBox.xLen(), yLo + cellBox.yLen());
+        wg->writeRectangle(cellShape, cellIdx, 0);
+    }
+    LocType boundaryXLo = static_cast<LocType>(_boundary.xLo() / _scale);
+    LocType boundaryXHi = static_cast<LocType>(_boundary.xHi() / _scale);
+    LocType boundaryYLo = static_cast<LocType>(_boundary.yLo() / _scale);
+    LocType boundaryYHi = static_cast<LocType>(_boundary.yHi() / _scale);
+    Box<LocType> scaleBoundary(boundaryXLo, boundaryYLo, boundaryXHi, boundaryYHi);
+    wg->writeRectangle(scaleBoundary, 666, 0);
+    // END
+    wg->writeCellEnd();
+    wg->endLib();
+    DBG("Database::%s: debug cell block saved in %s \n", __FUNCTION__, filename.c_str());
+}
+#endif
+#endif
+PROJECT_NAMESPACE_END
+
+
+PROJECT_NAMESPACE_BEGIN
 
 // declare the default settings for linking
 template class NlpGPlacerBase<nlp::nlp_default_settings>;

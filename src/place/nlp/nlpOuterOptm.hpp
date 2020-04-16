@@ -100,18 +100,52 @@ namespace nlp
                 template<typename nlp_type, typename mult_type,  std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
                 static void update(nlp_type &nlp, mult_type &mult, update_type &update)
                 {
+                    nlp._wrapObjAllTask.run();
                     const auto rawOvl = nlp._objOvl / mult._variedMults.at(0);
                     const auto rawOob = nlp._objOob / mult._variedMults.at(1);
                     const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
                     const auto fViolate = rawOvl + rawOob + rawAsym;
+                    DBG("update mult: raw ovl %f oob %f asym %f total %f \n", rawOvl, rawOob, rawAsym, fViolate);
+                    DBG("update mult:  before ovl %f oob %f asym %f \n",
+                            mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
                     mult._variedMults.at(0) += update.penalty * (rawOvl / fViolate);
                     mult._variedMults.at(1) += update.penalty * (rawOob / fViolate);
                     mult._variedMults.at(2) += update.penalty * (rawAsym / fViolate);
-                    DBG("update mult: ovl %f oob %f asym %f \n",
+                    DBG("update mult: afterafter  ovl %f oob %f asym %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
                 }
+            };
 
+            /// @brief direct subgradient
+            struct direct_subgradient
+            {
+                static constexpr RealType stepSize = 1;
+            };
 
+            template<>
+            struct multiplier_update_trait<direct_subgradient>
+            {
+                typedef direct_subgradient update_type;
+
+                template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static update_type construct(nlp_type &, mult_type&) { return update_type(); }
+
+                template<typename nlp_type, typename mult_type,  std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static void update(nlp_type &nlp, mult_type &mult, update_type &update)
+                {
+                    nlp._wrapObjAllTask.run();
+                    const auto rawOvl = nlp._objOvl / mult._variedMults.at(0);
+                    const auto rawOob = nlp._objOob / mult._variedMults.at(1);
+                    const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
+                    DBG("update mult: raw ovl %f oob %f asym %f total %f \n", rawOvl, rawOob, rawAsym);
+                    DBG("update mult:  before ovl %f oob %f asym %f \n",
+                            mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+                    mult._variedMults.at(0) += update.stepSize * (rawOvl );
+                    mult._variedMults.at(1) += update.stepSize * (rawOob );
+                    mult._variedMults.at(2) += update.stepSize * (rawAsym );
+                    DBG("update mult: afterafter  ovl %f oob %f asym %f \n",
+                            mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+                }
             };
 
         } // namespace update
