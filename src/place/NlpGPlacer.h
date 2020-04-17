@@ -60,13 +60,13 @@ namespace nlp
 
     struct nlp_default_first_order_algorithms
     {
-        typedef converge::converge_list<1,
+        typedef converge::converge_list<
                     converge::converge_criteria_max_iter<100>
                         >
                 converge_type;
         //typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
-        //typedef optm::first_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
-        typedef optm::first_order::conjugate_gradient_wnlib optm_type;
+        typedef optm::first_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
+        //typedef optm::first_order::conjugate_gradient_wnlib optm_type;
     };
     struct nlp_default_settings
     {
