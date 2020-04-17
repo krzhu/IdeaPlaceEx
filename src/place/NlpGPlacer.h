@@ -50,9 +50,10 @@ namespace nlp
 
     struct nlp_default_zero_order_algorithms
     {
-        typedef outer_stop_condition::stop_after_num_outer_iterations<5> stop_condition_type;
+        typedef outer_stop_condition::stop_after_num_outer_iterations<50> stop_condition_type;
         typedef init_place::init_random_placement_with_normal_distribution_near_center init_place_type;
         typedef outer_multiplier::init::hard_code_init mult_init_type;
+        //typedef outer_multiplier::update::subgradient_normalized_by_init<nlp_default_types::nlp_numerical_type> mult_update_type;
         typedef outer_multiplier::update::direct_subgradient mult_update_type;
         typedef outer_multiplier::mult_const_hpwl_cos_and_penalty_by_type<nlp_default_types::nlp_numerical_type, mult_init_type, mult_update_type> mult_type;
     };
@@ -60,7 +61,7 @@ namespace nlp
     struct nlp_default_first_order_algorithms
     {
         typedef converge::converge_list<1,
-                    converge::converge_criteria_max_iter<10000>
+                    converge::converge_criteria_max_iter<1000>
                         >
                 converge_type;
         typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;

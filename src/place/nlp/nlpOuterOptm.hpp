@@ -130,6 +130,9 @@ namespace nlp
                 template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
                 static update_type construct(nlp_type &, mult_type&) { return update_type(); }
 
+                template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static void init(nlp_type &, mult_type&, update_type &) { }
+
                 template<typename nlp_type, typename mult_type,  std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
                 static void update(nlp_type &nlp, mult_type &mult, update_type &update)
                 {
@@ -147,6 +150,56 @@ namespace nlp
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
                 }
             };
+
+            /// @breif subgradient normalize by values in iter 0
+            template<typename nlp_numerical_type>
+            struct subgradient_normalized_by_init
+            {
+                static constexpr nlp_numerical_type stepSize = 1;
+                std::vector<nlp_numerical_type> normalizeFactor;
+            };
+
+            template<typename nlp_numerical_type>
+            struct multiplier_update_trait<subgradient_normalized_by_init<nlp_numerical_type>>
+            {
+                typedef subgradient_normalized_by_init<nlp_numerical_type> update_type;
+
+                template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static update_type construct(nlp_type &, mult_type&) { return update_type(); }
+
+                template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static void init(nlp_type &nlp, mult_type &mult, update_type &update) 
+                { 
+                    update.normalizeFactor.resize(3);
+                    //update.normalizeFactor.at(0) = mult._variedMults.at(0) / nlp._objOvl;
+                    //update.normalizeFactor.at(1) = mult._variedMults.at(1) / nlp._objOob;
+                    //update.normalizeFactor.at(2) = mult._variedMults.at(2) / nlp._objAsym;
+                    update.normalizeFactor.at(0) = 1 / nlp._objOvl;
+                    update.normalizeFactor.at(1) = 1 / nlp._objOob;
+                    update.normalizeFactor.at(2) = 1 / nlp._objAsym;
+                }
+
+                template<typename nlp_type, typename mult_type,  std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static void update(nlp_type &nlp, mult_type &mult, update_type &update)
+                {
+                    nlp._wrapObjAllTask.run();
+                    const auto rawOvl = nlp._objOvl / mult._variedMults.at(0);
+                    const auto rawOob = nlp._objOob / mult._variedMults.at(1);
+                    const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
+                    const auto normalizedOvl = rawOvl * update.normalizeFactor.at(0);
+                    const auto normalizedOob = rawOob * update.normalizeFactor.at(1);
+                    const auto normalizedAsym = rawAsym  * update.normalizeFactor.at(2);
+                    DBG("update mult: raw ovl %f oob %f asym %f total %f \n", normalizedOvl, normalizedOob, normalizedAsym);
+                    DBG("update mult:  before ovl %f oob %f asym %f \n",
+                            mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+                    mult._variedMults.at(0) += update.stepSize * (normalizedOvl );
+                    mult._variedMults.at(1) += update.stepSize * (normalizedOob );
+                    mult._variedMults.at(2) += update.stepSize * (normalizedAsym );
+                    DBG("update mult: afterafter  ovl %f oob %f asym %f \n",
+                            mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+                }
+            };
+
 
         } // namespace update
         template<typename T> 
@@ -184,6 +237,7 @@ namespace nlp
             static void init(nlp_type &nlp, mult_type &mult)
             {
                 init::multiplier_init_trait<init_type>::init(nlp, mult);
+                update::multiplier_update_trait<update_type>::init(nlp, mult, mult.update);
                 for (auto &op : nlp._hpwlOps) { op._getLambdaFunc = [&](){ return mult._constMults[0]; }; }
                 for (auto &op : nlp._cosOps) { op._getLambdaFunc = [&](){ return mult._constMults[1]; }; }
                 for (auto &op : nlp._ovlOps) { op._getLambdaFunc = [&](){ return mult._variedMults[0]; }; }

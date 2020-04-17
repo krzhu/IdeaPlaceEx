@@ -34,7 +34,7 @@ namespace nlp
             {
                 typedef converge_criteria_type converge_type;
                 converge_criteria_type _converge;
-                static constexpr nlp_numerical_type alpha = 0.003;
+                static constexpr nlp_numerical_type alpha = 0.001;
                 static constexpr nlp_numerical_type beta1 = 0.9;
                 static constexpr nlp_numerical_type beta2 = 0.999;
                 static constexpr nlp_numerical_type epsilon = 1e-8;
