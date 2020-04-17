@@ -34,7 +34,7 @@ namespace nlp
             {
                 typedef converge_criteria_type converge_type;
                 converge_criteria_type _converge;
-                static constexpr nlp_numerical_type alpha = 0.001;
+                static constexpr nlp_numerical_type alpha = 0.005;
                 static constexpr nlp_numerical_type beta1 = 0.9;
                 static constexpr nlp_numerical_type beta2 = 0.999;
                 static constexpr nlp_numerical_type epsilon = 1e-8;
@@ -87,9 +87,11 @@ namespace nlp
                     auto bot = vt.array().sqrt() + o.epsilon;
                     n._pl = n._pl - o.alpha * ( mt.array() / bot).matrix();
                     n.calcObj();
-                    DBG("norm %f \n", n._grad.norm());
-                    DBG("naive gradiend descent: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
+                    //DBG("norm %f \n", n._grad.norm());
+                    //DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
                 } while (!converge_trait::stopCriteria(n, o, o._converge) );
+                DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
+                DBG("gradient norm %f \n", n._grad.norm());
             }
         };
 

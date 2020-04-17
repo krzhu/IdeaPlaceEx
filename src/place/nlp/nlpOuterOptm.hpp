@@ -155,7 +155,7 @@ namespace nlp
             template<typename nlp_numerical_type>
             struct subgradient_normalized_by_init
             {
-                static constexpr nlp_numerical_type stepSize = 1;
+                static constexpr nlp_numerical_type stepSize = 10;
                 std::vector<nlp_numerical_type> normalizeFactor;
             };
 
@@ -171,12 +171,12 @@ namespace nlp
                 static void init(nlp_type &nlp, mult_type &mult, update_type &update) 
                 { 
                     update.normalizeFactor.resize(3);
-                    //update.normalizeFactor.at(0) = mult._variedMults.at(0) / nlp._objOvl;
-                    //update.normalizeFactor.at(1) = mult._variedMults.at(1) / nlp._objOob;
-                    //update.normalizeFactor.at(2) = mult._variedMults.at(2) / nlp._objAsym;
-                    update.normalizeFactor.at(0) = 1 / nlp._objOvl;
-                    update.normalizeFactor.at(1) = 1 / nlp._objOob;
-                    update.normalizeFactor.at(2) = 1 / nlp._objAsym;
+                    update.normalizeFactor.at(0) = mult._variedMults.at(0) / nlp._objOvl;
+                    update.normalizeFactor.at(1) = 1;// mult._variedMults.at(1) / nlp._objOob;
+                    update.normalizeFactor.at(2) = mult._variedMults.at(2) / nlp._objAsym;
+                    //update.normalizeFactor.at(0) = 1 / nlp._objOvl;
+                    //update.normalizeFactor.at(1) = 1;// / nlp._objOob;
+                    //update.normalizeFactor.at(2) = 1 / nlp._objAsym;
                 }
 
                 template<typename nlp_type, typename mult_type,  std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
