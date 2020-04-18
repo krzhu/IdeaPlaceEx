@@ -21,21 +21,13 @@ template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::optimize()
 {
     _wrapObjAllTask.run();
-    setupMultipliers();
     DBG("obj: %f %f %f %f %f %f \n", _obj, _objHpwl, _objOvl, _objOob, _objAsym, _objCos);
-}
-
-template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::setupMultipliers()
-{
-    //mult_trait::init(*this, _multiplier);
 }
 
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::initOptimizationKernelMembers()
 {
     _stopCondition = stop_condition_trait::construct(*this);
-    _multiplier = mult_trait::construct(*this);
 }
 
 template<typename nlp_settings>
@@ -570,20 +562,15 @@ void NlpGPlacerBase<nlp_settings>::regEvaAllObjTaskflow(tf::Taskflow &tfFlow)
 /* FirstOrder */
 
 template<typename nlp_settings>
-void NlpGPlacerFirstOrder<nlp_settings>::setupMultipliers()
-{
-    mult_trait::init(*this, this->_multiplier);
-}
-
-template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::optimize()
 {
     WATCH_QUICK_START();
     // setting up the multipliers
     this->_wrapObjAllTask.run();
     _wrapCalcGradTask.run();
-    this->setupMultipliers();
     optm_type optm;
+    mult_type multiplier = mult_trait::construct(*this);
+    mult_trait::init(*this, multiplier);
     IntType iter = 0;
     do
     {
@@ -592,8 +579,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
         base_type::drawCurrentLayout(debugGdsFilename);
         DBG("iter %d \n", iter);
         optm_trait::optimize(*this, optm);
-        DBG("finishiteroptimize\n");
-        base_type::mult_trait::update(*this, this->_multiplier);
+        mult_trait::update(*this, multiplier);
         DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
         ++iter;
     } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));

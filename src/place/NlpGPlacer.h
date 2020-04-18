@@ -46,14 +46,14 @@ namespace nlp
         typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_cos_type;
 
     };
-
-
+    
     struct nlp_default_zero_order_algorithms
     {
         typedef outer_stop_condition::stop_after_num_outer_iterations<1000> stop_condition_type;
         typedef init_place::init_random_placement_with_normal_distribution_near_center init_place_type;
-        //typedef outer_multiplier::init::hard_code_init mult_init_type;
-        typedef outer_multiplier::init::init_by_matching_gradient_norm mult_init_type;
+
+        /* multipliers */
+        typedef outer_multiplier::init::hard_code_init mult_init_type;
         typedef outer_multiplier::update::subgradient_normalized_by_init<nlp_default_types::nlp_numerical_type> mult_update_type;
         //typedef outer_multiplier::update::direct_subgradient mult_update_type;
         typedef outer_multiplier::mult_const_hpwl_cos_and_penalty_by_type<nlp_default_types::nlp_numerical_type, mult_init_type, mult_update_type> mult_type;
@@ -69,8 +69,13 @@ namespace nlp
         typedef optm::first_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
         //typedef optm::first_order::conjugate_gradient_wnlib optm_type;
         
+        /* multipliers */
         typedef outer_multiplier::init::init_by_matching_gradient_norm mult_init_type;
+        typedef outer_multiplier::update::subgradient_normalized_by_init<nlp_default_types::nlp_numerical_type> mult_update_type;
+        //typedef outer_multiplier::update::direct_subgradient mult_update_type;
+        typedef outer_multiplier::mult_const_hpwl_cos_and_penalty_by_type<nlp_default_types::nlp_numerical_type, mult_init_type, mult_update_type> mult_type;
     };
+
     struct nlp_default_settings
     {
         typedef nlp_default_zero_order_algorithms nlp_zero_order_algorithms_type;
@@ -157,7 +162,6 @@ class NlpGPlacerBase
         void constructStopConditionTask();
         /* Optimization  kernel */
         virtual void optimize();
-        virtual void setupMultipliers();
         /* build the computational graph */
 #ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
         void regEvaHpwlTaskflow(tf::Taskflow & tfFlow);
@@ -195,7 +199,6 @@ class NlpGPlacerBase
         RealType _obj = 0.0; ///< The current value for the total objective penalty
         /* NLP optimization kernel memebers */
         stop_condition_type _stopCondition;
-        mult_type _multiplier; ///< Multipliers for the objective function
         /* Optimization data */
         EigenVector _pl; ///< The placement solutions
         std::shared_ptr<EigenMap> _plx; ///< The placement solutions for x coodinates
@@ -281,13 +284,13 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         friend optm_type;
         friend optm_trait;
 
-        typedef typename nlp_settings::nlp_zero_order_algorithms_type::mult_init_type mult_init_type;
+        typedef typename nlp_settings::nlp_first_order_algorithms_type::mult_init_type mult_init_type;
         typedef nlp::outer_multiplier::init::multiplier_init_trait<mult_init_type> mult_init_trait;
         friend mult_init_trait;
-        typedef typename nlp_settings::nlp_zero_order_algorithms_type::mult_update_type mult_update_type;
+        typedef typename nlp_settings::nlp_first_order_algorithms_type::mult_update_type mult_update_type;
         typedef nlp::outer_multiplier::update::multiplier_update_trait<mult_update_type> mult_update_trait;
         friend mult_update_trait;
-        typedef typename nlp_settings::nlp_zero_order_algorithms_type::mult_type mult_type;
+        typedef typename nlp_settings::nlp_first_order_algorithms_type::mult_type mult_type;
         typedef nlp::outer_multiplier::multiplier_trait<mult_type> mult_trait;
         friend mult_trait;
 
@@ -311,7 +314,6 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         void constructWrapCalcGradTask();
         /* optimization */
         virtual void optimize() override;
-        virtual void setupMultipliers() override;
         /* Build the computational graph */
 #ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
         void regCalcHpwlGradTaskFlow(tf::Taskflow &tfFlow);
