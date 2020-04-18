@@ -8,6 +8,7 @@
 #pragma once
 
 #include "global/global.h"
+#include "nlpTypes.hpp"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -76,6 +77,79 @@ namespace nlp
                     mult._variedMults.at(2) = 1; // asym
                 }
 
+            };
+
+            /// @brief match by gradient norm
+            struct init_by_matching_gradient_norm 
+            {
+                static constexpr RealType penaltyRatioToObj = 1.0; ///< The ratio of targeting penalty 
+                static constexpr RealType small = 0.01;
+            };
+
+            
+            template<>
+            struct multiplier_init_trait<init_by_matching_gradient_norm>
+            {
+                typedef init_by_matching_gradient_norm init_type;
+                template<typename nlp_type, typename mult_type, std::enable_if_t<nlp::is_first_order_diff<nlp_type>::value, void>* = nullptr>
+                static void init(nlp_type &nlp, mult_type& mult)
+                {
+                    mult._constMults.at(0) = 1.0; // hpwl
+                    const auto hpwlMult = mult._constMults.at(0);
+                    const auto hpwlNorm = nlp._gradHpwl.norm();
+                    const auto hpwlMultNorm = hpwlMult * hpwlNorm;
+                    const auto hpwlMultNormPenaltyRatio = hpwlMultNorm * init_type::penaltyRatioToObj;
+                    Assert(nlp._gradHpwl.norm() > REAL_TYPE_TOL);
+                    const auto cosNorm = nlp._gradCos.norm();
+                    const auto ovlNorm = nlp._gradOvl.norm();
+                    const auto oobNorm = nlp._gradOob.norm();
+                    const auto asymNorm = nlp._gradAsym.norm();
+                    const auto maxPenaltyNorm = ovlNorm;
+                    // Make a threshold on by referencing hpwl to determine whether one is small
+                    const auto small  = init_type::small * hpwlNorm;
+                    // match gradient norm for signal path
+                    if (cosNorm > small)
+                    {
+                        mult._constMults.at(1) = hpwlMultNorm / cosNorm;
+                    }
+                    else
+                    {
+                        mult._constMults.at(1) = hpwlMult;
+                    }
+                    // overlap
+                    if (ovlNorm > small)
+                    {
+                        mult._variedMults.at(0) = hpwlMultNormPenaltyRatio / ovlNorm;
+                    }
+                    else
+                    {
+                        mult._variedMults.at(0) = hpwlMultNormPenaltyRatio / maxPenaltyNorm;
+                    }
+                    // out of boundary
+                    // Since we know oob is small at beginning, and it will take effect after a few iterations. Therefore it would be better to set it to resonable range first
+                    //mult._variedMults.at(1) = hpwlMultNormPenaltyRatio;
+                    if (oobNorm > small)
+                    {
+                        mult._variedMults.at(1) = hpwlMultNormPenaltyRatio / oobNorm;
+                    }
+                    else
+                    {
+                        mult._variedMults.at(1) = hpwlMultNormPenaltyRatio / maxPenaltyNorm;
+                    }
+                    // asym
+                    if (asymNorm > small)
+                    {
+                        mult._variedMults.at(2) = hpwlMultNormPenaltyRatio / asymNorm;
+                    }
+                    else
+                    {
+                        mult._variedMults.at(2) = hpwlMultNormPenaltyRatio / maxPenaltyNorm;
+                    }
+                    DBG("init mult: hpwl %f cos %f \n",
+                            mult._constMults[0], mult._constMults[1]);
+                    DBG("init mult: ovl %f oob %f asym %f \n",
+                            mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+                }
             };
         }; // namespace init
         namespace update

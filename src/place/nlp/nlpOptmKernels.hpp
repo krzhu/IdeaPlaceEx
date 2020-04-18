@@ -96,6 +96,7 @@ namespace nlp
             }
         };
 
+        /// @brief a convenient wrapper for combining different types of converge condition. the list in the template will be check one by one and return converge if any of them say so
         template<typename converge_type, typename... others>
         struct converge_list 
         {

@@ -28,7 +28,7 @@ void NlpGPlacerBase<nlp_settings>::optimize()
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::setupMultipliers()
 {
-    mult_trait::init(*this, _multiplier);
+    //mult_trait::init(*this, _multiplier);
 }
 
 template<typename nlp_settings>
@@ -568,6 +568,12 @@ void NlpGPlacerBase<nlp_settings>::regEvaAllObjTaskflow(tf::Taskflow &tfFlow)
 #endif //IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
 
 /* FirstOrder */
+
+template<typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::setupMultipliers()
+{
+    mult_trait::init(*this, this->_multiplier);
+}
 
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::optimize()
