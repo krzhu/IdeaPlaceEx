@@ -12,6 +12,7 @@ void SigPathMgr::decomposeSignalPaths()
 {
     for (const auto &path : _db.vSignalPaths())
     {
+        _segByPath.emplace_back(std::vector<SigPathSeg>());
         for (IndexType idx = 0; idx < path.vPinIdxArray().size() - 3; ++idx)
         {
             const IndexType pinIdx1 = path.vPinIdxArray().at(idx);   const auto &pin1 = _db.pin(pinIdx1); const IndexType cellIdx1 = pin1.cellIdx();
@@ -27,6 +28,7 @@ void SigPathMgr::decomposeSignalPaths()
             {
                 // valid segment
                 _segs.emplace_back(SigPathSeg(pinIdx1, pinIdx2, pinIdx3, pinIdx4));
+                _segByPath.back().emplace_back(SigPathSeg(pinIdx1, pinIdx2, pinIdx3, pinIdx4));
                 DBG("SigPathMgr: add cell %d pin %d -> cell %d pin %d -> cell %d pin %d -> cell %d -< pin %d \n", cellIdx1, pinIdx1, cellIdx2, pinIdx2, cellIdx3, pinIdx3, cellIdx4, pinIdx4);
             }
         }

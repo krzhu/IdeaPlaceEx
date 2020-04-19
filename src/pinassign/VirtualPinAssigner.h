@@ -24,7 +24,7 @@ class VirtualPinAssigner
         }
         /* Kernal interface */
         /// @brief cnfigure the virtual boundary based on databse
-        void reconfigureVirtualPinLocationFromDB();
+        void reconfigureVirtualPinLocationFromDB(IndexType iter);
         /// @brief reconfigure the virtual boundary and pin locations
         void reconfigureVirtualPinLocations(const Box<LocType> &cellsBBox);
         /// @brief solve pin assignment from information from DB
