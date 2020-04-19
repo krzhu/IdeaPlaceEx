@@ -9,6 +9,7 @@
 
 #include "global/global.h"
 #include "nlpTypes.hpp"
+#include "place/different.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -37,8 +38,14 @@ namespace nlp
         {
             template<typename NlpType>
             static stop_after_num_outer_iterations<MaxIter> construct(NlpType &) { return stop_after_num_outer_iterations<MaxIter>(); }
+
             template<typename NlpType>
-            static IntType stopPlaceCondition(NlpType &, stop_after_num_outer_iterations<MaxIter> &stop)
+            static void init(NlpType &, stop_after_num_outer_iterations<MaxIter> &) {}
+
+            static void clear(stop_after_num_outer_iterations<MaxIter> &) {}
+            
+            template<typename NlpType>
+            static BoolType stopPlaceCondition(NlpType &, stop_after_num_outer_iterations<MaxIter> &stop)
             {
                 if (stop.curIter >= stop.maxIter)
                 {
@@ -49,6 +56,156 @@ namespace nlp
                 return 0;
             }
         };
+
+        /// @brief stop after violating is small enough
+        struct stop_after_violate_small
+        {
+            static constexpr RealType overlapRatio = 0.02; ///< with respect to total cell area
+            static constexpr RealType outOfBoundaryRatio = 0.05; ///< with respect to boundary
+            static constexpr RealType asymRatio = 0.1; ///< with respect to sqrt(total cell area)
+        };
+
+        template<>
+        struct stop_condition_trait<stop_after_violate_small>
+        {
+            typedef stop_after_violate_small stop_type;
+
+            template<typename NlpType>
+            static stop_type construct(NlpType &) { return stop_type(); }
+
+            template<typename NlpType>
+            static void init(NlpType &, stop_type &) {}
+
+            static void clear(stop_type &) {}
+            
+            template<typename NlpType>
+            static BoolType stopPlaceCondition(NlpType &n, stop_type &stop)
+            {
+                using CoordType = typename NlpType::nlp_coordinate_type;
+                // check whether overlapping is small than threshold
+                CoordType ovlArea = 0;
+                const CoordType ovlThreshold = stop.overlapRatio * n._totalCellArea;
+                for (auto &op : n._ovlOps)
+                {
+                    ovlArea += diff::place_overlap_trait<typename NlpType::nlp_ovl_type>::overlapArea(op);
+                    if (ovlArea > ovlThreshold)
+                    {
+                        return false;
+                    }
+                }
+                // Check whether out of boundary is smaller than threshold
+                CoordType oobArea = 0;
+                const CoordType oobThreshold = stop.outOfBoundaryRatio * n._boundary.area();
+                for (auto &op : n._oobOps)
+                {
+                    oobArea +=  diff::place_out_of_boundary_trait<typename NlpType::nlp_oob_type>::oobArea(op);
+                    if (oobArea > oobThreshold)
+                    {
+                        return false;
+                    }
+                }
+                // Check whether asymmetry distance is smaller than threshold
+                CoordType asymDist = 0;
+                const CoordType asymThreshold = stop.asymRatio * std::sqrt(n._totalCellArea);
+                for (auto & op : n._asymOps)
+                {
+                    asymDist += diff::place_asym_trait<typename NlpType::nlp_asym_type>::asymDistanceNormalized(op);
+                    if (asymDist > asymThreshold)
+                    {
+                        return false;
+                    }
+                }
+                DBG("ovl area %f target %f \n oob area %f target %f \n asym dist %f target %f \n",  ovlArea, ovlThreshold, oobArea, oobThreshold, asymDist, asymThreshold);
+                return true;
+            }
+        };
+        /// @brief a convenient wrapper for combining different types of stop_condition condition. the list in the template will be check one by one and return converge if any of them say so
+        template<typename stop_condition_type, typename... others>
+        struct stop_condition_list 
+        {
+            typedef stop_condition_list<others...> base_type;
+            stop_condition_type  _stop;
+            stop_condition_list<others...> _list;
+        };
+
+        template<typename stop_condition_type>
+        struct stop_condition_list<stop_condition_type>
+        {
+            stop_condition_type _stop;
+        };
+
+        template<typename stop_condition_type, typename... others>
+        struct stop_condition_trait<stop_condition_list<stop_condition_type, others...>>
+        {
+            typedef stop_condition_list<stop_condition_type, others...> list_type;
+            typedef typename stop_condition_list<stop_condition_type, others...>::base_type base_type;
+
+            static void clear(list_type &c)
+            {
+                stop_condition_trait<stop_condition_type>::clear(c._stop);
+                stop_condition_trait<base_type>::clear(c._list);
+            }
+
+            template<typename nlp_type>
+            static list_type construct(nlp_type &n)
+            {
+                list_type list;
+                list._stop = std::move(stop_condition_trait<stop_condition_type>::construct(n));
+                list._list = std::move(stop_condition_trait<base_type>::construct(n));
+                return list;
+            }
+
+            template<typename nlp_type>
+            static BoolType stopPlaceCondition(nlp_type &n,  list_type &c) 
+            {
+                BoolType stop = false;
+                if (stop_condition_trait<stop_condition_type>::stopPlaceCondition(n, c._stop))
+                {
+                    stop = true;
+                }
+                if (stop_condition_trait<base_type>::stopPlaceCondition(n, c._list))
+                {
+                    stop = true;
+                }
+                if (stop)
+                {
+                    stop_condition_trait<stop_condition_type>::clear(c._stop);
+                }
+                return stop;
+            }
+        };
+
+
+        template<typename stop_condition_type>
+        struct stop_condition_trait<stop_condition_list<stop_condition_type>>
+        {
+            typedef stop_condition_list<stop_condition_type> list_type;
+            static void clear(stop_condition_list<stop_condition_type> &c)
+            {
+                stop_condition_trait<stop_condition_type>::clear(c._stop);
+            }
+
+
+            template<typename nlp_type>
+            static list_type construct(nlp_type &n)
+            {
+                list_type list;
+                list._stop = std::move(stop_condition_trait<stop_condition_type>::construct(n));
+                return list;
+            }
+
+            template<typename nlp_type>
+            static BoolType stopPlaceCondition(nlp_type &n, stop_condition_list<stop_condition_type>&c) 
+            {
+                if (stop_condition_trait<stop_condition_type>::stopPlaceCondition(n, c._stop))
+                {
+                    stop_condition_trait<stop_condition_type>::clear(c._stop);
+                    return true;
+                }
+                return false;
+            }
+        };
+
     } // namespace outer_stop_condition
 
     namespace outer_multiplier
@@ -193,7 +350,7 @@ namespace nlp
             /// @brief direct subgradient
             struct direct_subgradient
             {
-                static constexpr RealType stepSize = 1;
+                static constexpr RealType stepSize = 0.01;
             };
 
             template<>
@@ -205,7 +362,9 @@ namespace nlp
                 static update_type construct(nlp_type &, mult_type&) { return update_type(); }
 
                 template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
-                static void init(nlp_type &, mult_type&, update_type &) { }
+                static void init(nlp_type &, mult_type&, update_type &) 
+                { 
+                }
 
                 template<typename nlp_type, typename mult_type,  std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
                 static void update(nlp_type &nlp, mult_type &mult, update_type &update)

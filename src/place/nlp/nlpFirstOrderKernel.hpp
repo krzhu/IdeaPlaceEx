@@ -92,6 +92,7 @@ namespace nlp
                 } while (!converge_trait::stopCriteria(n, o, o._converge) );
                 DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
                 DBG("gradient norm %f \n", n._grad.norm());
+                DBG("converge at iter %d \n", iter);
             }
         };
 

@@ -42,7 +42,7 @@ void NlpGPlacerBase<nlp_settings>::initProblem()
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::initHyperParams()
 {
-    _alpha = NLP_WN_CONJ_ALPHA;
+    _alpha = NLP_WN_CONJ_ALPHA ;
 }
 
 template<typename nlp_settings>
@@ -299,7 +299,6 @@ template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::constructTasks()
 {
     constructObjTasks();
-    constructStopConditionTask();
 }
 
 template<typename nlp_settings>
@@ -468,22 +467,6 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
 }
 #endif //DEBUG_SINGLE_THREAD_GP
 
-template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::constructOptimizationKernelTasks()
-{
-    constructStopConditionTask();
-}
-
-template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::constructStopConditionTask()
-{
-    auto stopCondition = [&]()
-    {
-        return stop_condition_trait::stopPlaceCondition(*this, _stopCondition);
-    };
-    _checkStopConditionTask = Task<ConditionTask>(ConditionTask(stopCondition));
-}
-
 #ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
 
 template<typename nlp_settings>
@@ -615,7 +598,6 @@ template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::constructTasks()
 {
     this->constructObjTasks();
-    this->constructStopConditionTask();
     constructFirstOrderTasks();
 }
 

@@ -63,6 +63,38 @@ namespace nlp
             }
         };
 
+        template<typename nlp_numerical_type>
+        struct converge_grad_norm_by_init
+        {
+            nlp_numerical_type confidenceRatio = 0.1; ///< stop if the norm reduce to this ratio of the init
+            nlp_numerical_type initNorm = -1.0;
+        };
+
+        template<typename nlp_numerical_type>
+        struct converge_criteria_trait<converge_grad_norm_by_init<nlp_numerical_type>>
+        {
+            typedef converge_grad_norm_by_init<nlp_numerical_type> converge_type;
+            static void clear(converge_type &c)
+            {
+                c.initNorm = -1.0;
+            }
+            template<typename nlp_type, typename optm_type, std::enable_if_t<is_first_order_diff<nlp_type>::value, void>* = nullptr>
+            static BoolType stopCriteria(nlp_type &n, optm_type &, converge_type &c)
+            {
+                if (c.initNorm < 0)
+                {
+                    c.initNorm = n._grad.norm();
+                    return false;
+                }
+                if (n._grad.norm() < c.confidenceRatio * c.initNorm)
+                {
+                    clear(c);
+                    return true;
+                }
+                return false;
+            }
+        };
+
         template<typename nlp_numerical_type=RealType>
         struct converge_criteria_stop_improve_less_in_last_two_step
         {
@@ -70,6 +102,7 @@ namespace nlp
             nlp_numerical_type _fLastStep = - 1.0;
             nlp_numerical_type _fLastLastStep = - 1.0;
         };
+
         template<typename nlp_numerical_type>
         struct converge_criteria_trait<converge_criteria_stop_improve_less_in_last_two_step<nlp_numerical_type>>
         {
@@ -121,7 +154,7 @@ namespace nlp
                 converge_criteria_trait<base_type>::clear(c._list);
             }
             template<typename nlp_type, typename optm_type>
-            static constexpr BoolType stopCriteria(nlp_type &n, optm_type &o, converge_list<converge_type, others...>&c) 
+            static BoolType stopCriteria(nlp_type &n, optm_type &o, converge_list<converge_type, others...>&c) 
             {
                 BoolType stop = false;
                 if (converge_criteria_trait<converge_type>::stopCriteria(n, o, c._converge))
@@ -149,7 +182,7 @@ namespace nlp
                 converge_criteria_trait<converge_type>::clear(c._converge);
             }
             template<typename nlp_type, typename optm_type>
-            static constexpr BoolType stopCriteria(nlp_type &n, optm_type &o, converge_list<converge_type>&c) 
+            static BoolType stopCriteria(nlp_type &n, optm_type &o, converge_list<converge_type>&c) 
             {
                 if (converge_criteria_trait<converge_type>::stopCriteria(n, o, c._converge))
                 {

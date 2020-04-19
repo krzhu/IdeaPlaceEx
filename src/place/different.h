@@ -368,6 +368,27 @@ struct CellPairOverlapPenaltyDifferentiable
     std::function<void(NumType, IndexType, Orient2DType)> _accumulateGradFunc; ///< A function to update partial
 };
 
+template<typename op_type>
+struct place_overlap_trait
+{
+    typedef typename op_type::coordinate_type coordinate_type;
+    /// @brief calculate the overlap area of an operator
+    static coordinate_type overlapArea(op_type &ovl)
+    {
+        const coordinate_type xi = ovl._getVarFunc(ovl._cellIdxI, Orient2DType::HORIZONTAL);
+        const coordinate_type yi = ovl._getVarFunc(ovl._cellIdxI, Orient2DType::VERTICAL);
+        const coordinate_type xj = ovl._getVarFunc(ovl._cellIdxJ, Orient2DType::HORIZONTAL);
+        const coordinate_type yj = ovl._getVarFunc(ovl._cellIdxJ, Orient2DType::VERTICAL);
+        const coordinate_type wi = ovl._cellWidthI;
+        const coordinate_type hi = ovl._cellHeightI;
+        const coordinate_type wj = ovl._cellWidthJ;
+        const coordinate_type hj = ovl._cellHeightJ;
+
+        const auto overlapX = std::max(std::min(xi + wi, xj + wj) - std::max(xi, xj), 0.0);
+        const auto overlapY = std::max(std::min(yi + hi, yj + hj) - std::max(yi, yj), 0.0);
+        return overlapX * overlapY;
+    }
+};
 
 template <typename NumType, typename CoordType>
 struct is_placement_differentiable_concept<CellPairOverlapPenaltyDifferentiable<NumType, CoordType>>
@@ -475,6 +496,29 @@ struct is_placement_differentiable_concept<CellOutOfBoundaryPenaltyDifferentiabl
     typedef std::true_type  is_placement_differentiable_concept_type;
 };
 
+
+template<typename op_type>
+struct place_out_of_boundary_trait
+{
+    typedef typename op_type::coordinate_type coordinate_type;
+    /// @brief calculate the out of boundary area of an operator
+    static coordinate_type oobArea(op_type &oob)
+    {
+        const coordinate_type x = oob._getVarFunc(oob._cellIdx, Orient2DType::HORIZONTAL);
+        const coordinate_type y = oob._getVarFunc(oob._cellIdx, Orient2DType::VERTICAL);
+        const coordinate_type w = oob._cellWidth;
+        const coordinate_type h = oob._cellHeight;
+        const auto boxXHi = (*(oob._boundary)).xHi();
+        const auto boxXLo = (*(oob._boundary)).xLo();
+        const auto boxYHi = (*(oob._boundary)).yHi();
+        const auto boxYLo = (*(oob._boundary)).yLo();
+
+        const auto overlapX = std::max(std::min(x + w, boxXHi) - std::max(x, boxXLo), 0.0);
+        const auto overlapY = std::max(std::min(y + h, boxYHi) - std::max(y, boxYLo), 0.0);
+        return w*h - overlapX * overlapY;
+    }
+};
+
 /// @brief Asymmetry penalty
 template<typename NumType, typename CoordType>
 struct AsymmetryDifferentiable
@@ -580,6 +624,45 @@ template <typename NumType, typename CoordType>
 struct is_placement_differentiable_concept<AsymmetryDifferentiable<NumType, CoordType>>
 {
     typedef std::true_type  is_placement_differentiable_concept_type;
+};
+
+
+template<typename op_type>
+struct place_asym_trait
+{
+    typedef typename op_type::coordinate_type coordinate_type;
+    /// @brief calculate the asymmetry distance of an operator
+    static coordinate_type asymDistance(op_type &asym)
+    {
+        coordinate_type dist = 0;
+        auto symAxis = asym._getVarFunc(asym._symGrpIdx, Orient2DType::NONE);
+        for (IndexType symPairIdx = 0; symPairIdx < asym._pairCells.size(); ++symPairIdx)
+        {
+            const IndexType cellI = asym._pairCells[symPairIdx][0];
+            const IndexType cellJ = asym._pairCells[symPairIdx][1];
+            const auto xi = asym._getVarFunc(cellI, Orient2DType::HORIZONTAL);
+            const auto yi = asym._getVarFunc(cellI, Orient2DType::VERTICAL);
+            const auto w = asym._pairWidths[symPairIdx];
+            const auto xj = asym._getVarFunc(cellJ, Orient2DType::HORIZONTAL);
+            const auto yj = asym._getVarFunc(cellJ, Orient2DType::VERTICAL);
+
+            dist +=  std::abs(xi + xj + w - 2 * symAxis);
+            dist +=  std::abs(yi - yj);
+        }
+        for (IndexType ssIdx = 0; ssIdx < asym._selfSymCells.size(); ++ssIdx)
+        {
+            const auto x = asym._getVarFunc(asym._selfSymCells[ssIdx], Orient2DType::HORIZONTAL);
+            const auto w = asym._selfSymWidths[ssIdx];
+
+            dist +=  std::abs(x + w * 0.5  - symAxis);
+        }
+        return dist;
+    }
+    /// @brief calculate the normalized asymmetry distance of an operator
+    static coordinate_type asymDistanceNormalized(op_type &asym)
+    {
+        return asymDistance(asym) / (asym._pairCells.size() + asym._selfSymCells.size());
+    }
 };
 
 

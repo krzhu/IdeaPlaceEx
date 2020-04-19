@@ -49,7 +49,10 @@ namespace nlp
     
     struct nlp_default_zero_order_algorithms
     {
-        typedef outer_stop_condition::stop_after_num_outer_iterations<1000> stop_condition_type;
+        typedef outer_stop_condition::stop_condition_list<
+            outer_stop_condition::stop_after_violate_small,
+            outer_stop_condition::stop_after_num_outer_iterations<200>
+            > stop_condition_type;
         typedef init_place::init_random_placement_with_normal_distribution_near_center init_place_type;
 
         /* multipliers */
@@ -62,7 +65,8 @@ namespace nlp
     struct nlp_default_first_order_algorithms
     {
         typedef converge::converge_list<
-                    converge::converge_criteria_max_iter<100>
+                    converge::converge_grad_norm_by_init<nlp_default_types::nlp_numerical_type>,
+                    converge::converge_criteria_max_iter<3000>
                         >
                 converge_type;
         //typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
@@ -71,8 +75,8 @@ namespace nlp
         
         /* multipliers */
         typedef outer_multiplier::init::init_by_matching_gradient_norm mult_init_type;
-        typedef outer_multiplier::update::subgradient_normalized_by_init<nlp_default_types::nlp_numerical_type> mult_update_type;
-        //typedef outer_multiplier::update::direct_subgradient mult_update_type;
+        //typedef outer_multiplier::update::subgradient_normalized_by_init<nlp_default_types::nlp_numerical_type> mult_update_type;
+        typedef outer_multiplier::update::direct_subgradient mult_update_type;
         typedef outer_multiplier::mult_const_hpwl_cos_and_penalty_by_type<nlp_default_types::nlp_numerical_type, mult_init_type, mult_update_type> mult_type;
     };
 
@@ -111,7 +115,8 @@ class NlpGPlacerBase
         /* algorithms */
         typedef typename nlp_zero_order_algorithms::stop_condition_type stop_condition_type;
         typedef nlp::outer_stop_condition::stop_condition_trait<stop_condition_type> stop_condition_trait;
-        friend stop_condition_trait;
+        template<typename _T>
+        friend struct nlp::outer_stop_condition::stop_condition_trait;
         typedef typename nlp_zero_order_algorithms::init_place_type init_placement_type;
         typedef nlp::init_place::init_place_trait<init_placement_type> init_place_trait;
         friend init_place_trait;
@@ -157,9 +162,6 @@ class NlpGPlacerBase
 #ifdef DEBUG_SINGLE_THREAD_GP
         void constructWrapObjTask();
 #endif
-        // Optimization kernel-related
-        void constructOptimizationKernelTasks();
-        void constructStopConditionTask();
         /* Optimization  kernel */
         virtual void optimize();
         /* build the computational graph */
@@ -183,20 +185,17 @@ class NlpGPlacerBase
         IndexType _numCells; ///< The number of cells
         RealType _alpha; ///< Used in LSE approximation hyperparameter
         Box<RealType> _boundary; ///< The boundary constraint for the placement
-        RealType _scale = 0.01; /// The scale ratio between float optimization kernel coordinate and placement database coordinate unit
-        RealType _totalCellArea = 0; ///< The total cell area of the problem
-        RealType _overlapThreshold = NLP_WN_CONJ_OVERLAP_THRESHOLD; ///< Threshold for whether increase penalty for overlapping penalty
-        RealType _oobThreshold = NLP_WN_CONJ_OOB_THRESHOLD; ///< The threshold for wehther increasing the penalty for out of boundry
-        RealType _asymThreshold = NLP_WN_CONJ_ASYM_THRESHOLD; ///< The threshold for whether increasing the penalty for asymmetry
-        RealType _defaultSymAxis = 0.0; ///< The default symmetric axis
+        nlp_coordinate_type _scale = 0.01; /// The scale ratio between float optimization kernel coordinate and placement database coordinate unit
+        nlp_coordinate_type _totalCellArea = 0; ///< The total cell area of the problem
+        nlp_coordinate_type _defaultSymAxis = 0.0; ///< The default symmetric axis
         IndexType _numVariables = 0; ///< The number of variables
         /* Optimization internal results */
-        RealType _objHpwl = 0.0; ///< The current value for hpwl
-        RealType _objOvl = 0.0; ///< The current value for overlapping penalty
-        RealType _objOob = 0.0; ///< The current value for out of boundary penalty
-        RealType _objAsym = 0.0; ///< The current value for asymmetry penalty
-        RealType _objCos = 0.0; ///< The current value for the cosine signal path penalty
-        RealType _obj = 0.0; ///< The current value for the total objective penalty
+        nlp_numerical_type _objHpwl = 0.0; ///< The current value for hpwl
+        nlp_numerical_type _objOvl = 0.0; ///< The current value for overlapping penalty
+        nlp_numerical_type _objOob = 0.0; ///< The current value for out of boundary penalty
+        nlp_numerical_type _objAsym = 0.0; ///< The current value for asymmetry penalty
+        nlp_numerical_type _objCos = 0.0; ///< The current value for the cosine signal path penalty
+        nlp_numerical_type _obj = 0.0; ///< The current value for the total objective penalty
         /* NLP optimization kernel memebers */
         stop_condition_type _stopCondition;
         /* Optimization data */
@@ -218,8 +217,6 @@ class NlpGPlacerBase
         nt::Task<nt::FuncTask> _sumObjAsymTask; ///< The task for summing the asymmetry objective
         nt::Task<nt::FuncTask> _sumObjCosTask; ///< The task for summing the cosine signal path objective
         nt::Task<nt::FuncTask> _sumObjAllTask; ///< The task for summing the different objectives together
-        // Optimization kernel
-        nt::Task<nt::ConditionTask> _checkStopConditionTask; ///< The task to check whether the optimization should stop
         // Wrapper tasks for debugging
         nt::Task<nt::FuncTask> _wrapObjHpwlTask; ///< The task for wrap the objective 
         nt::Task<nt::FuncTask> _wrapObjOvlTask;
