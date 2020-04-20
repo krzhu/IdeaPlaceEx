@@ -122,6 +122,7 @@ struct LseHpwlDifferentiable
 
     void setGetVarFunc(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) { _getVarFunc = getVarFunc; }
     void setAccumulateGradFunc(const std::function<void(NumType, IndexType, Orient2DType)> &func) { _accumulateGradFunc = func; }
+    void setGetAlphaFunc(const std::function<NumType(void)> &getAlphaFunc) { _getAlphaFunc = getAlphaFunc; }
 
     void setVirtualPin(const CoordType &x, const CoordType &y) 
     { 
@@ -269,6 +270,7 @@ struct CellPairOverlapPenaltyDifferentiable
 
     void setGetVarFunc(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) { _getVarFunc = getVarFunc; }
     void setAccumulateGradFunc(const std::function<void(NumType, IndexType, Orient2DType)> &func) { _accumulateGradFunc = func; }
+    void setGetAlphaFunc(const std::function<NumType(void)> &getAlphaFunc) { _getAlphaFunc = getAlphaFunc; }
     
     NumType evaluate() const
     {
@@ -416,6 +418,7 @@ struct CellOutOfBoundaryPenaltyDifferentiable
 
     void setGetVarFunc(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) { _getVarFunc = getVarFunc; }
     void setAccumulateGradFunc(const std::function<void(NumType, IndexType, Orient2DType)> &func) { _accumulateGradFunc = func; }
+    void setGetAlphaFunc(const std::function<NumType(void)> &getAlphaFunc) { _getAlphaFunc = getAlphaFunc; }
 
     NumType evaluate() const
     {

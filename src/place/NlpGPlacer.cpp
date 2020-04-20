@@ -115,7 +115,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
 {
     auto getAlphaFunc = [&]()
     {
-        return _alpha / 3;
+        return _alpha ;
     };
     auto getLambdaFuncOvr = [&]()
     {
@@ -589,9 +589,17 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
     // setting up the multipliers
     this->_wrapObjAllTask.run();
     _wrapCalcGradTask.run();
+
     optm_type optm;
     mult_type multiplier = mult_trait::construct(*this);
     mult_trait::init(*this, multiplier);
+    mult_trait::recordRaw(*this, multiplier);
+
+    alpha_type alpha = alpha_trait::construct(*this);
+    alpha_trait::init(*this, alpha);
+    alpha_update_type alphaUpdate = alpha_update_trait::construct(*this, alpha);
+    alpha_update_trait::init(*this, alpha, alphaUpdate);
+
     IntType iter = 0;
     do
     {
@@ -601,6 +609,9 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
         DBG("iter %d \n", iter);
         optm_trait::optimize(*this, optm);
         mult_trait::update(*this, multiplier);
+        mult_trait::recordRaw(*this, multiplier);
+
+        alpha_update_trait::update(*this, alpha, alphaUpdate);
         DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
         ++iter;
     } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));

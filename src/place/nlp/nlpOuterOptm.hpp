@@ -62,7 +62,7 @@ namespace nlp
         {
             static constexpr RealType overlapRatio = 0.02; ///< with respect to total cell area
             static constexpr RealType outOfBoundaryRatio = 0.05; ///< with respect to boundary
-            static constexpr RealType asymRatio = 0.1; ///< with respect to sqrt(total cell area)
+            static constexpr RealType asymRatio = 0.05; ///< with respect to sqrt(total cell area)
         };
 
         template<>
@@ -492,7 +492,211 @@ namespace nlp
                 update::multiplier_update_trait<update_type>::update(nlp, mult, mult.update);
             }
 
+            template<typename nlp_type>
+            static void recordRaw(nlp_type &nlp, mult_type &mult)
+            {
+                nlp._objHpwlRaw = nlp._objHpwl / mult._constMults[0];
+                nlp._objCosRaw = nlp._objCos / mult._constMults[1];
+                nlp._objOvlRaw = nlp._objOvl / mult._variedMults[0];
+                nlp._objOobRaw = nlp._objOob / mult._variedMults[1];
+                nlp._objAsymRaw = nlp._objAsym / mult._variedMults[2];
+            }
+
         };
     } // namespace outer_multiplier
+
+    /// @brief alpha 
+    namespace alpha
+    {
+        namespace update
+        {
+            template<typename T>
+            struct alpha_update_trait {};
+
+        } //namespace update
+
+        template<typename T>
+        struct alpha_trait {};
+
+        template<typename nlp_numerical_type>
+        struct alpha_hpwl_ovl_oob
+        {
+            std::vector<nlp_numerical_type> _alpha;
+        };
+
+        template<typename nlp_numerical_type>
+        struct alpha_trait<alpha_hpwl_ovl_oob<nlp_numerical_type>>
+        {
+            typedef alpha_hpwl_ovl_oob<nlp_numerical_type> alpha_type;
+
+            template<typename nlp_type>
+            static alpha_type construct(nlp_type &)
+            {
+                alpha_type alpha;
+                alpha._alpha.resize(3, 1.0);
+                return alpha;
+            }
+
+            template<typename nlp_type>
+            static void init(nlp_type &nlp, alpha_type &alpha)
+            {
+                for (auto & op : nlp._hpwlOps)
+                {
+                    op.setGetAlphaFunc([&](){ return alpha._alpha[0]; });
+                }
+                for (auto & op : nlp._ovlOps)
+                {
+                    op.setGetAlphaFunc([&](){ return alpha._alpha[1]; });
+                }
+                for (auto & op : nlp._oobOps)
+                {
+                    op.setGetAlphaFunc([&](){ return alpha._alpha[2]; });
+                }
+            }
+
+        };
+
+        namespace update
+        {
+            /// @breif update the alpha that mapping objective function to alpha, from [0, init_obj] -> [min, max]
+            /// @tparam the index of which alpha to update
+            template<typename nlp_numerical_type, IndexType alphaIdx>
+            struct exponential_by_obj
+            {
+                static constexpr nlp_numerical_type alphaMax = 1.5;
+                static constexpr nlp_numerical_type alphaMin = 0.3;
+                static constexpr nlp_numerical_type alphaMin_minus_one = alphaMin - 1;
+                static constexpr nlp_numerical_type log_alphaMax_minus_alphaMin_plus_1 = std::log(alphaMax - alphaMin_minus_one);
+                nlp_numerical_type theConstant = 0.0; ///< log(alpha_max - alpha_min + 1) / init
+            };
+
+            template<typename nlp_numerical_type, IndexType alphaIdx>
+            struct alpha_update_trait<exponential_by_obj<nlp_numerical_type, alphaIdx>> 
+            {
+                typedef exponential_by_obj<nlp_numerical_type, alphaIdx> update_type;
+
+                template<typename nlp_type>
+                static constexpr typename nlp_type::nlp_numerical_type obj(nlp_type &nlp) 
+                { 
+                    switch(alphaIdx)
+                    {
+                        case 0: return nlp._objHpwlRaw; break;
+                        case 1: return nlp._objOvlRaw; break;
+                        default: return nlp._objOobRaw; break;
+                    }
+                }
+
+                template<typename nlp_type>
+                static constexpr update_type construct(nlp_type &, alpha_hpwl_ovl_oob<nlp_numerical_type> &) { return update_type(); }
+
+                template<typename nlp_type>
+                static constexpr void init(nlp_type &nlp, alpha_hpwl_ovl_oob<nlp_numerical_type> &alpha, update_type &update) 
+                { 
+                    if (obj(nlp) < REAL_TYPE_TOL)
+                    {
+                        update.theConstant = -1;
+                        DBG("alpha idx %d size %d \n", alphaIdx, alpha._alpha.size());
+                        alpha._alpha[alphaIdx] = update.alphaMax;
+                        return;
+                    }
+                    update.theConstant = update.log_alphaMax_minus_alphaMin_plus_1 / obj(nlp);
+                    alpha._alpha[alphaIdx] = update.alphaMax;
+                }
+
+                template<typename nlp_type>
+                static constexpr void update(nlp_type &nlp, alpha_hpwl_ovl_oob<nlp_numerical_type> &alpha, update_type &update) 
+                { 
+                    if (update.theConstant < REAL_TYPE_TOL)
+                    {
+                        return;
+                    }
+                    if (obj(nlp) < REAL_TYPE_TOL)
+                    {
+                        alpha._alpha[alphaIdx] = update.alphaMax;
+                        return;
+                    }
+                    alpha._alpha[alphaIdx] = std::exp(update.theConstant * obj(nlp)) + update.alphaMin - 1;
+                    DBG("new alpha idx %d %f \n", alphaIdx, alpha._alpha[alphaIdx]);
+                    DBG("obj %f , the const %f \n", obj(nlp), update.theConstant);
+                }
+
+            };
+
+
+        /// @brief a convenient wrapper for combining different types of stop_condition condition. the list in the template will be check one by one and return converge if any of them say so
+        template<typename alpha_update_type, typename... others>
+        struct alpha_update_list 
+        {
+            typedef alpha_update_list<others...> base_type;
+            alpha_update_type  _update;
+            alpha_update_list<others...> _list;
+        };
+
+        template<typename alpha_update_type>
+        struct alpha_update_list<alpha_update_type>
+        {
+            alpha_update_type _update;
+        };
+
+        template<typename alpha_update_type, typename... others>
+        struct alpha_update_trait<alpha_update_list<alpha_update_type, others...>>
+        {
+            typedef alpha_update_list<alpha_update_type, others...> list_type;
+            typedef typename alpha_update_list<alpha_update_type, others...>::base_type base_type;
+
+            template<typename nlp_type, typename alpha_type>
+            static list_type construct(nlp_type &n, alpha_type & a)
+            {
+                list_type list;
+                list._update = std::move(alpha_update_trait<alpha_update_type>::construct(n, a));
+                list._list = std::move(alpha_update_trait<base_type>::construct(n, a));
+                return list;
+            }
+
+            template<typename nlp_type, typename alpha_type>
+            static void init(nlp_type &n, alpha_type & a, list_type &c)
+            {
+                alpha_update_trait<alpha_update_type>::init(n, a, c._update);
+                alpha_update_trait<base_type>::init(n, a, c._list);
+            }
+
+            template<typename nlp_type, typename alpha_type>
+            static void update(nlp_type &n, alpha_type &alpha,  list_type &c) 
+            {
+                alpha_update_trait<alpha_update_type>::update(n, alpha, c._update);
+                alpha_update_trait<base_type>::update(n, alpha, c._list);
+            }
+        };
+
+
+        template<typename alpha_update_type>
+        struct alpha_update_trait<alpha_update_list<alpha_update_type>>
+        {
+            typedef alpha_update_list<alpha_update_type> list_type;
+
+
+            template<typename nlp_type, typename alpha_type>
+            static void init(nlp_type &n, alpha_type & a, list_type &c)
+            {
+                alpha_update_trait<alpha_update_type>::init(n, a, c._update);
+            }
+
+            template<typename nlp_type, typename alpha_type>
+            static list_type construct(nlp_type &n, alpha_type &alpha)
+            {
+                list_type list;
+                list._update = std::move(alpha_update_trait<alpha_update_type>::construct(n, alpha));
+                return list;
+            }
+
+            template<typename nlp_type, typename alpha_type>
+            static void update(nlp_type &n, alpha_type &alpha,  list_type &c) 
+            {
+                alpha_update_trait<alpha_update_type>::update(n, alpha, c._update);
+            }
+        };
+
+        } // namespace update
+    } // namespace alpha
 } //namespace nlp
 PROJECT_NAMESPACE_END

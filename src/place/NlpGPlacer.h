@@ -44,7 +44,6 @@ namespace nlp
         typedef diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_oob_type;
         typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_asym_type;
         typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_cos_type;
-
     };
     
     struct nlp_default_zero_order_algorithms
@@ -78,6 +77,13 @@ namespace nlp
         //typedef outer_multiplier::update::subgradient_normalized_by_init<nlp_default_types::nlp_numerical_type> mult_update_type;
         typedef outer_multiplier::update::direct_subgradient mult_update_type;
         typedef outer_multiplier::mult_const_hpwl_cos_and_penalty_by_type<nlp_default_types::nlp_numerical_type, mult_init_type, mult_update_type> mult_type;
+
+        /* alpha */
+        typedef alpha::alpha_hpwl_ovl_oob<nlp_default_types::nlp_numerical_type> alpha_type;
+        typedef alpha::update::alpha_update_list<
+                alpha::update::exponential_by_obj<nlp_default_types::nlp_numerical_type, 1>,
+                alpha::update::exponential_by_obj<nlp_default_types::nlp_numerical_type, 2>
+            > alpha_update_type;
     };
 
     struct nlp_default_settings
@@ -196,6 +202,11 @@ class NlpGPlacerBase
         nlp_numerical_type _objAsym = 0.0; ///< The current value for asymmetry penalty
         nlp_numerical_type _objCos = 0.0; ///< The current value for the cosine signal path penalty
         nlp_numerical_type _obj = 0.0; ///< The current value for the total objective penalty
+        nlp_numerical_type _objHpwlRaw = 0.0; ///< The current value for hpwl
+        nlp_numerical_type _objOvlRaw = 0.0; ///< The current value for overlapping penalty
+        nlp_numerical_type _objOobRaw = 0.0; ///< The current value for out of boundary penalty
+        nlp_numerical_type _objAsymRaw = 0.0; ///< The current value for asymmetry penalty
+        nlp_numerical_type _objCosRaw = 0.0; ///< The current value for the cosine signal path penalty
         /* NLP optimization kernel memebers */
         stop_condition_type _stopCondition;
         /* Optimization data */
@@ -287,6 +298,17 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         typedef typename nlp_settings::nlp_first_order_algorithms_type::mult_type mult_type;
         typedef nlp::outer_multiplier::multiplier_trait<mult_type> mult_trait;
         friend mult_trait;
+
+        /* updating alpha parameters */
+        typedef typename nlp_settings::nlp_first_order_algorithms_type::alpha_type alpha_type;
+        typedef nlp::alpha::alpha_trait<alpha_type> alpha_trait;
+        template<typename T>
+        friend struct nlp::alpha::alpha_trait;
+        typedef typename nlp_settings::nlp_first_order_algorithms_type::alpha_update_type alpha_update_type;
+        typedef nlp::alpha::update::alpha_update_trait<alpha_update_type> alpha_update_trait;
+        template<typename T>
+        friend struct nlp::alpha::update::alpha_update_trait;
+
 
         NlpGPlacerFirstOrder(Database &db) : NlpGPlacerBase<nlp_settings>(db) {}
     protected:
