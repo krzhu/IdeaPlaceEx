@@ -18,9 +18,6 @@
 
 PROJECT_NAMESPACE_BEGIN
 
-// A global pointer to NLP
-// This is for a trick to overly use static members in the NlpWnconj class
-NlpWnconj *nlpPtr = nullptr;
 
 void IdeaPlaceEx::readTechSimpleFile(const std::string &techsimple)
 {
@@ -185,22 +182,6 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     pinAssigner.solveFromDB();
     INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
     INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n",  _db.hpwlWithVitualPins());
-    if (!legalizeResult)
-    {
-        Assert(false);
-        INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
-        NlpWnconj tryagain(_db);
-        tryagain.setToughMode(true);
-        nlpPtr = &tryagain;
-        tryagain.solve();
-#ifdef DEBUG_GR
-#ifdef DEBUG_DRAW
-    _db.drawCellBlocks("./debug/after_gr.gds");
-#endif //DEBUG_DRAW
-#endif
-        CGLegalizer legalizer2(_db);
-        legalizer2.legalize();
-    }
     LocType symAxis(0);
 
     // Restore proxmity group

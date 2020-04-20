@@ -256,7 +256,6 @@ namespace nlp
                     const auto hpwlNorm = nlp._gradHpwl.norm();
                     const auto hpwlMultNorm = hpwlMult * hpwlNorm;
                     const auto hpwlMultNormPenaltyRatio = hpwlMultNorm * init_type::penaltyRatioToObj;
-                    Assert(nlp._gradHpwl.norm() > REAL_TYPE_TOL);
                     const auto cosNorm = nlp._gradCos.norm();
                     const auto ovlNorm = nlp._gradOvl.norm();
                     const auto oobNorm = nlp._gradOob.norm();
@@ -264,6 +263,15 @@ namespace nlp
                     const auto maxPenaltyNorm = ovlNorm;
                     // Make a threshold on by referencing hpwl to determine whether one is small
                     const auto small  = init_type::small * hpwlNorm;
+
+                    // Fix corner case that may happen when the placement is very small
+                    if (hpwlNorm < REAL_TYPE_TOL)
+                    {
+                        mult._constMults.resize(2, 1);
+                        mult._variedMults.resize(3, 1);
+                        WRN("Ideaplace: NLP global placement: init multipliers: wire length  gradient norm is very small %f!, ", hpwlNorm);
+                        return;
+                    }
                     // match gradient norm for signal path
                     if (cosNorm > small)
                     {

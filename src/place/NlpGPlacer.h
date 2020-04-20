@@ -200,9 +200,6 @@ class NlpGPlacerBase
         stop_condition_type _stopCondition;
         /* Optimization data */
         EigenVector _pl; ///< The placement solutions
-        std::shared_ptr<EigenMap> _plx; ///< The placement solutions for x coodinates
-        std::shared_ptr<EigenMap> _ply; ///< The placement solutions for y coordinates
-        std::shared_ptr<EigenMap> _sym; ///< The symmetry axis variables
         /* Tasks */
         // Evaluating objectives
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives

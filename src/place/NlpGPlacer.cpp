@@ -92,12 +92,13 @@ void NlpGPlacerBase<nlp_settings>::initVariables()
     // The number of nlp problem variables
     _numCells = _db.numCells();
     IntType size = _db.numCells() * 2 + _db.numSymGroups();
+    DBG("resize _pl to %d \n", size);
     _pl.resize(size);
-    _plx = std::make_shared<EigenMap>(EigenMap(_pl.data(), _numCells));
-    _ply = std::make_shared<EigenMap>(EigenMap(_pl.data() + _numCells, _db.numCells()));
-    _sym = std::make_shared<EigenMap>(EigenMap(_pl.data() + 2* _numCells, _db.numSymGroups()));
 #ifndef MULTI_SYM_GROUP
-    (*_sym)(0) = _defaultSymAxis; // Set the default symmtry axisx`
+    if (_db.numSymGroups() > 0)
+    {
+        _pl(plIdx(0, Orient2DType::NONE)) = _defaultSymAxis; // Set the default symmtry axisx`
+    }
 #endif
     _numVariables = size;
 }
@@ -114,7 +115,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
 {
     auto getAlphaFunc = [&]()
     {
-        return _alpha;
+        return _alpha / 3;
     };
     auto getLambdaFuncOvr = [&]()
     {
@@ -190,6 +191,10 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
     // Out of boundary
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
+        if (not _db.parameters().isBoundaryConstraintSet())
+        {
+            break;
+        }
         const auto &cellBBox = _db.cell(cellIdx).cellBBox();
         _oobOps.emplace_back(nlp_oob_type(
                     cellIdx,
@@ -222,6 +227,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
     }
     // Signal path
     SigPathMgr pathMgr(_db);
+#if 0
     for (const auto &seg : pathMgr.vSegList())
     {
         IndexType sPinIdx = seg.beginPinFirstSeg();
@@ -246,6 +252,38 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                 getLambdaFuncCosine);
         _cosOps.back().setGetVarFunc(getVarFunc);
     }
+#else
+    for (const auto &path : pathMgr.vvSegList())
+    {
+        for (IndexType i = 0; i < path.size(); ++i)
+        {
+            for (IndexType j = i+2; j < path.size(); ++j)
+            {
+                IndexType sPinIdx = path[i].beginPinFirstSeg();
+                IndexType midPinIdxA = path[i].endPinFirstSeg();
+                IndexType midPinIdxB = path[i].beginPinSecondSeg();
+                IndexType tPinIdx = path[j].endPinSecondSeg();
+
+                const auto &sPin = _db.pin(sPinIdx);
+                IndexType sCellIdx = sPin.cellIdx();
+                const auto &mPinA = _db.pin(midPinIdxA);
+                IndexType mCellIdx = mPinA.cellIdx();
+                const auto &tPin = _db.pin(tPinIdx);
+                IndexType tCellIdx = tPin.cellIdx();
+
+                auto sOffset = calculatePinOffset(sPinIdx);
+                auto midOffsetA = calculatePinOffset(midPinIdxA);
+                auto midOffsetB = calculatePinOffset(midPinIdxB);
+                auto tOffset = calculatePinOffset(tPinIdx);
+                _cosOps.emplace_back(sCellIdx, sOffset,
+                        mCellIdx, midOffsetA, midOffsetB,
+                        tCellIdx, tOffset,
+                        getLambdaFuncCosine);
+                _cosOps.back().setGetVarFunc(getVarFunc);
+            }
+        }
+    }
+#endif
 }
 
 template<typename nlp_settings>
@@ -275,21 +313,21 @@ void NlpGPlacerBase<nlp_settings>::writeOut()
     RealType minY = 1e10;
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
-        if ((*_plx)(cellIdx) < minX)
+        if (_pl(plIdx(cellIdx, Orient2DType::HORIZONTAL)) < minX)
         {
-            minX = (*_plx)(cellIdx);
+            minX = _pl(plIdx(cellIdx, Orient2DType::HORIZONTAL));
         }
-        if ((*_ply)(cellIdx) < minY)
+        if (_pl(plIdx(cellIdx, Orient2DType::VERTICAL)) < minY)
         {
-            minY = (*_ply)(cellIdx);
+            minY = _pl(plIdx(cellIdx, Orient2DType::VERTICAL));
         }
     }
     // Dump the cell locations to database
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         auto & cell = _db.cell(cellIdx);
-        LocType xLo = ::klib::autoRound<LocType>(((*_plx)(cellIdx) - minX) / _scale + _db.parameters().layoutOffset());
-        LocType yLo = ::klib::autoRound<LocType>(((*_ply)(cellIdx) - minY) / _scale + _db.parameters().layoutOffset());
+        LocType xLo = ::klib::autoRound<LocType>((_pl(plIdx(cellIdx, Orient2DType::HORIZONTAL)) - minX) / _scale + _db.parameters().layoutOffset());
+        LocType yLo = ::klib::autoRound<LocType>((_pl(plIdx(cellIdx, Orient2DType::VERTICAL)) - minY) / _scale + _db.parameters().layoutOffset());
         _db.cell(cellIdx).setXLoc(xLo - cell.cellBBox().xLo());
         _db.cell(cellIdx).setYLoc(yLo - cell.cellBBox().yLo());
     }
@@ -586,6 +624,7 @@ template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::initFirstOrderGrad()
 {
     const IntType size = this->_db.numCells() * 2 + this->_db.numSymGroups();
+    DBG("resize grad to %d \n", size);
     _grad.resize(size);
     _gradHpwl.resize(size);
     _gradOvl.resize(size);
