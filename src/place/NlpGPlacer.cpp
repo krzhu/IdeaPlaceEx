@@ -974,5 +974,6 @@ PROJECT_NAMESPACE_BEGIN
 // declare the default settings for linking
 template class NlpGPlacerBase<nlp::nlp_default_settings>;
 template class NlpGPlacerFirstOrder<nlp::nlp_default_settings>;
+template class NlpGPlacerSecondOrder<nlp::nlp_default_settings>;
 
 PROJECT_NAMESPACE_END

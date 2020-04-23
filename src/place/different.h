@@ -608,7 +608,7 @@ struct AsymmetryDifferentiable
             NumType partial = 2.0 * (x + w /2 - symAxis) * lambda;
 
             _accumulateGradFunc(partial, _selfSymCells[ssIdx], Orient2DType::HORIZONTAL);
-            _accumulateGradFunc(partial, _symGrpIdx, Orient2DType::NONE);
+            _accumulateGradFunc(-partial, _symGrpIdx, Orient2DType::NONE);
         }
     }
 

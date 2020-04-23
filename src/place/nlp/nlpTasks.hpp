@@ -416,6 +416,8 @@ namespace nt
             calc._inverseCellMap[2] = op._tCellIdx;
         }
     };
+    
+
 } //namespace nt
 
 PROJECT_NAMESPACE_END

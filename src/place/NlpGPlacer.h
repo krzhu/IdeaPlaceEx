@@ -14,6 +14,7 @@
 #endif // IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ
 #include "db/Database.h"
 #include "place/different.h"
+#include "place/differentSecondOrder.hpp"
 #include "place/nlp/nlpOuterOptm.hpp"
 #include "place/nlp/nlpInitPlace.hpp"
 #include "place/nlp/nlpTasks.hpp"
@@ -34,11 +35,12 @@ namespace nlp
 
     struct nlp_default_types
     {
-        typedef Eigen::Matrix<RealType, Eigen::Dynamic, Eigen::Dynamic> EigenMatrix;
-        typedef Eigen::Matrix<RealType, Eigen::Dynamic, 1> EigenVector;
-        typedef Eigen::Map<EigenVector> EigenMap;
         typedef RealType nlp_coordinate_type;
         typedef RealType nlp_numerical_type;
+        typedef Eigen::Matrix<nlp_numerical_type, Eigen::Dynamic, Eigen::Dynamic> EigenMatrix;
+        typedef Eigen::Matrix<nlp_numerical_type, Eigen::Dynamic, 1> EigenVector;
+        typedef Eigen::Map<EigenVector> EigenMap;
+        typedef Eigen::DiagonalMatrix<nlp_numerical_type, Eigen::Dynamic> EigenDiagonalMatrix;
         typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_hpwl_type;
         typedef diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_ovl_type;
         typedef diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_oob_type;
@@ -86,12 +88,23 @@ namespace nlp
             > alpha_update_type;
     };
 
+    template<typename nlp_types>
+    struct nlp_default_second_order_settings
+    {
+        typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_hpwl_type> hpwl_hessian_trait;
+        typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_ovl_type> ovl_hessian_trait;
+        typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_oob_type> oob_hessian_trait;
+        typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_asym_type> asym_hessian_trait;
+        typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_cos_type> cos_hessian_trait;
+    };
+
     struct nlp_default_settings
     {
         typedef nlp_default_zero_order_algorithms nlp_zero_order_algorithms_type;
         typedef nlp_default_first_order_algorithms nlp_first_order_algorithms_type;
         typedef nlp_default_hyperparamters nlp_hyperparamters_type;
         typedef nlp_default_types nlp_types_type;
+        typedef nlp_default_second_order_settings<nlp_types_type> nlp_second_order_setting_type;
     };
 
 
@@ -318,10 +331,10 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
             _wrapCalcGradTask.run();
         }
         /* Init */
-        virtual void initProblem() override;
+        void initProblem() override;
         void initFirstOrderGrad();
         /* Construct tasks */
-        virtual void constructTasks() override;
+        void constructTasks() override;
         void constructFirstOrderTasks();
         void constructCalcPartialsTasks();
         void constructUpdatePartialsTasks();
@@ -382,8 +395,173 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::EmptyTask> _endGradCalcTask;
         nt::Task<nt::EmptyTask> _beginGradCalcTask;
 #endif
-        nt::Task<nt::FuncTask> _wrapCalcGradTask; ///< For debugging: calculating the gradient and sum them
+        nt::Task<nt::FuncTask> _wrapCalcGradTask; ///<  calculating the gradient and sum them
 };
+
+
+
+//// @brief some helper function for NlpGPlacerSecondOrder
+namespace _nlp_second_order_details
+{
+    template<typename nlp_settings, BoolType is_diagonal>
+    struct is_diagonal_select {};
+
+    template<typename nlp_settings>
+    struct is_diagonal_select<nlp_settings, true>
+    {
+        typedef typename nlp_settings::nlp_types_type::EigenDiagonalMatrix matrix_type;
+        static void resize(matrix_type &matrix, IntType size)
+        {
+            matrix.resize(size);
+        }
+    };
+
+    template<typename nlp_settings>
+    struct is_diagonal_select<nlp_settings, false>
+    {
+        typedef typename nlp_settings::nlp_types_type::EigenMatrix matrix_type;
+        static void resize(matrix_type &matrix, IntType size)
+        {
+            matrix.resize(size, size);
+        }
+    };
+
+};
+
+/// @brief first-order optimization
+template<typename nlp_settings>
+class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
+{
+    public:
+        typedef typename NlpGPlacerFirstOrder<nlp_settings>::base_type base_type;
+        typedef NlpGPlacerFirstOrder<nlp_settings> first_order_type;
+        
+        typedef typename nlp_settings::nlp_second_order_setting_type second_order_setting_type;
+        
+        typedef typename second_order_setting_type::hpwl_hessian_trait hpwl_hessian_trait;
+        typedef typename second_order_setting_type::ovl_hessian_trait ovl_hessian_trait;
+        typedef typename second_order_setting_type::oob_hessian_trait oob_hessian_trait;
+        typedef typename second_order_setting_type::asym_hessian_trait asym_hessian_trait;
+        typedef typename second_order_setting_type::cos_hessian_trait cos_hessian_trait;
+
+        /* figure out the types for storing the hessian */
+        // Determine whether the operators are return a diagonal hessian
+        constexpr static BoolType isHpwlHessianDiagonal = diff::is_diagnol_matrix<hpwl_hessian_trait>::value;
+        constexpr static BoolType isOvlHessianDiagonal = diff::is_diagnol_matrix<ovl_hessian_trait>::value;
+        constexpr static BoolType isOobHessianDiagonal = diff::is_diagnol_matrix<oob_hessian_trait>::value;
+        constexpr static BoolType isAsymHessianDiagonal = diff::is_diagnol_matrix<asym_hessian_trait>::value;
+        constexpr static BoolType isCosHessianDiagonal = diff::is_diagnol_matrix<cos_hessian_trait>::value;
+        constexpr static BoolType isHessianDiagonal = 
+                isHpwlHessianDiagonal
+                and isOvlHessianDiagonal
+                and isOobHessianDiagonal
+                and isAsymHessianDiagonal
+                and isCosHessianDiagonal;
+
+        // define the supporting trait
+        typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isHpwlHessianDiagonal> hpwl_hessian_diagonal_selector;
+        friend hpwl_hessian_diagonal_selector;
+        typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isOvlHessianDiagonal> ovl_hessian_diagonal_selector;
+        friend ovl_hessian_diagonal_selector;
+        typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isOobHessianDiagonal> oob_hessian_diagonal_selector;
+        friend oob_hessian_diagonal_selector;
+        typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isAsymHessianDiagonal> asym_hessian_diagonal_selector;
+        friend asym_hessian_diagonal_selector;
+        typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isCosHessianDiagonal> cos_hessian_diagonal_selector;
+        friend cos_hessian_diagonal_selector;
+        typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isHessianDiagonal> hessian_diagonal_selector;
+        friend hessian_diagonal_selector;
+
+        typedef typename hpwl_hessian_diagonal_selector::matrix_type hpwl_hessian_matrix;
+        typedef typename ovl_hessian_diagonal_selector::matrix_type ovl_hessian_matrix;
+        typedef typename oob_hessian_diagonal_selector::matrix_type oob_hessian_matrix;
+        typedef typename asym_hessian_diagonal_selector::matrix_type asym_hessian_matrix;
+        typedef typename cos_hessian_diagonal_selector::matrix_type cos_hessian_matrix;
+        typedef typename hessian_diagonal_selector::matrix_type hessian_matrix;
+
+
+        NlpGPlacerSecondOrder(Database &db) : NlpGPlacerFirstOrder<nlp_settings>(db) {}
+    protected:
+        void initProblem() override
+        {
+            first_order_type::initProblem();
+            initSecondOrder();
+        }
+        void initSecondOrder();
+        /* Construct tasks */
+        void constructTasks() override
+        {
+            first_order_type::constructTasks();
+
+            auto clearAll = [&]()
+            {
+                _hessian.setZero();
+                _hessianHpwl.setZero();
+                _hessianOvl.setZero();
+                _hessianOob.setZero();
+                _hessianAsym.setZero();
+                _hessianCos.setZero();
+            };
+            auto findPartialHpwl = [&](IndexType idx)
+            {
+                return _partialHpwlHessian[idx];
+            };
+            auto findPartialOvl = [&](IndexType idx)
+            {
+                return _partialOvlHessian[idx];
+            };
+            auto findPartialOob = [&](IndexType idx)
+            {
+                return _partialOobHessian[idx];
+            };
+            auto findPartialAsym = [&](IndexType idx)
+            {
+                return _partialAsymHessian[idx];
+            };
+            auto findPartialCos = [&](IndexType idx)
+            {
+                return _partialCosHessian[idx];
+            };
+
+        }
+        hessian_matrix _hessian; ///< The hessian for the objective function
+        hpwl_hessian_matrix _hessianHpwl; ///< The hessian for the hpwl function
+        ovl_hessian_matrix _hessianOvl; ///< The hessian for the overlapping function
+        oob_hessian_matrix _hessianOob; ///< The hessian for the out of boundary function
+        asym_hessian_matrix _hessianAsym; ///< The hessian for the asymmetry function
+        cos_hessian_matrix _hessianCos; ///< The hessian for the signal path function
+
+        /* The supporting members for calculating the hessian */
+        std::vector<hpwl_hessian_matrix> _partialHpwlHessian; ///< one for each operator
+        std::vector<ovl_hessian_matrix> _partialOvlHessian; ///< one for each opeartor
+        std::vector<oob_hessian_trait> _partialOobHessian; ///< one for each opeartor
+        std::vector<asym_hessian_trait> _partialAsymHessian; ///< one for each opeartor
+        std::vector<cos_hessian_trait> _partialCosHessian; ///< one for each opeartor
+        /* Tasks */
+        nt::Task<nt::FuncTask> _wrapCalcHessianTask; ///<  calculating the gradient and sum them
+
+
+};
+
+
+template<typename nlp_settings>
+inline void NlpGPlacerSecondOrder<nlp_settings>::initSecondOrder()
+{
+    const IntType size = this->_numVariables;
+    DBG("resize hessian to %d \n", size);
+    hpwl_hessian_diagonal_selector::resize(_hessianHpwl, size);
+    ovl_hessian_diagonal_selector::resize(_hessianOvl, size);
+    oob_hessian_diagonal_selector::resize(_hessianOob, size);
+    asym_hessian_diagonal_selector::resize(_hessianAsym, size);
+    cos_hessian_diagonal_selector::resize(_hessianCos, size);
+
+    _partialHpwlHessian.resize(this->_hpwlOps.size());
+    _partialOvlHessian.resize(this->_ovlOps.size());
+    _partialOobHessian.resize(this->_oobOps.size());
+    _partialAsymHessian.resize(this->_asymOps.size());
+    _partialCosHessian.resize(this->_cosOps.size());
+}
+
 
 PROJECT_NAMESPACE_END
 #endif //IDEAPLACE_NLPGPLACER_H_
