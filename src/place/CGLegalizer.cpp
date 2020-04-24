@@ -146,20 +146,19 @@ void CGLegalizer::generateHorConstraints()
     // Init the irredundant constraint edges
     
     
-    //auto exemptSymPairFunc = [&](IndexType cellIdx1, IndexType cellIdx2)
-    //{
-    //    if (_db.cell(cellIdx1).hasSymPair())
-    //    {
-    //        if(_db.cell(cellIdx1).symNetIdx() == cellIdx2)
-    //        {
-    //            return true;
-    //        }
-    //    }
-    //    return false;
-    //};
+    auto exemptSelfSymsFunc = [&](IndexType cellIdx1, IndexType cellIdx2)
+    {
+        if (cellIdx1 >= _db.numCells()) { return false; }
+        if (cellIdx2 >= _db.numCells()) { return false; }
+        if (_db.cell(cellIdx1).isSelfSym() and _db.cell(cellIdx2).isSelfSym())
+        {
+            return true;
+        }
+        return false;
+    };
     
     SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
-    //sweepline.setExemptFunc(exemptSymPairFunc);
+    sweepline.setExemptFunc(exemptSelfSymsFunc);
     sweepline.solve();
 }
 void CGLegalizer::generateVerConstraints()
