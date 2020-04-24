@@ -57,6 +57,7 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
 
 
     VirtualPinAssigner assigner(_db);
+    assigner.useFastMode();
     assigner.reconfigureVirtualPinLocations(Box<LocType>(xLo, yLo, xHi, yHi));
     if (assigner.pinAssignment(cellLocQueryFunc))
     {

@@ -60,7 +60,7 @@ namespace nlp
         /// @brief stop after violating is small enough
         struct stop_after_violate_small
         {
-            static constexpr RealType overlapRatio = 0.02; ///< with respect to total cell area
+            static constexpr RealType overlapRatio = 0.01; ///< with respect to total cell area
             static constexpr RealType outOfBoundaryRatio = 0.05; ///< with respect to boundary
             static constexpr RealType asymRatio = 0.05; ///< with respect to sqrt(total cell area)
         };
@@ -564,7 +564,7 @@ namespace nlp
             struct exponential_by_obj
             {
                 static constexpr nlp_numerical_type alphaMax = 1.5;
-                static constexpr nlp_numerical_type alphaMin = 0.3;
+                static constexpr nlp_numerical_type alphaMin = 0.4;
                 static constexpr nlp_numerical_type alphaMin_minus_one = alphaMin - 1;
                 static constexpr nlp_numerical_type log_alphaMax_minus_alphaMin_plus_1 = std::log(alphaMax - alphaMin_minus_one);
                 nlp_numerical_type theConstant = 0.0; ///< log(alpha_max - alpha_min + 1) / init
