@@ -381,14 +381,16 @@ namespace nlp
                     const auto rawOvl = nlp._objOvl / mult._variedMults.at(0);
                     const auto rawOob = nlp._objOob / mult._variedMults.at(1);
                     const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
-                    DBG("update mult: raw ovl %f oob %f asym %f total %f \n", rawOvl, rawOob, rawAsym);
+                    const auto rawCos = nlp._objCos / mult._constMults.at(1);
+                    DBG("update mult: raw ovl %f oob %f asym %f cos %f \n", rawOvl, rawOob, rawAsym, rawCos);
                     DBG("update mult:  before ovl %f oob %f asym %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
                     mult._variedMults.at(0) += update.stepSize * (rawOvl );
                     mult._variedMults.at(1) += update.stepSize * (rawOob );
                     mult._variedMults.at(2) += update.stepSize * (rawAsym );
-                    DBG("update mult: afterafter  ovl %f oob %f asym %f \n",
-                            mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+                    mult._constMults.at(1) += update.stepSize * (rawCos);
+                    DBG("update mult: afterafter  ovl %f oob %f asym %f cos %f \n",
+                            mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._constMults[1]);
                 }
             };
 
@@ -612,12 +614,80 @@ namespace nlp
                     }
                     if (obj(nlp) < REAL_TYPE_TOL)
                     {
-                        alpha._alpha[alphaIdx] = update.alphaMax;
+                        alpha._alpha[alphaIdx] = update.alphaMin;
                         return;
                     }
                     alpha._alpha[alphaIdx] = std::exp(update.theConstant * obj(nlp)) + update.alphaMin - 1;
                     DBG("new alpha idx %d %f \n", alphaIdx, alpha._alpha[alphaIdx]);
                     DBG("obj %f , the const %f \n", obj(nlp), update.theConstant);
+                }
+
+            };
+
+            /// @breif update the alpha that mapping objective function to alpha, from [0, init_obj] -> [min, max]
+            /// @tparam the index of which alpha to update
+            template<typename nlp_numerical_type, IndexType alphaIdx>
+            struct reciprocal_by_obj
+            {
+                // alpha = a / (x - k * obj_init) + b
+                static constexpr nlp_numerical_type alphaMax = 1.5;
+                static constexpr nlp_numerical_type alphaMin = 0.3;
+                static constexpr nlp_numerical_type k = 1e4; ///< k > 1.0
+                nlp_numerical_type a = -1.0; ///< (k ^2 - k) * obj_init * (alphaMax - alphaMin), should > 0
+                nlp_numerical_type b = 1.0; // -k * alphaMax + k * alphaMin + alphaMax; < 0 for most k
+                nlp_numerical_type kObjInit = -1.0;
+            };
+
+            template<typename nlp_numerical_type, IndexType alphaIdx>
+            struct alpha_update_trait<reciprocal_by_obj<nlp_numerical_type, alphaIdx>> 
+            {
+                typedef reciprocal_by_obj<nlp_numerical_type, alphaIdx> update_type;
+
+                template<typename nlp_type>
+                static constexpr typename nlp_type::nlp_numerical_type obj(nlp_type &nlp) 
+                { 
+                    switch(alphaIdx)
+                    {
+                        case 0: return nlp._objHpwlRaw; break;
+                        case 1: return nlp._objOvlRaw; break;
+                        default: return nlp._objOobRaw; break;
+                    }
+                }
+
+                template<typename nlp_type>
+                static constexpr update_type construct(nlp_type &, alpha_hpwl_ovl_oob<nlp_numerical_type> &) { return update_type(); }
+
+                template<typename nlp_type>
+                static constexpr void init(nlp_type &nlp, alpha_hpwl_ovl_oob<nlp_numerical_type> &alpha, update_type &update) 
+                { 
+                    if (obj(nlp) < REAL_TYPE_TOL)
+                    {
+                        DBG("alpha idx %d size %d \n", alphaIdx, alpha._alpha.size());
+                        alpha._alpha[alphaIdx] = update.alphaMax;
+                        return;
+                    }
+                    auto objInit = obj(nlp);
+                    alpha._alpha[alphaIdx] = update.alphaMax;
+                    update.a = (update.k * update.k - update.k) * objInit * (update.alphaMax - update.alphaMin);
+                    update.b = - update.k * update.alphaMax + update.k * update.alphaMin + update.alphaMax;
+                    update.kObjInit = update.k * objInit;
+                }
+
+                template<typename nlp_type>
+                static constexpr void update(nlp_type &nlp, alpha_hpwl_ovl_oob<nlp_numerical_type> &alpha, update_type &update) 
+                { 
+                    if (update.kObjInit < REAL_TYPE_TOL)
+                    {
+                        init(nlp, alpha, update);
+                        return;
+                    }
+                    if (obj(nlp) < REAL_TYPE_TOL)
+                    {
+                        alpha._alpha[alphaIdx] = update.alphaMin;
+                        return;
+                    }
+                    alpha._alpha[alphaIdx] = - update.a / (obj(nlp) - update.kObjInit) + update.b;
+                    DBG("update alpha:: new alpha idx %d %f \n", alphaIdx, alpha._alpha[alphaIdx]);
                 }
 
             };

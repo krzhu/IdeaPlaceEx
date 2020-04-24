@@ -21,6 +21,7 @@
 #include "place/nlp/nlpTypes.hpp"
 #include "place/nlp/nlpOptmKernels.hpp"
 #include "place/nlp/nlpFirstOrderKernel.hpp"
+#include "place/nlp/nlpSecondOrderKernels.hpp"
 #include "place/nlp/conjugateGradientWnlib.hpp" // TODO: remove after no need
 #include "pinassign/VirtualPinAssigner.h"
 PROJECT_NAMESPACE_BEGIN
@@ -83,8 +84,8 @@ namespace nlp
         /* alpha */
         typedef alpha::alpha_hpwl_ovl_oob<nlp_default_types::nlp_numerical_type> alpha_type;
         typedef alpha::update::alpha_update_list<
-                alpha::update::exponential_by_obj<nlp_default_types::nlp_numerical_type, 1>,
-                alpha::update::exponential_by_obj<nlp_default_types::nlp_numerical_type, 2>
+                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 1>,
+                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 2>
             > alpha_update_type;
     };
 
@@ -98,6 +99,32 @@ namespace nlp
         typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_cos_type> cos_hessian_trait;
     };
 
+
+    struct nlp_default_second_order_algorithms
+    {
+        typedef converge::converge_list<
+                    converge::converge_grad_norm_by_init<nlp_default_types::nlp_numerical_type>,
+                    converge::converge_criteria_max_iter<3000>
+                        >
+                converge_type;
+        //typedef optm::second_order::naive_gradient_descent<converge_type> optm_type;
+        typedef optm::second_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
+        //typedef optm::first_order::conjugate_gradient_wnlib optm_type;
+        
+        /* multipliers */
+        typedef outer_multiplier::init::init_by_matching_gradient_norm mult_init_type;
+        //typedef outer_multiplier::update::subgradient_normalized_by_init<nlp_default_types::nlp_numerical_type> mult_update_type;
+        typedef outer_multiplier::update::direct_subgradient mult_update_type;
+        typedef outer_multiplier::mult_const_hpwl_cos_and_penalty_by_type<nlp_default_types::nlp_numerical_type, mult_init_type, mult_update_type> mult_type;
+
+        /* alpha */
+        typedef alpha::alpha_hpwl_ovl_oob<nlp_default_types::nlp_numerical_type> alpha_type;
+        typedef alpha::update::alpha_update_list<
+                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 1>,
+                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 2>
+            > alpha_update_type;
+    };
+
     struct nlp_default_settings
     {
         typedef nlp_default_zero_order_algorithms nlp_zero_order_algorithms_type;
@@ -105,6 +132,7 @@ namespace nlp
         typedef nlp_default_hyperparamters nlp_hyperparamters_type;
         typedef nlp_default_types nlp_types_type;
         typedef nlp_default_second_order_settings<nlp_types_type> nlp_second_order_setting_type;
+        typedef nlp_default_second_order_algorithms nlp_second_order_algorithms_type;
     };
 
 
@@ -291,6 +319,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         typedef typename base_type::nlp_oob_type nlp_oob_type;
         typedef typename base_type::nlp_asym_type nlp_asym_type;
         typedef typename base_type::nlp_cos_type nlp_cos_type;
+
         typedef typename nlp_settings::nlp_first_order_algorithms_type nlp_first_order_algorithms;
         typedef typename nlp_first_order_algorithms::converge_type converge_type;
         typedef typename nlp::converge::converge_criteria_trait<converge_type> converge_trait;
@@ -415,6 +444,11 @@ namespace _nlp_second_order_details
         {
             matrix.resize(size, size);
         }
+
+        static decltype(auto) inverse(matrix_type &matrix)
+        {
+            return matrix.diagonal().cwiseInverse().asDiagonal();
+        }
     };
 
     template<typename nlp_settings>
@@ -424,6 +458,11 @@ namespace _nlp_second_order_details
         static void resize(matrix_type &matrix, IntType size)
         {
             matrix.resize(size, size);
+        }
+        static decltype(auto) inverse(matrix_type &matrix)
+        {
+            Assert(false);
+            return matrix.diagonal().cwiseInverse();
         }
     };
 
@@ -441,6 +480,9 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
     public:
         typedef typename NlpGPlacerFirstOrder<nlp_settings>::base_type base_type;
         typedef NlpGPlacerFirstOrder<nlp_settings> first_order_type;
+
+        typedef typename first_order_type::nlp_numerical_type nlp_numerical_type;
+        typedef typename first_order_type::nlp_coordinate_type nlp_coordinate_type;
         
         typedef typename nlp_settings::nlp_second_order_setting_type second_order_setting_type;
 
@@ -493,8 +535,57 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         typedef typename cos_hessian_diagonal_selector::matrix_type cos_hessian_matrix;
         typedef typename hessian_diagonal_selector::matrix_type hessian_matrix;
 
+        /* define the algorithms */
+        typedef typename nlp_settings::nlp_second_order_algorithms_type nlp_second_order_algorithms;
+        typedef typename nlp_second_order_algorithms::converge_type converge_type;
+        typedef typename nlp::converge::converge_criteria_trait<converge_type> converge_trait;
+        typedef typename nlp_second_order_algorithms::optm_type optm_type;
+        typedef typename nlp::optm::optm_trait<optm_type> optm_trait;
+        
+        friend converge_type;
+        template<typename converge_criteria_type>
+        friend struct nlp::converge::converge_criteria_trait;
+        friend optm_type;
+        friend optm_trait;
+
+        typedef typename nlp_settings::nlp_second_order_algorithms_type::mult_init_type mult_init_type;
+        typedef nlp::outer_multiplier::init::multiplier_init_trait<mult_init_type> mult_init_trait;
+        friend mult_init_trait;
+        typedef typename nlp_settings::nlp_second_order_algorithms_type::mult_update_type mult_update_type;
+        typedef nlp::outer_multiplier::update::multiplier_update_trait<mult_update_type> mult_update_trait;
+        friend mult_update_trait;
+        typedef typename nlp_settings::nlp_second_order_algorithms_type::mult_type mult_type;
+        typedef nlp::outer_multiplier::multiplier_trait<mult_type> mult_trait;
+        friend mult_trait;
+
+        /* updating alpha parameters */
+        typedef typename nlp_settings::nlp_second_order_algorithms_type::alpha_type alpha_type;
+        typedef nlp::alpha::alpha_trait<alpha_type> alpha_trait;
+        template<typename T>
+        friend struct nlp::alpha::alpha_trait;
+        typedef typename nlp_settings::nlp_second_order_algorithms_type::alpha_update_type alpha_update_type;
+        typedef nlp::alpha::update::alpha_update_trait<alpha_update_type> alpha_update_trait;
+        template<typename T>
+        friend struct nlp::alpha::update::alpha_update_trait;
+
+
+        static constexpr nlp_numerical_type hessianMinBound = 0.01;
+        static constexpr nlp_numerical_type hessianMaxBound = 10;
+
 
         NlpGPlacerSecondOrder(Database &db) : NlpGPlacerFirstOrder<nlp_settings>(db) {}
+    public:
+        decltype(auto) inverseHessian()
+        {
+            return hessian_diagonal_selector::inverse(_hessian);
+        }
+        void calcHessian()
+        {
+            _clearHessian();
+            _calcAllHessians();
+            _updateAllHessian();
+            clipHessian();
+        }
     protected:
         virtual void initProblem() override
         {
@@ -503,76 +594,46 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         }
         void initSecondOrder();
         /* Construct tasks */
-        virtual void constructTasks() override
+        virtual void optimize() override
         {
-            first_order_type::constructTasks();
+            WATCH_QUICK_START();
+            // setting up the multipliers
+            this->_wrapObjAllTask.run();
+            this->_wrapCalcGradTask.run();
+            calcHessian();
 
-            auto clearAll = [&]()
-            {
-                _hessian.setZero();
-                _hessianHpwl.setZero();
-                _hessianOvl.setZero();
-                _hessianOob.setZero();
-                _hessianAsym.setZero();
-                _hessianCos.setZero();
-            };
+            optm_type optm;
+            mult_type multiplier = mult_trait::construct(*this);
+            mult_trait::init(*this, multiplier);
+            mult_trait::recordRaw(*this, multiplier);
 
-            this->constructCalcHessianTasks();
-            auto calcAllHessian = [&]()
-            {
-                //#pragma omp parallel for schedule(static)
-                for (IndexType i = 0; i < _calcHpwlHessianTasks.size(); ++i) { _calcHpwlHessianTasks[i].calc(); }
-                //#pragma omp parallel for schedule(static)
-                for (IndexType i = 0; i < _calcOvlHessianTasks.size(); ++i) { _calcOvlHessianTasks[i].calc(); }
-                //#pragma omp parallel for schedule(static)
-                for (IndexType i = 0; i < _calcOobHessianTasks.size(); ++i) { _calcOobHessianTasks[i].calc(); }
-                //#pragma omp parallel for schedule(static)
-                for (IndexType i = 0; i < _calcAsymHessianTasks.size(); ++i) { _calcAsymHessianTasks[i].calc(); }
-                //#pragma omp parallel for schedule(static)
-                for (IndexType i = 0; i < _calcCosHessianTasks.size(); ++i) { _calcCosHessianTasks[i].calc(); }
-            };
+            alpha_type alpha = alpha_trait::construct(*this);
+            alpha_trait::init(*this, alpha);
+            alpha_update_type alphaUpdate = alpha_update_trait::construct(*this, alpha);
+            alpha_update_trait::init(*this, alpha, alphaUpdate);
+            DBG("np \n");
+            std::cout<<"nlp address " <<this <<std::endl;
 
-            auto updateHessian = [&]()
+            IntType iter = 0;
+            do
             {
-                //#pragma omp parallel for schedule(static)
-                for (IndexType i = 0; i < 5; ++i)
-                {
-                    if (i == 0)
-                    {
-                        for (auto & calc : _calcHpwlHessianTasks) { DBG("start update \n"); calc.update(); DBG("end update \n"); }
-                    }
-                    else if (i == 1)
-                    {
-                        for (auto & calc : _calcOvlHessianTasks) { calc.update(); }
-                    }
-                    else if (i == 2)
-                    {
-                        for (auto & calc : _calcOobHessianTasks) { calc.update(); }
-                    }
-                    else if (i == 3)
-                    {
-                        for (auto & calc : _calcAsymHessianTasks) { calc.update(); }
-                    }
-                    else
-                    {
-                        for (auto & calc : _calcCosHessianTasks) { calc.update(); }
-                    }
-                }
-            };
+                this->assignIoPins();
+                std::string debugGdsFilename  = "./debug/";
+                debugGdsFilename += "gp_iter_" + std::to_string(iter)+".gds";
+                base_type::drawCurrentLayout(debugGdsFilename);
+                DBG("iter %d \n", iter);
+                optm_trait::optimize(*this, optm);
+                mult_trait::update(*this, multiplier);
+                mult_trait::recordRaw(*this, multiplier);
 
-            auto sumHessian = [&]()
-            {
-                _hessian = _hessianHpwl + _hessianOvl + _hessianOob + _hessianAsym + _hessianCos;
-            };
-
-            auto wrap = [&]()
-            {
-                clearAll();
-                calcAllHessian();
-                updateHessian();
-                sumHessian();
-            };
-            _wrapCalcHessianTask = nt::Task<nt::FuncTask>(nt::FuncTask(wrap));
+                alpha_update_trait::update(*this, alpha, alphaUpdate);
+                DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
+                ++iter;
+            } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
+            auto end = WATCH_QUICK_END();
+            //std::cout<<"grad"<<"\n"<< _grad <<std::endl;
+            std::cout<<"time "<< end / 1000 <<" ms" <<std::endl;
+            this->writeOut();
         }
         private:
         void constructCalcHessianTasks()
@@ -604,6 +665,68 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
                 _calcCosHessianTasks.emplace_back(cos(&op, &_hessianCos, getIdxFunc));
             }
         }
+        void _clearHessian()
+        {
+            _hessian.setZero();
+            _hessianHpwl.setZero();
+            _hessianOvl.setZero();
+            _hessianOob.setZero();
+            _hessianAsym.setZero();
+            _hessianCos.setZero();
+        }
+        void _calcAllHessians()
+        {
+            #pragma omp parallel for schedule(static)
+            for (IndexType i = 0; i < _calcHpwlHessianTasks.size(); ++i) { _calcHpwlHessianTasks[i].calc(); }
+            #pragma omp parallel for schedule(static)
+            for (IndexType i = 0; i < _calcOvlHessianTasks.size(); ++i) { _calcOvlHessianTasks[i].calc(); }
+            #pragma omp parallel for schedule(static)
+            for (IndexType i = 0; i < _calcOobHessianTasks.size(); ++i) { _calcOobHessianTasks[i].calc(); }
+            #pragma omp parallel for schedule(static)
+            for (IndexType i = 0; i < _calcAsymHessianTasks.size(); ++i) { _calcAsymHessianTasks[i].calc(); }
+            #pragma omp parallel for schedule(static)
+            for (IndexType i = 0; i < _calcCosHessianTasks.size(); ++i) { _calcCosHessianTasks[i].calc(); }
+        }
+        void _updateAllHessian()
+        {
+            #pragma omp parallel for schedule(static)
+            for (IndexType i = 0; i < 5; ++i)
+            {
+                if (i == 0)
+                {
+                    for (auto & calc : _calcHpwlHessianTasks) { calc.update(); }
+                }
+                else if (i == 1)
+                {
+                    for (auto & calc : _calcOvlHessianTasks) { calc.update(); }
+                }
+                else if (i == 2)
+                {
+                    for (auto & calc : _calcOobHessianTasks) { calc.update(); }
+                }
+                else if (i == 3)
+                {
+                    for (auto & calc : _calcAsymHessianTasks) { calc.update(); }
+                }
+                else
+                {
+                    for (auto & calc : _calcCosHessianTasks) { calc.update(); }
+                }
+            }
+            _hessian = _hessianHpwl + _hessianOvl + _hessianOob + _hessianAsym + _hessianCos;
+        }
+
+        void clipHessian()
+        {
+            _hessian = _hessian.cwiseMin(hessianMinBound).cwiseMax(hessianMaxBound);
+        }
+        virtual void constructTasks() override
+        {
+            first_order_type::constructTasks();
+
+            this->constructCalcHessianTasks();
+        }
+
         protected:
         hessian_matrix _hessian; ///< The hessian for the objective function
         hpwl_hessian_matrix _hessianHpwl; ///< The hessian for the hpwl function
@@ -612,7 +735,6 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         asym_hessian_matrix _hessianAsym; ///< The hessian for the asymmetry function
         cos_hessian_matrix _hessianCos; ///< The hessian for the signal path function
         /* Tasks */
-        nt::Task<nt::FuncTask> _wrapCalcHessianTask; ///<  calculating the gradient and sum them
         std::vector<nt::CalculateOperatorHessianTask<nlp_hpwl_type, hpwl_hessian_trait, EigenMatrix, hpwl_hessian_matrix>> _calcHpwlHessianTasks; ///< calculate and update the hessian
         std::vector<nt::CalculateOperatorHessianTask<nlp_ovl_type, ovl_hessian_trait, EigenMatrix, ovl_hessian_matrix>> _calcOvlHessianTasks; ///< calculate and update the hessian
         std::vector<nt::CalculateOperatorHessianTask<nlp_oob_type, oob_hessian_trait, EigenMatrix, oob_hessian_matrix>> _calcOobHessianTasks; ///< calculate and update the hessian

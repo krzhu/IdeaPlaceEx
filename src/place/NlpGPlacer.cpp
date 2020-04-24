@@ -184,7 +184,12 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
     };
     auto getVarFunc = [&] (IndexType cellIdx, Orient2DType orient)
     {
+#ifdef MULTI_SYM_GROUP
         return _pl(plIdx(cellIdx, orient));
+#else
+        if (orient == Orient2DType::NONE) { return _defaultSymAxis; }
+        return _pl(plIdx(cellIdx, orient));
+#endif
     };
 
     auto calculatePinOffset = [&](IndexType pinIdx)

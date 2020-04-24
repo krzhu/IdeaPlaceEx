@@ -200,6 +200,7 @@ namespace diff
         typedef AsymmetryDifferentiable<NumType, CoordType> operator_type;
         static void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType, Orient2DType)> &accumulateHessianFunc)
         {
+            return;
             const NumType lambda = op._getLambdaFunc();
 
             for (IndexType symPairIdx = 0; symPairIdx < op._pairCells.size(); ++symPairIdx)
