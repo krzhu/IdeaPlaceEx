@@ -193,11 +193,11 @@ namespace nt
 
     /// @brief trait template for building the _cellMap and _inverseCellMap from the different types opeartor. This template need partial specification.
     /// @tparam the differentiable operator type
-    template<typename op_type, typename eigen_vector_type>
+    template<typename op_type>
     struct calc_operator_partial_build_cellmap_trait 
     {
         typedef op_type nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
+        template<typename calc_type>
         static void build(op_type *, calc_type *) {}
     };
 
@@ -210,7 +210,7 @@ namespace nt
         typedef typename nlp_op_type::coordinate_type nlp_coordiante_type;
         typedef eigen_vector_type EigenVector;
         friend UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type>;
-        friend calc_operator_partial_build_cellmap_trait<nlp_op_type, eigen_vector_type>;
+        friend calc_operator_partial_build_cellmap_trait<nlp_op_type>;
         static constexpr IntType MAX_NUM_CELLS = IDEAPLACE_DEFAULT_MAX_NUM_CELLS;
         public:
             CalculateOperatorPartialTask() = delete;
@@ -226,7 +226,9 @@ namespace nt
             { 
                 _op = op; 
                 // Use this trait to speficify different number of cells for different operators
-                calc_operator_partial_build_cellmap_trait<nlp_op_type, eigen_vector_type>::build(*op, *this); 
+                calc_operator_partial_build_cellmap_trait<nlp_op_type>::build(*op, *this); 
+                _partialsX.resize(_inverseCellMap.size());
+                _partialsY.resize(_inverseCellMap.size());
                 clear();
                 setAccumulateGradFunc();
             }
@@ -310,16 +312,14 @@ namespace nt
     };
 #endif
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
     {
         typedef diff::LseHpwlDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
+        template<typename calc_type>
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = op._cells.size(); // dx and dy for each cells
-            calc._partialsX.resize(calc._numCells);
-            calc._partialsY.resize(calc._numCells);
             calc._inverseCellMap.resize(op._cells.size());
             for (IndexType idx = 0; idx < op._cells.size(); ++idx)
             {
@@ -329,16 +329,14 @@ namespace nt
         }
     };
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
     {
         typedef diff::CellPairOverlapPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
+        template<typename calc_type>
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = 2; // Always have exactly two cells
-            calc._partialsX.resize(calc._numCells);
-            calc._partialsY.resize(calc._numCells);
             calc._inverseCellMap.resize(2);
             calc._cellMap[op._cellIdxI] = 0;
             calc._inverseCellMap[0] = op._cellIdxI;
@@ -347,16 +345,14 @@ namespace nt
         }
     };
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
     {
         typedef diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
+        template<typename calc_type>
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = 1; // Always have exactly two cells
-            calc._partialsX.resize(calc._numCells);
-            calc._partialsY.resize(calc._numCells);
             calc._inverseCellMap.resize(1);
             calc._cellMap[op._cellIdx] = 0;
             calc._inverseCellMap[0] = op._cellIdx;
@@ -364,16 +360,14 @@ namespace nt
     };
 
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
     {
         typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
+        template<typename calc_type>
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = op._pairCells.size() * 2 + op._selfSymCells.size(); // Always have exactly two cells
-            calc._partialsX.resize(calc._numCells);
-            calc._partialsY.resize(calc._numCells);
             calc._inverseCellMap.resize(calc._numCells);
             IndexType idx = 0;
             for (IndexType pairIdx = 0; pairIdx < op._pairCells.size(); ++pairIdx)
@@ -397,16 +391,14 @@ namespace nt
         }
     };
 
-    template<typename nlp_numerical_type, typename nlp_coordinate_type, typename eigen_vector_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type>, eigen_vector_type>
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
     {
         typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
-        typedef CalculateOperatorPartialTask<nlp_op_type, eigen_vector_type> calc_type;
+        template<typename calc_type>
         static void build(nlp_op_type &op, calc_type &calc)
         {
             calc._numCells = 3; // Always have exactly two cells
-            calc._partialsX.resize(calc._numCells);
-            calc._partialsY.resize(calc._numCells);
             calc._inverseCellMap.resize(3);
             calc._cellMap[op._sCellIdx] = 0;
             calc._inverseCellMap[0] = op._sCellIdx;
@@ -416,8 +408,122 @@ namespace nt
             calc._inverseCellMap[2] = op._tCellIdx;
         }
     };
-    
 
 } //namespace nt
+
+
+
+
+namespace nt
+{
+
+    template<typename op_type, typename hessian_type, typename Matrix, typename TargetMatrix>
+    class CalculateOperatorHessianTask
+    {
+        typedef op_type nlp_op_type;
+        typedef typename nlp_op_type::numerical_type nlp_numerical_type;
+        typedef typename nlp_op_type::coordinate_type nlp_coordiante_type;
+        friend calc_operator_partial_build_cellmap_trait<nlp_op_type>;
+        static constexpr IntType MAX_NUM_CELLS = IDEAPLACE_DEFAULT_MAX_NUM_CELLS;
+        public:
+            CalculateOperatorHessianTask() = delete;
+            CalculateOperatorHessianTask(CalculateOperatorHessianTask &other) = delete;
+            CalculateOperatorHessianTask(CalculateOperatorHessianTask &&other)
+                : _hessian(std::move(other._hessian)), 
+                _cellMap(std::move(other._cellMap)), _inverseCellMap(std::move(other._inverseCellMap)),
+                _numCells(std::move(other._numCells)),
+                _target(std::move(other._target)), _idxFunc(std::move(other._idxFunc))
+            {
+                createAccumulateFunc();
+                _op = other._op;
+            }
+            CalculateOperatorHessianTask(nlp_op_type *op, TargetMatrix *target, const std::function<IndexType(IndexType, Orient2DType)> &idxFunc) 
+            { 
+                _op = op; 
+                // Use this trait to speficify different number of cells for different operators
+                calc_operator_partial_build_cellmap_trait<nlp_op_type>::build(*op, *this); 
+                _hessian.resize(2 * _numCells, 2 * _numCells);
+
+                _target = target;
+                _idxFunc = idxFunc;
+                clear();
+                createAccumulateFunc();
+            }
+            void createAccumulateFunc()
+            {
+                _accumulateFunc = [&](nlp_numerical_type num, IndexType i, IndexType j, Orient2DType iOrient, Orient2DType jOrient)
+                {
+                    this->accumulateHessian(num, i, j, iOrient, jOrient);
+                };
+            }
+            virtual void accumulateHessian(nlp_numerical_type num, IndexType cellIdxI, IndexType cellIdxJ, Orient2DType orientI, Orient2DType orientJ)
+            {
+                IndexType i = _cellMap[cellIdxI];
+                IndexType j = _cellMap[cellIdxJ];
+                if (orientI == Orient2DType::VERTICAL)
+                {
+                    i += _numCells;
+                }
+                if (orientJ == Orient2DType::VERTICAL)
+                {
+                    j += _numCells;
+                }
+                _hessian(i, j) += num;
+            }
+            virtual void clear() 
+            { 
+                _hessian.setZero();
+            }
+            IndexType numCells() const { return _numCells; }
+            void calc() 
+            { 
+                clear(); 
+                hessian_type::accumulateHessian(*_op, _accumulateFunc);
+            }
+            void update()
+            {
+                for (IndexType i = 0; i < _numCells * 2; ++i)
+                {
+                    Orient2DType iOrient;
+                    IndexType iCellIdx;
+                    if (i < _numCells)
+                    {
+                        iOrient = Orient2DType::HORIZONTAL;
+                        iCellIdx = _inverseCellMap[i];
+                    }
+                    else
+                    {
+                        iOrient = Orient2DType::VERTICAL;
+                        iCellIdx = _inverseCellMap[i - _numCells];
+                    }
+                    for (IndexType j = 0; j < _numCells * 2; ++j)
+                    {
+                        Orient2DType jOrient;
+                        IndexType jCellIdx;
+                        if (j < _numCells)
+                        {
+                            jOrient = Orient2DType::HORIZONTAL;
+                            jCellIdx = _inverseCellMap[j];
+                        }
+                        else
+                        {
+                            jOrient = Orient2DType::VERTICAL;
+                            jCellIdx = _inverseCellMap[j - _numCells];
+                        }
+                        (*_target)(_idxFunc(iCellIdx, iOrient), _idxFunc(jCellIdx, jOrient)) += _hessian(i, j);
+                    }
+                }
+            }
+        protected:
+            Matrix _hessian;
+            nlp_op_type* _op = nullptr;
+            std::array<IndexType, MAX_NUM_CELLS> _cellMap; ///< From db cell index to this class index
+            std::vector<IndexType> _inverseCellMap;
+            IndexType _numCells;
+            TargetMatrix *_target;
+            std::function<IndexType(IndexType, Orient2DType)> _idxFunc; //< convert cell idx to eigen vector idx
+            std::function<void(nlp_numerical_type, IndexType, IndexType, Orient2DType, Orient2DType)> _accumulateFunc;
+    };
+} // namespace nt
 
 PROJECT_NAMESPACE_END

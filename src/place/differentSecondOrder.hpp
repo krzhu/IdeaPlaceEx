@@ -29,10 +29,11 @@ namespace diff
     struct jacobi_hessian_approx_trait<LseHpwlDifferentiable<NumType, CoordType>>
     {
         typedef LseHpwlDifferentiable<NumType, CoordType> operator_type;
-        void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType)> &accumulateHessianFunc)
+        static void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType, Orient2DType)> &accumulateHessianFunc)
         {
             const NumType alpha = op._getAlphaFunc();
-            const NumType lambda = op._getLambdaFunc();
+            //const NumType lambda = op._getLambdaFunc();
+            const NumType lambda = 1;
 
             // first compute the exp sums
             NumType exp_xi_sum  = 0.0; // sum (exp(xi / alpha))
@@ -42,10 +43,10 @@ namespace diff
             for (IndexType pinIdx = 0; pinIdx < op._cells.size(); ++pinIdx)
             {
                 const NumType x = op::conv<NumType>(
-                        _getVarFunc(op._cells[pinIdx], Orient2DType::HORIZONTAL) + op._offsetX[pinIdx]
+                        op._getVarFunc(op._cells[pinIdx], Orient2DType::HORIZONTAL) + op._offsetX[pinIdx]
                         );
                 const NumType y = op::conv<NumType>(
-                        _getVarFunc(op._cells[pinIdx], Orient2DType::VERTICAL) + op._offsetY[pinIdx]
+                        op._getVarFunc(op._cells[pinIdx], Orient2DType::VERTICAL) + op._offsetY[pinIdx]
                         );
                 exp_xi_sum += std::exp(x / alpha);
                 exp_neg_xi_sum += std::exp(-x / alpha);
@@ -63,17 +64,17 @@ namespace diff
             for (IndexType pinIdx = 0; pinIdx < op._cells.size(); ++pinIdx)
             {
                 NumType x = op::conv<NumType>(
-                        _getVarFunc(op._cells[pinIdx], Orient2DType::HORIZONTAL) + op._offsetX[pinIdx]
+                        op._getVarFunc(op._cells[pinIdx], Orient2DType::HORIZONTAL) + op._offsetX[pinIdx]
                         );
                 NumType y = op::conv<NumType>(
-                        _getVarFunc(op._cells[pinIdx], Orient2DType::VERTICAL) + op._offsetY[pinIdx]
+                        op._getVarFunc(op._cells[pinIdx], Orient2DType::VERTICAL) + op._offsetY[pinIdx]
                         );
                 const NumType xPartial = (exp_xi_sum - std::exp(x / alpha)) * std::exp(x / alpha) / (alpha * std::pow(exp_xi_sum, 2.0))
                                        +  (exp_neg_xi_sum - std::exp(-x / alpha)) * std::exp(-x / alpha) / (alpha * std::pow(exp_neg_xi_sum, 2.0));
                 const NumType yPartial = (exp_yi_sum - std::exp(y / alpha)) * std::exp(y / alpha) / (alpha * std::pow(exp_yi_sum, 2.0))
                                        +  (exp_neg_yi_sum - std::exp(-y / alpha)) * std::exp(-y / alpha) / (alpha * std::pow(exp_neg_yi_sum, 2.0));
-                accumulateHessianFunc(lambda * xPartial, op._cells[pinIdx], op._cells[pinIdx], Orient2DType::HORIZONTAL);
-                accumulateHessianFunc(lambda * yPartial, op._cells[pinIdx], op._cells[pinIdx], Orient2DType::VERTICAL);
+                accumulateHessianFunc(lambda * xPartial, op._cells[pinIdx], op._cells[pinIdx], Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+                accumulateHessianFunc(lambda * yPartial, op._cells[pinIdx], op._cells[pinIdx], Orient2DType::VERTICAL, Orient2DType::VERTICAL);
             }
         }
     };
@@ -83,7 +84,7 @@ namespace diff
     struct jacobi_hessian_approx_trait<CellPairOverlapPenaltyDifferentiable<NumType, CoordType>>
     {
         typedef CellPairOverlapPenaltyDifferentiable<NumType, CoordType> operator_type;
-        void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType)> &accumulateHessianFunc)
+        static void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType, Orient2DType)> &accumulateHessianFunc)
         {
             const NumType alpha = op._getAlphaFunc();
             const NumType lambda = op._getLambdaFunc();
@@ -108,10 +109,10 @@ namespace diff
  
             const NumType dyj2 = (2*std::pow(alpha, 2.0)*log(1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*std::pow(exp(-(hi + yi - yj)/alpha)/alpha - exp(-(hj - yi + yj)/alpha)/alpha, 2.0))/((1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*std::pow(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha), 3.0)) - (std::pow(alpha, 2.0)*log(1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*std::pow(exp(-(hi + yi - yj)/alpha)/alpha - exp(-(hj - yi + yj)/alpha)/alpha, 2.0))/(std::pow(1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1, 2.0)*std::pow(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha), 4.0)) - (std::pow(alpha, 2.0)*log(1/(exp(-(wi + xi - xj)/alpha) + exp(-(wj - xi + xj)/alpha)) + 1)*(exp(-(hi + yi - yj)/alpha)/std::pow(alpha, 2.0) + exp(-(hj - yi + yj)/alpha)/std::pow(alpha, 2.0)))/((1/(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha)) + 1)*std::pow(exp(-(hi + yi - yj)/alpha) + exp(-(hj - yi + yj)/alpha), 2.0));
 
-            accumulateHessianFunc(lambda * dxi2, op._cellIdxI, op._cellIdxI, Orient2DType::HORIZONTAL);
-            accumulateHessianFunc(lambda * dyi2, op._cellIdxI, op._cellIdxI, Orient2DType::VERTICAL);
-            accumulateHessianFunc(lambda * dxj2, op._cellIdxJ, op._cellIdxJ, Orient2DType::HORIZONTAL);
-            accumulateHessianFunc(lambda * dyj2, op._cellIdxJ, op._cellIdxJ, Orient2DType::VERTICAL);
+            accumulateHessianFunc(lambda * dxi2, op._cellIdxI, op._cellIdxI, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+            accumulateHessianFunc(lambda * dyi2, op._cellIdxI, op._cellIdxI, Orient2DType::VERTICAL, Orient2DType::VERTICAL);
+            accumulateHessianFunc(lambda * dxj2, op._cellIdxJ, op._cellIdxJ, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+            accumulateHessianFunc(lambda * dyj2, op._cellIdxJ, op._cellIdxJ, Orient2DType::VERTICAL, Orient2DType::VERTICAL);
  
         }
     };
@@ -121,7 +122,7 @@ namespace diff
     struct jacobi_hessian_approx_trait<CellOutOfBoundaryPenaltyDifferentiable<NumType, CoordType>>
     {
         typedef CellOutOfBoundaryPenaltyDifferentiable<NumType, CoordType> operator_type;
-        void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType)> &accumulateHessianFunc)
+        static void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType, Orient2DType)> &accumulateHessianFunc)
         {
             const NumType alpha = op._getAlphaFunc();
             const NumType lambda = op._getLambdaFunc();
@@ -137,8 +138,8 @@ namespace diff
             const NumType dxi2 = exp((wi - bbXHi + xi)/alpha)/(exp((wi - bbXHi + xi)/alpha) + 1) - exp((bbXLo - xi)/alpha)/(exp((bbXLo - xi)/alpha) + 1);
             const NumType dyi2 = exp((hi - bbYHi + yi)/alpha)/(exp((hi - bbYHi + yi)/alpha) + 1) - exp((bbYLo - yi)/alpha)/(exp((bbYLo - yi)/alpha) + 1);
 
-            accumulateHessianFunc(lambda * dxi2, op._cellIdx, op._cellIdx, Orient2DType::HORIZONTAL);
-            accumulateHessianFunc(lambda * dyi2, op._cellIdx, op._cellIdx, Orient2DType::VERTICAL);
+            accumulateHessianFunc(lambda * dxi2, op._cellIdx, op._cellIdx, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+            accumulateHessianFunc(lambda * dyi2, op._cellIdx, op._cellIdx, Orient2DType::VERTICAL, Orient2DType::VERTICAL);
  
         }
     };
@@ -148,7 +149,7 @@ namespace diff
     struct jacobi_hessian_approx_trait<CosineDatapathDifferentiable<NumType, CoordType>>
     {
         typedef CosineDatapathDifferentiable<NumType, CoordType> operator_type;
-        void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType)> &accumulateHessianFunc)
+        static void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType, Orient2DType)> &accumulateHessianFunc)
         {
             const NumType lambda = op._getLambdaFunc();
             const NumType x1 = op::conv<NumType>(op._getVarFunc(op._sCellIdx, Orient2DType::HORIZONTAL));
@@ -183,12 +184,12 @@ namespace diff
  
             const NumType dy3_2 = (3*((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*std::pow(2*oy3 - 2*oy2b - 2*y2 + 2*y3, 2.0))/(4*std::sqrt(std::pow(ox1 - ox2a + x1 - x2, 2.0) + std::pow(oy1 - oy2a + y1 - y2, 2.0))*std::pow(std::pow(ox3 - ox2b - x2 + x3, 2.0) + std::pow(oy3 - oy2b - y2 + y3, 2.0), 2.5)) - ((2*oy3 - 2*oy2b - 2*y2 + 2*y3)*(oy1 - oy2a + y1 - y2))/(std::sqrt(std::pow(ox1 - ox2a + x1 - x2, 2.0) + std::pow(oy1 - oy2a + y1 - y2, 2.0))*std::pow(std::pow(ox3 - ox2b - x2 + x3, 2.0) + std::pow(oy3 - oy2b - y2 + y3, 2.0), 1.5)) - ((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))/(std::sqrt(std::pow(ox1 - ox2a + x1 - x2, 2.0) + std::pow(oy1 - oy2a + y1 - y2, 2.0))*std::pow(std::pow(ox3 - ox2b - x2 + x3, 2.0) + std::pow(oy3 - oy2b - y2 + y3, 2.0), 1.5));
 
-            accumulateHessianFunc(dx1_2 * lambda, op._sCellIdx, op._sCellIdx, Orient2DType::HORIZONTAL);
-            accumulateHessianFunc(dy1_2 * lambda, op._sCellIdx, op._sCellIdx, Orient2DType::VERTICAL);
-            accumulateHessianFunc(dx2_2 * lambda, op._midCellIdx, op._midCellIdx, Orient2DType::HORIZONTAL);
-            accumulateHessianFunc(dy2_2 * lambda, op._midCellIdx, op._midCellIdx, Orient2DType::VERTICAL);
-            accumulateHessianFunc(dx3_2 * lambda, op._tCellIdx, op._tCellIdx, Orient2DType::HORIZONTAL);
-            accumulateHessianFunc(dy3_2 * lambda, op._tCellIdx, op._tCellIdx, Orient2DType::VERTICAL);
+            accumulateHessianFunc(dx1_2 * lambda, op._sCellIdx, op._sCellIdx, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+            accumulateHessianFunc(dy1_2 * lambda, op._sCellIdx, op._sCellIdx, Orient2DType::VERTICAL, Orient2DType::VERTICAL);
+            accumulateHessianFunc(dx2_2 * lambda, op._midCellIdx, op._midCellIdx, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+            accumulateHessianFunc(dy2_2 * lambda, op._midCellIdx, op._midCellIdx, Orient2DType::VERTICAL, Orient2DType::VERTICAL);
+            accumulateHessianFunc(dx3_2 * lambda, op._tCellIdx, op._tCellIdx, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+            accumulateHessianFunc(dy3_2 * lambda, op._tCellIdx, op._tCellIdx, Orient2DType::VERTICAL, Orient2DType::VERTICAL);
         }
     };
 
@@ -197,25 +198,24 @@ namespace diff
     struct jacobi_hessian_approx_trait<AsymmetryDifferentiable<NumType, CoordType>>
     {
         typedef AsymmetryDifferentiable<NumType, CoordType> operator_type;
-        void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType)> &accumulateHessianFunc)
+        static void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType, Orient2DType)> &accumulateHessianFunc)
         {
-            const NumType alpha = op._getAlphaFunc();
             const NumType lambda = op._getLambdaFunc();
 
             for (IndexType symPairIdx = 0; symPairIdx < op._pairCells.size(); ++symPairIdx)
             {
                 const IndexType cellI = op._pairCells[symPairIdx][0];
                 const IndexType cellJ = op._pairCells[symPairIdx][1];
-                accumulateHessianFunc(2 * lambda, cellI, cellI, Orient2DType::HORIZONTAL);
-                accumulateHessianFunc(2 * lambda, cellJ, cellJ, Orient2DType::HORIZONTAL);
-                accumulateHessianFunc(2 * lambda, cellI, cellI, Orient2DType::VERTICAL);
-                accumulateHessianFunc(2 * lambda, cellJ, cellJ, Orient2DType::VERTICAL);
-                accumulateHessianFunc(8 * lambda, op._symGrpIdx, op._symGrpIdx, Orient2DType::NONE);
+                accumulateHessianFunc(2 * lambda, cellI, cellI, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+                accumulateHessianFunc(2 * lambda, cellJ, cellJ, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+                accumulateHessianFunc(2 * lambda, cellI, cellI, Orient2DType::VERTICAL, Orient2DType::VERTICAL);
+                accumulateHessianFunc(2 * lambda, cellJ, cellJ, Orient2DType::VERTICAL, Orient2DType::VERTICAL);
+                accumulateHessianFunc(8 * lambda, op._symGrpIdx, op._symGrpIdx, Orient2DType::NONE, Orient2DType::NONE);
             }
-            for (IndexType ssIdx = 0; ssIdx < op._selfSymCells.size(); ++ssIdx)
+            for (IndexType ssIdx : op._selfSymCells)
             {
-                accumulateHessianFunc(2 * lambda, ssIdx, ssIdx, Orient2DType::HORIZONTAL);
-                accumulateHessianFunc(2 * lambda, op._symGrpIdx, op._symGrpIdx, Orient2DType::NONE);
+                accumulateHessianFunc(2 * lambda, ssIdx, ssIdx, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
+                accumulateHessianFunc(2 * lambda, op._symGrpIdx, op._symGrpIdx, Orient2DType::NONE, Orient2DType::NONE);
             }
         }
     };

@@ -167,7 +167,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
 
     INF("Ideaplace: Entering global placement...\n");
 
-    NlpGPlacerFirstOrder<nlp::nlp_default_settings> placer(_db);
+    NlpGPlacerSecondOrder<nlp::nlp_default_settings> placer(_db);
     placer.solve();
 #ifdef DEBUG_GR
 #ifdef DEBUG_DRAW

@@ -22,7 +22,7 @@
 #include "place/nlp/nlpOptmKernels.hpp"
 #include "place/nlp/nlpFirstOrderKernel.hpp"
 #include "place/nlp/conjugateGradientWnlib.hpp" // TODO: remove after no need
-
+#include "pinassign/VirtualPinAssigner.h"
 PROJECT_NAMESPACE_BEGIN
 
 namespace nlp 
@@ -154,6 +154,7 @@ class NlpGPlacerBase
         IntType solve();
 
     protected:
+        void assignIoPins();
         /* calculating obj */
         void calcObj()
         {
@@ -331,10 +332,10 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
             _wrapCalcGradTask.run();
         }
         /* Init */
-        void initProblem() override;
+        virtual void initProblem() override;
         void initFirstOrderGrad();
         /* Construct tasks */
-        void constructTasks() override;
+        virtual void constructTasks() override;
         void constructFirstOrderTasks();
         void constructCalcPartialsTasks();
         void constructUpdatePartialsTasks();
@@ -409,10 +410,10 @@ namespace _nlp_second_order_details
     template<typename nlp_settings>
     struct is_diagonal_select<nlp_settings, true>
     {
-        typedef typename nlp_settings::nlp_types_type::EigenDiagonalMatrix matrix_type;
+        typedef typename nlp_settings::nlp_types_type::EigenMatrix matrix_type;
         static void resize(matrix_type &matrix, IntType size)
         {
-            matrix.resize(size);
+            matrix.resize(size, size);
         }
     };
 
@@ -426,6 +427,11 @@ namespace _nlp_second_order_details
         }
     };
 
+    template<typename hessian_target_type>
+    struct update_hessian
+    {
+        hessian_target_type &target;
+    };
 };
 
 /// @brief first-order optimization
@@ -437,6 +443,14 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         typedef NlpGPlacerFirstOrder<nlp_settings> first_order_type;
         
         typedef typename nlp_settings::nlp_second_order_setting_type second_order_setting_type;
+
+        typedef typename first_order_type::EigenMatrix EigenMatrix;
+
+        typedef typename first_order_type::nlp_hpwl_type nlp_hpwl_type;
+        typedef typename first_order_type::nlp_ovl_type nlp_ovl_type;
+        typedef typename first_order_type::nlp_oob_type nlp_oob_type;
+        typedef typename first_order_type::nlp_asym_type nlp_asym_type;
+        typedef typename first_order_type::nlp_cos_type nlp_cos_type;
         
         typedef typename second_order_setting_type::hpwl_hessian_trait hpwl_hessian_trait;
         typedef typename second_order_setting_type::ovl_hessian_trait ovl_hessian_trait;
@@ -482,14 +496,14 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
 
         NlpGPlacerSecondOrder(Database &db) : NlpGPlacerFirstOrder<nlp_settings>(db) {}
     protected:
-        void initProblem() override
+        virtual void initProblem() override
         {
             first_order_type::initProblem();
             initSecondOrder();
         }
         void initSecondOrder();
         /* Construct tasks */
-        void constructTasks() override
+        virtual void constructTasks() override
         {
             first_order_type::constructTasks();
 
@@ -502,43 +516,108 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
                 _hessianAsym.setZero();
                 _hessianCos.setZero();
             };
-            auto findPartialHpwl = [&](IndexType idx)
+
+            this->constructCalcHessianTasks();
+            auto calcAllHessian = [&]()
             {
-                return _partialHpwlHessian[idx];
-            };
-            auto findPartialOvl = [&](IndexType idx)
-            {
-                return _partialOvlHessian[idx];
-            };
-            auto findPartialOob = [&](IndexType idx)
-            {
-                return _partialOobHessian[idx];
-            };
-            auto findPartialAsym = [&](IndexType idx)
-            {
-                return _partialAsymHessian[idx];
-            };
-            auto findPartialCos = [&](IndexType idx)
-            {
-                return _partialCosHessian[idx];
+                //#pragma omp parallel for schedule(static)
+                for (IndexType i = 0; i < _calcHpwlHessianTasks.size(); ++i) { _calcHpwlHessianTasks[i].calc(); }
+                //#pragma omp parallel for schedule(static)
+                for (IndexType i = 0; i < _calcOvlHessianTasks.size(); ++i) { _calcOvlHessianTasks[i].calc(); }
+                //#pragma omp parallel for schedule(static)
+                for (IndexType i = 0; i < _calcOobHessianTasks.size(); ++i) { _calcOobHessianTasks[i].calc(); }
+                //#pragma omp parallel for schedule(static)
+                for (IndexType i = 0; i < _calcAsymHessianTasks.size(); ++i) { _calcAsymHessianTasks[i].calc(); }
+                //#pragma omp parallel for schedule(static)
+                for (IndexType i = 0; i < _calcCosHessianTasks.size(); ++i) { _calcCosHessianTasks[i].calc(); }
             };
 
+            auto updateHessian = [&]()
+            {
+                //#pragma omp parallel for schedule(static)
+                for (IndexType i = 0; i < 5; ++i)
+                {
+                    if (i == 0)
+                    {
+                        for (auto & calc : _calcHpwlHessianTasks) { DBG("start update \n"); calc.update(); DBG("end update \n"); }
+                    }
+                    else if (i == 1)
+                    {
+                        for (auto & calc : _calcOvlHessianTasks) { calc.update(); }
+                    }
+                    else if (i == 2)
+                    {
+                        for (auto & calc : _calcOobHessianTasks) { calc.update(); }
+                    }
+                    else if (i == 3)
+                    {
+                        for (auto & calc : _calcAsymHessianTasks) { calc.update(); }
+                    }
+                    else
+                    {
+                        for (auto & calc : _calcCosHessianTasks) { calc.update(); }
+                    }
+                }
+            };
+
+            auto sumHessian = [&]()
+            {
+                _hessian = _hessianHpwl + _hessianOvl + _hessianOob + _hessianAsym + _hessianCos;
+            };
+
+            auto wrap = [&]()
+            {
+                clearAll();
+                calcAllHessian();
+                updateHessian();
+                sumHessian();
+            };
+            _wrapCalcHessianTask = nt::Task<nt::FuncTask>(nt::FuncTask(wrap));
         }
+        private:
+        void constructCalcHessianTasks()
+        {
+            using hpwl = nt::CalculateOperatorHessianTask<nlp_hpwl_type, hpwl_hessian_trait, EigenMatrix, hpwl_hessian_matrix>;
+            using ovl = nt::CalculateOperatorHessianTask<nlp_ovl_type, ovl_hessian_trait, EigenMatrix, ovl_hessian_matrix>;
+            using oob = nt::CalculateOperatorHessianTask<nlp_oob_type, oob_hessian_trait, EigenMatrix, oob_hessian_matrix>;
+            using asym = nt::CalculateOperatorHessianTask<nlp_asym_type, asym_hessian_trait, EigenMatrix, asym_hessian_matrix>;
+            using cos = nt::CalculateOperatorHessianTask<nlp_cos_type, cos_hessian_trait, EigenMatrix, cos_hessian_matrix>;
+            auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return this->plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
+            for (IndexType i = 0; i < this->_hpwlOps.size(); ++i)
+            {
+                _calcHpwlHessianTasks.emplace_back(hpwl(&this->_hpwlOps[i], &_hessianHpwl, getIdxFunc));
+            }
+            for (auto &op : this->_ovlOps)
+            {
+                _calcOvlHessianTasks.emplace_back(ovl(&op, &_hessianOvl, getIdxFunc));
+            }
+            for (auto &op : this->_oobOps)
+            {
+                _calcOobHessianTasks.emplace_back(oob(&op, &_hessianOob, getIdxFunc));
+            }
+            for (auto &op : this->_asymOps)
+            {
+                _calcAsymHessianTasks.emplace_back(asym(&op, &_hessianAsym, getIdxFunc));
+            }
+            for (auto &op : this->_cosOps)
+            {
+                _calcCosHessianTasks.emplace_back(cos(&op, &_hessianCos, getIdxFunc));
+            }
+        }
+        protected:
         hessian_matrix _hessian; ///< The hessian for the objective function
         hpwl_hessian_matrix _hessianHpwl; ///< The hessian for the hpwl function
         ovl_hessian_matrix _hessianOvl; ///< The hessian for the overlapping function
         oob_hessian_matrix _hessianOob; ///< The hessian for the out of boundary function
         asym_hessian_matrix _hessianAsym; ///< The hessian for the asymmetry function
         cos_hessian_matrix _hessianCos; ///< The hessian for the signal path function
-
-        /* The supporting members for calculating the hessian */
-        std::vector<hpwl_hessian_matrix> _partialHpwlHessian; ///< one for each operator
-        std::vector<ovl_hessian_matrix> _partialOvlHessian; ///< one for each opeartor
-        std::vector<oob_hessian_trait> _partialOobHessian; ///< one for each opeartor
-        std::vector<asym_hessian_trait> _partialAsymHessian; ///< one for each opeartor
-        std::vector<cos_hessian_trait> _partialCosHessian; ///< one for each opeartor
         /* Tasks */
         nt::Task<nt::FuncTask> _wrapCalcHessianTask; ///<  calculating the gradient and sum them
+        std::vector<nt::CalculateOperatorHessianTask<nlp_hpwl_type, hpwl_hessian_trait, EigenMatrix, hpwl_hessian_matrix>> _calcHpwlHessianTasks; ///< calculate and update the hessian
+        std::vector<nt::CalculateOperatorHessianTask<nlp_ovl_type, ovl_hessian_trait, EigenMatrix, ovl_hessian_matrix>> _calcOvlHessianTasks; ///< calculate and update the hessian
+        std::vector<nt::CalculateOperatorHessianTask<nlp_oob_type, oob_hessian_trait, EigenMatrix, oob_hessian_matrix>> _calcOobHessianTasks; ///< calculate and update the hessian
+        std::vector<nt::CalculateOperatorHessianTask<nlp_asym_type, asym_hessian_trait, EigenMatrix, asym_hessian_matrix>> _calcAsymHessianTasks; ///< calculate and update the hessian
+        std::vector<nt::CalculateOperatorHessianTask<nlp_cos_type, cos_hessian_trait, EigenMatrix, cos_hessian_matrix>> _calcCosHessianTasks; ///< calculate and update the hessian
 
 
 };
@@ -554,12 +633,6 @@ inline void NlpGPlacerSecondOrder<nlp_settings>::initSecondOrder()
     oob_hessian_diagonal_selector::resize(_hessianOob, size);
     asym_hessian_diagonal_selector::resize(_hessianAsym, size);
     cos_hessian_diagonal_selector::resize(_hessianCos, size);
-
-    _partialHpwlHessian.resize(this->_hpwlOps.size());
-    _partialOvlHessian.resize(this->_ovlOps.size());
-    _partialOobHessian.resize(this->_oobOps.size());
-    _partialAsymHessian.resize(this->_asymOps.size());
-    _partialCosHessian.resize(this->_cosOps.size());
 }
 
 

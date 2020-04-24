@@ -30,6 +30,50 @@ void NlpGPlacerBase<nlp_settings>::initOptimizationKernelMembers()
     _stopCondition = stop_condition_trait::construct(*this);
 }
 
+
+template<typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::assignIoPins()
+{
+    if ( !_db.parameters().ifUsePinAssignment()) { return; }
+    auto cellLocQueryFunc = [&](IndexType cellIdx)
+    {
+        RealType x = _pl(plIdx(cellIdx, Orient2DType::HORIZONTAL));
+        RealType y = _pl(plIdx(cellIdx, Orient2DType::VERTICAL));
+        LocType xLoc = ::klib::autoRound<LocType>(x / _scale);
+        LocType yLoc = ::klib::autoRound<LocType>(y / _scale);
+        return XY<LocType>(xLoc, yLoc);
+    };
+    LocType xLo = _boundary.xLo(); LocType yLo = _boundary.yLo();
+    LocType xHi = _boundary.xHi(); LocType yHi = _boundary.yHi();
+
+    for (IndexType i = 0; i < _db.numCells(); ++i)
+    {
+        auto loc = cellLocQueryFunc(i);
+        xLo = std::min(xLo, loc.x());
+        yLo = std::min(yLo, loc.y());
+        xHi = std::max(xLo, _db.cell(i).cellBBox().xLen() + loc.x());
+        yHi = std::max(yLo, _db.cell(i).cellBBox().yLen() + loc.y());
+    }
+
+
+    VirtualPinAssigner assigner(_db);
+    assigner.reconfigureVirtualPinLocations(Box<LocType>(xLo, yLo, xHi, yHi));
+    if (assigner.pinAssignment(cellLocQueryFunc))
+    {
+        // update the hpwl operator
+        for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+        {
+            const auto &net = _db.net(netIdx);
+            if (net.isValidVirtualPin())
+            {
+                XY<nlp_coordinate_type> pinLoc =  XY<nlp_coordinate_type>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                pinLoc *= _scale;
+                _hpwlOps[netIdx].setVirtualPin(pinLoc.x(), pinLoc.y());
+            }
+        }
+    }
+}
+
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::initProblem()
 {
@@ -603,6 +647,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
     IntType iter = 0;
     do
     {
+        this->assignIoPins();
         std::string debugGdsFilename  = "./debug/";
         debugGdsFilename += "gp_iter_" + std::to_string(iter)+".gds";
         base_type::drawCurrentLayout(debugGdsFilename);

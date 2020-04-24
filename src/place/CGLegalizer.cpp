@@ -13,11 +13,11 @@ bool CGLegalizer::legalize()
     //this->generateConstraints();
 
 
-    this->generateVerConstraints();
-    _hStar = lpLegalization(false);
 
     this->generateHorConstraints();
     _wStar = lpLegalization(true);
+    this->generateVerConstraints();
+    _hStar = lpLegalization(false);
     LocType xMin = LOC_TYPE_MAX;
     LocType xMax = LOC_TYPE_MIN;
     LocType yMin = LOC_TYPE_MAX;
