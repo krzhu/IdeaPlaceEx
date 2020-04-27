@@ -252,6 +252,21 @@ namespace nlp
                 template<typename nlp_type, typename mult_type, std::enable_if_t<nlp::is_first_order_diff<nlp_type>::value, void>* = nullptr>
                 static void init(nlp_type &nlp, mult_type& mult)
                 {
+                    RealType totalHpwlWeights = 0.0;
+                    RealType totalCosWeights = 0.0;
+                    RealType totalPowerWlWeights = 0.0;
+                    for (const auto & op : nlp._hpwlOps)
+                    {
+                        totalHpwlWeights += op._weight;
+                    }
+                    for (const auto & op : nlp._cosOps)
+                    {
+                        totalCosWeights += op._weight;
+                    }
+                    for (const auto & op : nlp._powerWlOps)
+                    {
+                        totalPowerWlWeights += op._weight;
+                    }
                     mult._constMults.at(0) = 1.0; // hpwl
                     const auto hpwlMult = mult._constMults.at(0);
                     const auto hpwlNorm = nlp._gradHpwl.norm();
@@ -277,7 +292,7 @@ namespace nlp
                     // match gradient norm for signal path
                     if (cosNorm > small)
                     {
-                        mult._constMults.at(1) = hpwlMultNorm  * 30/ cosNorm;
+                        mult._constMults.at(1) = hpwlMultNorm  * totalCosWeights / totalHpwlWeights / cosNorm;
                     }
                     else
                     {
@@ -286,7 +301,7 @@ namespace nlp
                     // match gradient norm for signal path
                     if (powerWlNorm > small)
                     {
-                        mult._constMults.at(2) = hpwlMultNorm  * 30 / powerWlNorm;
+                        mult._constMults.at(2) = hpwlMultNorm  * totalCosWeights / totalHpwlWeights / powerWlNorm;
                     }
                     else
                     {
@@ -332,6 +347,25 @@ namespace nlp
         {
             template<typename T>
             struct multiplier_update_trait {};
+
+            struct no_update {};
+            template<>
+            struct multiplier_update_trait<no_update>
+            {
+                typedef no_update update_type;
+
+                template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static update_type construct(nlp_type &, mult_type&) { return update_type(); }
+
+                template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static void init(nlp_type &, mult_type &, update_type &) 
+                { 
+                }
+
+                template<typename nlp_type, typename mult_type,  std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static void update(nlp_type &, mult_type &, update_type &) {}
+            };
+
 
             /// @brief increase the total amounts of penalty of by a constant
             struct shared_constant_increase_penalty
@@ -402,6 +436,77 @@ namespace nlp
                     mult._constMults.at(1) += update.stepSize * (rawCos);
                     DBG("update mult: afterafter  ovl %f oob %f asym %f cos %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._constMults[1]);
+                }
+            };
+
+            template<typename nlp_numerical_type>
+            struct match_grad_const_multipliers
+            {
+                nlp_numerical_type totalHpwlWeights = 0.0;
+                nlp_numerical_type totalCosWeights = 0.0;
+                nlp_numerical_type totalPowerWlWeights = 0.0;
+            };
+
+            template<typename nlp_numerical_type>
+            struct multiplier_update_trait<match_grad_const_multipliers<nlp_numerical_type>>
+            {
+                typedef match_grad_const_multipliers<nlp_numerical_type> update_type;
+                template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static update_type construct(nlp_type &, mult_type&) { return update_type(); }
+
+                template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static void init(nlp_type & n, mult_type &, update_type & u) 
+                { 
+                    for (const auto & op : n._hpwlOps)
+                    {
+                        u.totalHpwlWeights += op._weight;
+                    }
+                    for (const auto & op : n._cosOps)
+                    {
+                        u.totalCosWeights += op._weight;
+                    }
+                    for (const auto & op : n._powerWlOps)
+                    {
+                        u.totalPowerWlWeights += op._weight;
+                    }
+                }
+
+                template<typename nlp_type, typename mult_type,  std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
+                static void update(nlp_type &nlp, mult_type &mult, update_type &u)
+                {
+                    nlp._wrapObjAllTask.run();
+                    const auto hpwlMult = mult._constMults.at(0);
+                    const auto hpwlNorm = nlp._gradHpwl.norm();
+                    const auto hpwlMultNorm = hpwlMult * hpwlNorm / u.totalHpwlWeights;
+                    const auto cosNorm = nlp._gradCos.norm() / mult._constMults.at(1);
+                    const auto powerWlNorm = nlp._gradPowerWl.norm() / mult._constMults.at(2);
+                    // Make a threshold on by referencing hpwl to determine whether one is small
+                    const auto small  = 0.001 * hpwlNorm;
+
+                    // Fix corner case that may happen when the placement is very small
+                    if (hpwlNorm < REAL_TYPE_TOL)
+                    {
+                        return;
+                    }
+                    // match gradient norm for signal path
+                    if (cosNorm > small)
+                    {
+                        mult._constMults.at(1) = hpwlMultNorm * u.totalCosWeights  / cosNorm;
+                    }
+                    else
+                    {
+                        mult._constMults.at(1) = hpwlMult ;
+                    }
+                    // match gradient norm for signal path
+                    if (powerWlNorm > small)
+                    {
+                        mult._constMults.at(2) = hpwlMultNorm * u.totalPowerWlWeights  / powerWlNorm;
+                    }
+                    else
+                    {
+                        mult._constMults.at(2) = hpwlMult;
+                    }
+                    DBG("match_grad_const_multipliers: multipliers hpwl %f cos %f power wl %f \n", mult._constMults.at(0), mult._constMults.at(1), mult._constMults.at(2));
                 }
             };
 

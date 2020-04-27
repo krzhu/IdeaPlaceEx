@@ -82,6 +82,8 @@ namespace nlp
         typedef outer_multiplier::update::direct_subgradient mult_update_type;
         typedef outer_multiplier::mult_const_hpwl_cos_and_penalty_by_type<nlp_default_types::nlp_numerical_type, mult_init_type, mult_update_type> mult_type;
 
+        typedef outer_multiplier::update::match_grad_const_multipliers<nlp_default_types::nlp_numerical_type> mult_adjust_type;
+
         /* alpha */
         typedef alpha::alpha_hpwl_ovl_oob<nlp_default_types::nlp_numerical_type> alpha_type;
         typedef alpha::update::alpha_update_list<
@@ -350,6 +352,10 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         typedef typename nlp_settings::nlp_first_order_algorithms_type::mult_type mult_type;
         typedef nlp::outer_multiplier::multiplier_trait<mult_type> mult_trait;
         friend mult_trait;
+
+        typedef typename nlp_settings::nlp_first_order_algorithms_type::mult_adjust_type mult_adjust_type;
+        typedef nlp::outer_multiplier::update::multiplier_update_trait<mult_adjust_type> mult_adjust_trait;
+        friend mult_adjust_trait;
 
         /* updating alpha parameters */
         typedef typename nlp_settings::nlp_first_order_algorithms_type::alpha_type alpha_type;

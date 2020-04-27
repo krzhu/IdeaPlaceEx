@@ -714,6 +714,9 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
     mult_trait::init(*this, multiplier);
     mult_trait::recordRaw(*this, multiplier);
 
+    mult_adjust_type multAdjuster = mult_adjust_trait::construct(*this, multiplier);
+    mult_adjust_trait::init(*this, multiplier, multAdjuster);
+
     alpha_type alpha = alpha_trait::construct(*this);
     alpha_trait::init(*this, alpha);
     alpha_update_type alphaUpdate = alpha_update_trait::construct(*this, alpha);
@@ -729,6 +732,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
         optm_trait::optimize(*this, optm);
         mult_trait::update(*this, multiplier);
         mult_trait::recordRaw(*this, multiplier);
+        mult_adjust_trait::update(*this, multiplier, multAdjuster);
 
         alpha_update_trait::update(*this, alpha, alphaUpdate);
         this->assignIoPins();
