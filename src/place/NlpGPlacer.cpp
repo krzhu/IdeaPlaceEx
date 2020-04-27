@@ -320,8 +320,9 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         _cosOps.back().setGetVarFunc(getVarFunc);
     }
 #else
-    for (const auto &path : pathMgr.vvSegList())
+    for (IndexType pathIdx = 0; pathIdx < pathMgr.vvSegList().size(); ++pathIdx)
     {
+        const auto &path = pathMgr.vvSegList().at(pathIdx);
         for (IndexType i = 0; i < path.size(); ++i)
         {
             for (IndexType j = i+2; j < path.size(); ++j)
@@ -347,6 +348,10 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                         tCellIdx, tOffset,
                         getLambdaFuncCosine);
                 _cosOps.back().setGetVarFunc(getVarFunc);
+                if (_db.signalPath(pathIdx).isPower())
+                {
+                    _cosOps.back().setWeight(0.05);
+                }
             }
         }
     }
@@ -520,7 +525,7 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
     _sumObjCosTask = Task<FuncTask>(FuncTask(cos));
     auto powerWl = [&]()
     {
-        _objCos = 0.0;
+        _objPowerWl = 0.0;
         for (const auto &eva : _evaPowerWlTasks)
         {
             _objPowerWl += eva.taskData().obj();

@@ -704,6 +704,8 @@ struct CosineDatapathDifferentiable
     NumType evaluate() const;
     void accumlateGradient() const;
 
+    void setWeight(NumType weight) { _weight = weight; }
+
     IndexType _sCellIdx = INDEX_TYPE_MAX; ///< Source
     XY<NumType> _sOffset; ///< The offset for x0
     IndexType _midCellIdx = INDEX_TYPE_MAX; ///< Middle
@@ -714,6 +716,7 @@ struct CosineDatapathDifferentiable
     std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
     std::function<CoordType(IndexType cellIdx, Orient2DType orient)> _getVarFunc; ///< A function to get current variable value
     std::function<void(NumType, IndexType, Orient2DType)> _accumulateGradFunc; ///< A function to update partial
+    NumType _weight = 1.0;
 };
 
 template<typename NumType, typename CoordType>
@@ -735,7 +738,8 @@ inline NumType CosineDatapathDifferentiable<NumType, CoordType>::evaluate() cons
     const NumType ox3 = _tOffset.x();
     const NumType oy3 = _tOffset.y();
 
-    return (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) + 1) * lambda;
+
+    return (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) + 1) * lambda * _weight;
 }
 
 template<typename NumType, typename CoordType>
@@ -778,12 +782,12 @@ inline void CosineDatapathDifferentiable<NumType, CoordType>::accumlateGradient(
 (oy1 - oy2a + y1 - y2)/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) - (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))*(2*oy3 - 2*oy2b - 2*y2 + 2*y3))/(2*sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*pow(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0), 1.5));
     dy3 *= lambda;
 
-    _accumulateGradFunc(dx1, _sCellIdx, Orient2DType::HORIZONTAL);
-    _accumulateGradFunc(dy1, _sCellIdx, Orient2DType::VERTICAL);
-    _accumulateGradFunc(dx2, _midCellIdx, Orient2DType::HORIZONTAL);
-    _accumulateGradFunc(dy2, _midCellIdx, Orient2DType::VERTICAL);
-    _accumulateGradFunc(dx3, _tCellIdx, Orient2DType::HORIZONTAL);
-    _accumulateGradFunc(dy3, _tCellIdx, Orient2DType::VERTICAL);
+    _accumulateGradFunc(dx1 * _weight, _sCellIdx, Orient2DType::HORIZONTAL);
+    _accumulateGradFunc(dy1 * _weight, _sCellIdx, Orient2DType::VERTICAL);
+    _accumulateGradFunc(dx2 * _weight, _midCellIdx, Orient2DType::HORIZONTAL);
+    _accumulateGradFunc(dy2 * _weight, _midCellIdx, Orient2DType::VERTICAL);
+    _accumulateGradFunc(dx3 * _weight, _tCellIdx, Orient2DType::HORIZONTAL);
+    _accumulateGradFunc(dy3 * _weight, _tCellIdx, Orient2DType::VERTICAL);
 }
 
 

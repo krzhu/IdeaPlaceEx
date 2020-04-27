@@ -211,6 +211,12 @@ class IdeaPlaceEx
         {
             return _db.allocateSignalPath();
         }
+        /// @brief mark a signal path as power
+        /// @param the index of the signal path
+        void markSignalPathAsPower(IndexType pathIdx)
+        {
+            _db.signalPath(pathIdx).markAsPower();
+        }
         /// @brief add a new pin to a signal path
         /// @param first: the index of signal path
         /// @param second: the name of cell

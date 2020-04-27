@@ -29,7 +29,11 @@ void SigPathMgr::decomposeSignalPaths()
                 // valid segment
                 _segs.emplace_back(SigPathSeg(pinIdx1, pinIdx2, pinIdx3, pinIdx4));
                 _segByPath.back().emplace_back(SigPathSeg(pinIdx1, pinIdx2, pinIdx3, pinIdx4));
-                DBG("SigPathMgr: add cell %d pin %d -> cell %d pin %d -> cell %d pin %d -> cell %d -< pin %d \n", cellIdx1, pinIdx1, cellIdx2, pinIdx2, cellIdx3, pinIdx3, cellIdx4, pinIdx4);
+                DBG("SigPathMgr: add cell %d %s  pin %d %s-> cell %d %s pin %d %s -> cell %d %s pin %d %s -> cell %d %s -< pin %d  %s\n",
+                        cellIdx1, _db.cell(cellIdx1).name().c_str(), pinIdx1, _db.pin(pinIdx1).name().c_str(),
+                        cellIdx2, _db.cell(cellIdx2).name().c_str(), pinIdx2, _db.pin(pinIdx2).name().c_str(),
+                        cellIdx3, _db.cell(cellIdx3).name().c_str(), pinIdx3, _db.pin(pinIdx3).name().c_str(),
+                        cellIdx4, _db.cell(cellIdx4).name().c_str(), pinIdx4, _db.pin(pinIdx4).name().c_str());
             }
         }
     }

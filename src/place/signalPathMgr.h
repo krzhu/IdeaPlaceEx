@@ -43,8 +43,8 @@ class SigPathMgr
         /// @param the placement database
         explicit SigPathMgr(Database &db);
         /// @brief get the segment list
-        const std::vector<SigPathSeg> vSegList() const { return _segs; }
-        const std::vector<std::vector<SigPathSeg>> vvSegList() const { return _segByPath; }
+        const std::vector<SigPathSeg> & vSegList() const { return _segs; }
+        const std::vector<std::vector<SigPathSeg>> & vvSegList() const { return _segByPath; }
     private:
         void decomposeSignalPaths();
     private:

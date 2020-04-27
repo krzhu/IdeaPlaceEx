@@ -277,11 +277,11 @@ namespace nlp
                     // match gradient norm for signal path
                     if (cosNorm > small)
                     {
-                        mult._constMults.at(1) = hpwlMultNorm  * 100/ cosNorm;
+                        mult._constMults.at(1) = hpwlMultNorm  * 30/ cosNorm;
                     }
                     else
                     {
-                        mult._constMults.at(1) = hpwlMult * 100;
+                        mult._constMults.at(1) = hpwlMult * 30;
                     }
                     // match gradient norm for signal path
                     if (powerWlNorm > small)
