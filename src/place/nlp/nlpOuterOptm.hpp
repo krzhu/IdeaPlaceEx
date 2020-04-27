@@ -228,7 +228,8 @@ namespace nlp
                 static void init(nlp_type &, mult_type& mult)
                 {
                     mult._constMults.at(0) = 16; // hpwl
-                    mult._constMults.at(1) = 16; // cos
+                    mult._constMults.at(1) = 1; // cos
+                    mult._constMults.at(2) = 16; // power
                     mult._variedMults.at(0) = 1; // ovl
                     mult._variedMults.at(1) = 1; // oob
                     mult._variedMults.at(2) = 1; // asym
@@ -257,6 +258,7 @@ namespace nlp
                     const auto hpwlMultNorm = hpwlMult * hpwlNorm;
                     const auto hpwlMultNormPenaltyRatio = hpwlMultNorm * init_type::penaltyRatioToObj;
                     const auto cosNorm = nlp._gradCos.norm();
+                    const auto powerWlNorm = nlp._gradPowerWl.norm();
                     const auto ovlNorm = nlp._gradOvl.norm();
                     const auto oobNorm = nlp._gradOob.norm();
                     const auto asymNorm = nlp._gradAsym.norm();
@@ -267,7 +269,7 @@ namespace nlp
                     // Fix corner case that may happen when the placement is very small
                     if (hpwlNorm < REAL_TYPE_TOL)
                     {
-                        mult._constMults.resize(2, 1);
+                        mult._constMults.resize(3, 1);
                         mult._variedMults.resize(3, 1);
                         WRN("Ideaplace: NLP global placement: init multipliers: wire length  gradient norm is very small %f!, ", hpwlNorm);
                         return;
@@ -275,11 +277,20 @@ namespace nlp
                     // match gradient norm for signal path
                     if (cosNorm > small)
                     {
-                        mult._constMults.at(1) = hpwlMultNorm / cosNorm;
+                        mult._constMults.at(1) = hpwlMultNorm  * 100/ cosNorm;
                     }
                     else
                     {
-                        mult._constMults.at(1) = hpwlMult;
+                        mult._constMults.at(1) = hpwlMult * 100;
+                    }
+                    // match gradient norm for signal path
+                    if (powerWlNorm > small)
+                    {
+                        mult._constMults.at(2) = hpwlMultNorm  * 30 / powerWlNorm;
+                    }
+                    else
+                    {
+                        mult._constMults.at(2) = hpwlMult * 30;
                     }
                     // overlap
                     if (ovlNorm > small)
@@ -382,7 +393,7 @@ namespace nlp
                     const auto rawOob = nlp._objOob / mult._variedMults.at(1);
                     const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
                     const auto rawCos = nlp._objCos / mult._constMults.at(1);
-                    DBG("update mult: raw ovl %f oob %f asym %f cos %f \n", rawOvl, rawOob, rawAsym, rawCos);
+                    DBG("update mult: raw ovl %f oob %f asym %f cos %f powerWl %f\n", rawOvl, rawOob, rawAsym, rawCos, nlp._objPowerWl);
                     DBG("update mult:  before ovl %f oob %f asym %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
                     mult._variedMults.at(0) += update.stepSize * (rawOvl );
@@ -470,7 +481,7 @@ namespace nlp
             static mult_type construct(nlp_type &nlp)
             {
                 mult_type mult;
-                mult._constMults.resize(2, 0.0);
+                mult._constMults.resize(3, 0.0);
                 mult._variedMults.resize(3, 0.0);
                 mult.update = update::multiplier_update_trait<update_type>::construct(nlp, mult);
                 return mult;
@@ -486,6 +497,7 @@ namespace nlp
                 for (auto &op : nlp._ovlOps) { op._getLambdaFunc = [&](){ return mult._variedMults[0]; }; }
                 for (auto &op : nlp._oobOps) { op._getLambdaFunc = [&](){ return mult._variedMults[1]; }; }
                 for (auto &op : nlp._asymOps) { op._getLambdaFunc = [&](){ return mult._variedMults[2]; }; }
+                for (auto &op : nlp._powerWlOps) { op._getLambdaFunc = [&](){ return mult._constMults[2]; }; }
             }
 
             template<typename nlp_type>
@@ -631,7 +643,7 @@ namespace nlp
             {
                 // alpha = a / (x - k * obj_init) + b
                 static constexpr nlp_numerical_type alphaMax = 1.5;
-                static constexpr nlp_numerical_type alphaMin = 0.3;
+                static constexpr nlp_numerical_type alphaMin = 0.5;
                 static constexpr nlp_numerical_type k = 1e4; ///< k > 1.0
                 nlp_numerical_type a = -1.0; ///< (k ^2 - k) * obj_init * (alphaMax - alphaMin), should > 0
                 nlp_numerical_type b = 1.0; // -k * alphaMax + k * alphaMin + alphaMax; < 0 for most k

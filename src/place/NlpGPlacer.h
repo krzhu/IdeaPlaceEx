@@ -47,6 +47,7 @@ namespace nlp
         typedef diff::CellOutOfBoundaryPenaltyDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_oob_type;
         typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_asym_type;
         typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_cos_type;
+        typedef diff::PowerVerQuadraticWireLengthDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_power_wl_type;
     };
     
     struct nlp_default_zero_order_algorithms
@@ -157,6 +158,7 @@ class NlpGPlacerBase
         typedef typename nlp_types::nlp_oob_type nlp_oob_type;
         typedef typename nlp_types::nlp_asym_type nlp_asym_type;
         typedef typename nlp_types::nlp_cos_type nlp_cos_type;
+        typedef typename nlp_types::nlp_power_wl_type nlp_power_wl_type;
 
 
         /* algorithms */
@@ -243,12 +245,14 @@ class NlpGPlacerBase
         nlp_numerical_type _objOob = 0.0; ///< The current value for out of boundary penalty
         nlp_numerical_type _objAsym = 0.0; ///< The current value for asymmetry penalty
         nlp_numerical_type _objCos = 0.0; ///< The current value for the cosine signal path penalty
+        nlp_numerical_type _objPowerWl = 0.0;
         nlp_numerical_type _obj = 0.0; ///< The current value for the total objective penalty
         nlp_numerical_type _objHpwlRaw = 0.0; ///< The current value for hpwl
         nlp_numerical_type _objOvlRaw = 0.0; ///< The current value for overlapping penalty
         nlp_numerical_type _objOobRaw = 0.0; ///< The current value for out of boundary penalty
         nlp_numerical_type _objAsymRaw = 0.0; ///< The current value for asymmetry penalty
         nlp_numerical_type _objCosRaw = 0.0; ///< The current value for the cosine signal path penalty
+        nlp_numerical_type _objPowrWlRaw = 0.0;
         /* NLP optimization kernel memebers */
         stop_condition_type _stopCondition;
         /* Optimization data */
@@ -260,12 +264,14 @@ class NlpGPlacerBase
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaAsymTasks;  ///< The tasks for evaluating asymmetry objectives
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCosTasks;  ///< The tasks for evaluating signal path objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaPowerWlTasks;  
         // Sum the objectives
         nt::Task<nt::FuncTask> _sumObjHpwlTask; ///< The task for summing hpwl objective
         nt::Task<nt::FuncTask> _sumObjOvlTask; ///< The task for summing the overlapping objective
         nt::Task<nt::FuncTask> _sumObjOobTask; ///< The task for summing the out of boundary objective
         nt::Task<nt::FuncTask> _sumObjAsymTask; ///< The task for summing the asymmetry objective
         nt::Task<nt::FuncTask> _sumObjCosTask; ///< The task for summing the cosine signal path objective
+        nt::Task<nt::FuncTask> _sumObjPowerWlTask; ///< The task for summing the cosine signal path objective
         nt::Task<nt::FuncTask> _sumObjAllTask; ///< The task for summing the different objectives together
         // Wrapper tasks for debugging
         nt::Task<nt::FuncTask> _wrapObjHpwlTask; ///< The task for wrap the objective 
@@ -273,6 +279,7 @@ class NlpGPlacerBase
         nt::Task<nt::FuncTask> _wrapObjOobTask;
         nt::Task<nt::FuncTask> _wrapObjAsymTask;
         nt::Task<nt::FuncTask> _wrapObjCosTask;
+        nt::Task<nt::FuncTask> _wrapObjPowerWlTask;
         nt::Task<nt::FuncTask> _wrapObjAllTask;
         /* Operators */
         std::vector<nlp_hpwl_type> _hpwlOps; ///< The HPWL cost 
@@ -280,6 +287,7 @@ class NlpGPlacerBase
         std::vector<nlp_oob_type> _oobOps; ///< The cell out of boundary penalty operators 
         std::vector<nlp_asym_type> _asymOps; ///< The asymmetric penalty operators
         std::vector<nlp_cos_type> _cosOps;
+        std::vector<nlp_power_wl_type> _powerWlOps;
 #ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
         /* taskflow */
         tf::Taskflow _taskflow; ///< The taskflow of cpp-taskflow
@@ -319,6 +327,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         typedef typename base_type::nlp_oob_type nlp_oob_type;
         typedef typename base_type::nlp_asym_type nlp_asym_type;
         typedef typename base_type::nlp_cos_type nlp_cos_type;
+        typedef typename base_type::nlp_power_wl_type nlp_power_wl_type;
 
         typedef typename nlp_settings::nlp_first_order_algorithms_type nlp_first_order_algorithms;
         typedef typename nlp_first_order_algorithms::converge_type converge_type;
@@ -393,6 +402,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         EigenVector _gradOob; ///< The first order gradient of out of boundary objective
         EigenVector _gradAsym; ///< The first order gradient of asymmetry objective
         EigenVector _gradCos; ///< The first order gradient of cosine signal path objective
+        EigenVector _gradPowerWl;
         /* Tasks */
         // Calculate the partials
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_hpwl_type, EigenVector>>> _calcHpwlPartialTasks;
@@ -400,12 +410,14 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_oob_type,  EigenVector>>> _calcOobPartialTasks;
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_asym_type, EigenVector>>> _calcAsymPartialTasks;
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_cos_type,  EigenVector>>> _calcCosPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_power_wl_type,  EigenVector>>> _calcPowerWlPartialTasks;
         // Update the partials
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_hpwl_type, EigenVector>>> _updateHpwlPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_ovl_type,  EigenVector>>> _updateOvlPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_oob_type,  EigenVector>>> _updateOobPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_asym_type, EigenVector>>> _updateAsymPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_cos_type,  EigenVector>>> _updateCosPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_power_wl_type,  EigenVector>>> _updatePowerWlPartialTasks;
         // Clear the gradient. Use to clear the _gradxxx records. Needs to call before updating the partials
         nt::Task<nt::FuncTask> _clearGradTask; //FIXME: not used right noe
         nt::Task<nt::FuncTask> _clearHpwlGradTask;
@@ -413,6 +425,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _clearOobGradTask;
         nt::Task<nt::FuncTask> _clearAsymGradTask;
         nt::Task<nt::FuncTask> _clearCosGradTask;
+        nt::Task<nt::FuncTask> _clearPowerWlGradTask;
         // Sum the _grad from individual
         nt::Task<nt::FuncTask> _sumGradTask;
         nt::Task<nt::FuncTask> _sumHpwlGradTask;
@@ -420,6 +433,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _sumOobGradTask;
         nt::Task<nt::FuncTask> _sumAsymGradTask;
         nt::Task<nt::FuncTask> _sumCosGradTask;
+        nt::Task<nt::FuncTask> _sumPowerWlTaskGradTask;
         // all the grads has been calculated but have not updated
 #ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
         nt::Task<nt::EmptyTask> _endGradCalcTask;

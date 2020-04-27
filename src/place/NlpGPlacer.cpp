@@ -59,6 +59,8 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
     VirtualPinAssigner assigner(_db);
     assigner.useFastMode();
     assigner.reconfigureVirtualPinLocations(Box<LocType>(xLo, yLo, xHi, yHi));
+    IndexType hpwlIdx = 0;
+    IndexType pwlIdx = 0;
     if (assigner.pinAssignment(cellLocQueryFunc))
     {
         // update the hpwl operator
@@ -67,9 +69,20 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
             const auto &net = _db.net(netIdx);
             if (net.isValidVirtualPin())
             {
-                XY<nlp_coordinate_type> pinLoc =  XY<nlp_coordinate_type>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
-                pinLoc *= _scale;
-                _hpwlOps[netIdx].setVirtualPin(pinLoc.x(), pinLoc.y());
+                if (net.isVdd() or net.isVss())
+                {
+                    XY<nlp_coordinate_type> pinLoc =  XY<nlp_coordinate_type>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                    pinLoc *= _scale;
+                    _powerWlOps[pwlIdx].setVirtualPin(pinLoc.x(), pinLoc.y());
+                    ++pwlIdx;
+                }
+                else
+                {
+                    XY<nlp_coordinate_type> pinLoc =  XY<nlp_coordinate_type>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                    pinLoc *= _scale;
+                    _hpwlOps[hpwlIdx].setVirtualPin(pinLoc.x(), pinLoc.y());
+                    ++hpwlIdx;
+                }
             }
         }
     }
@@ -206,6 +219,10 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
         const auto &net = _db.net(netIdx);
+        if (net.isVdd() or net.isVss())
+        {
+            continue;
+        }
         _hpwlOps.emplace_back(nlp_hpwl_type(getAlphaFunc, getLambdaFuncHpwl));
         auto &op = _hpwlOps.back();
         op.setWeight(net.weight());
@@ -334,6 +351,26 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         }
     }
 #endif
+    // power wirelength
+    for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
+    {
+        const auto &net = _db.net(netIdx);
+        if (not net.isVdd() and not net.isVss())
+        {
+            continue;
+        }
+        _powerWlOps.emplace_back(nlp_power_wl_type(getLambdaFuncHpwl));
+        auto &op = _powerWlOps.back();
+        op.setWeight(net.weight());
+        for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
+        {
+            // Get the pin location referenced to the cell
+            IndexType pinIdx = net.pinIdx(idx);
+            auto pinLoc = calculatePinOffset(pinIdx);
+            op.addVar(_db.pin(pinIdx).cellIdx(), pinLoc.x(), pinLoc.y());
+        }
+        op.setGetVarFunc(getVarFunc);
+    }
 }
 
 template<typename nlp_settings>
@@ -426,6 +463,11 @@ void NlpGPlacerBase<nlp_settings>::constructObjectiveCalculationTasks()
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_cos_type>::evaluate(cos);};
         _evaCosTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
+    for (const auto &wl : _powerWlOps)
+    {
+        auto eva = [&]() { return diff::placement_differentiable_traits<nlp_power_wl_type>::evaluate(wl);};
+        _evaCosTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
+    }
 }
 
 template<typename nlp_settings>
@@ -476,6 +518,15 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
         }
     };
     _sumObjCosTask = Task<FuncTask>(FuncTask(cos));
+    auto powerWl = [&]()
+    {
+        _objCos = 0.0;
+        for (const auto &eva : _evaPowerWlTasks)
+        {
+            _objPowerWl += eva.taskData().obj();
+        }
+    };
+    _sumObjPowerWlTask = Task<FuncTask>(FuncTask(powerWl));
     auto all = [&]()
     {
         _obj = 0.0;
@@ -484,6 +535,7 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
         _obj += _objOob;
         _obj += _objAsym;
         _obj += _objCos;
+        _obj += _objPowerWl;
     };
     _sumObjAllTask = Task<FuncTask>(FuncTask(all));
 }
@@ -542,6 +594,16 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _sumObjCosTask.run();
     };
     _wrapObjCosTask = Task<FuncTask>(FuncTask(cos));
+    auto power = [&]()
+    {
+        #pragma omp parallel for schedule(static)
+        for (IndexType idx = 0; idx < _evaPowerWlTasks.size(); ++idx)
+        {
+            _evaPowerWlTasks[idx].run();
+        }
+        _sumObjPowerWlTask.run();
+    };
+    _wrapObjPowerWlTask = Task<FuncTask>(FuncTask(power));
     auto all = [&]()
     {
         _wrapObjHpwlTask.run();
@@ -549,6 +611,7 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _wrapObjOobTask.run();
         _wrapObjAsymTask.run();
         _wrapObjCosTask.run();
+        _wrapObjPowerWlTask.run();
         _sumObjAllTask.run();
     };
     _wrapObjAllTask = Task<FuncTask>(FuncTask(all));
@@ -636,6 +699,7 @@ template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::optimize()
 {
     WATCH_QUICK_START();
+    this->assignIoPins();
     // setting up the multipliers
     this->_wrapObjAllTask.run();
     _wrapCalcGradTask.run();
@@ -653,7 +717,6 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
     IntType iter = 0;
     do
     {
-        this->assignIoPins();
         std::string debugGdsFilename  = "./debug/";
         debugGdsFilename += "gp_iter_" + std::to_string(iter)+".gds";
         base_type::drawCurrentLayout(debugGdsFilename);
@@ -663,6 +726,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
         mult_trait::recordRaw(*this, multiplier);
 
         alpha_update_trait::update(*this, alpha, alphaUpdate);
+        this->assignIoPins();
+        
         DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
         ++iter;
     } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
@@ -693,6 +758,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::initFirstOrderGrad()
     _gradOob.resize(size);
     _gradAsym.resize(size);
     _gradCos.resize(size);
+    _gradPowerWl.resize(size);
 }
 
 template<typename nlp_settings>
@@ -720,6 +786,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
     using Oob = CalculateOperatorPartialTask<nlp_oob_type, EigenVector>;
     using Asym = CalculateOperatorPartialTask<nlp_asym_type, EigenVector>;
     using Cos = CalculateOperatorPartialTask<nlp_cos_type, EigenVector>;
+    using Pwl = CalculateOperatorPartialTask<nlp_power_wl_type, EigenVector>;
     for (auto &hpwlOp : this->_hpwlOps)
     {
         _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
@@ -740,6 +807,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
     {
         _calcCosPartialTasks.emplace_back(Task<Cos>(Cos(&cosOp)));
     }
+    for (auto &pwlOp : this->_powerWlOps)
+    {
+        _calcPowerWlPartialTasks.emplace_back(Task<Pwl>(&pwlOp));
+    }
 }
 
 template<typename nlp_settings>
@@ -750,6 +821,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
     using Oob = UpdateGradientFromPartialTask<nlp_oob_type, EigenVector>;
     using Asym = UpdateGradientFromPartialTask<nlp_asym_type, EigenVector>;
     using Cos = UpdateGradientFromPartialTask<nlp_cos_type, EigenVector>;
+    using Pwl = UpdateGradientFromPartialTask<nlp_power_wl_type, EigenVector>;
     auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return this->plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
     for (auto &hpwl : _calcHpwlPartialTasks)
     {
@@ -771,6 +843,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
     {
         _updateCosPartialTasks.emplace_back(Task<Cos>(Cos(cos.taskDataPtr(), &_gradCos, getIdxFunc)));
     }
+    for (auto &pwl : _calcPowerWlPartialTasks)
+    {
+        _updatePowerWlPartialTasks.emplace_back(Task<Pwl>(Pwl(pwl.taskDataPtr(), &_gradPowerWl, getIdxFunc)));
+    }
 }
 
 template<typename nlp_settings>
@@ -782,6 +858,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructClearGradTasks()
     _clearOobGradTask = Task<FuncTask>(FuncTask([&]() { _gradOob.setZero(); }));
     _clearAsymGradTask = Task<FuncTask>(FuncTask([&]() { _gradAsym.setZero(); }));
     _clearCosGradTask = Task<FuncTask>(FuncTask([&]() { _gradCos.setZero(); }));
+    _clearPowerWlGradTask = Task<FuncTask>(FuncTask([&]() { _gradPowerWl.setZero(); }));
 }
 
 template<typename nlp_settings>
@@ -792,7 +869,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask()
     _sumOobGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateOobPartialTasks){ upd.run(); }}));
     _sumAsymGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateAsymPartialTasks){ upd.run(); }}));
     _sumCosGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateCosPartialTasks){ upd.run(); }}));
-    _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos; }));
+    _sumPowerWlTaskGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updatePowerWlPartialTasks){ upd.run(); }}));
+    _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos + _gradPowerWl; }));
 }
 
 template<typename nlp_settings>
@@ -806,6 +884,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         _clearOobGradTask.run();
         _clearAsymGradTask.run();
         _clearCosGradTask.run();
+        _clearPowerWlGradTask.run();
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcHpwlPartialTasks.size(); ++i ) { _calcHpwlPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updateHpwlPartialTasks.size(); ++i ) { _updateHpwlPartialTasks[i].run(); }
@@ -821,6 +900,9 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcCosPartialTasks.size(); ++i ) { _calcCosPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updateCosPartialTasks.size(); ++i ) { _updateCosPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcPowerWlPartialTasks.size(); ++i ) { _calcPowerWlPartialTasks[i].run(); }
+        for (IndexType i = 0; i < _updatePowerWlPartialTasks.size(); ++i ) { _updatePowerWlPartialTasks[i].run(); }
         _sumGradTask.run();
     };
     _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGradLambda));

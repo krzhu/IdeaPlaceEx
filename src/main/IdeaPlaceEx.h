@@ -205,6 +205,21 @@ class IdeaPlaceEx
             _db.net(netIdx1).setSymNet(netIdx2, true);
             _db.net(netIdx2).setSymNet(netIdx1, false);
         }
+        /// @brief allocate a signal path
+        /// @return the index of the signal path
+        IndexType allocateSignalPath()
+        {
+            return _db.allocateSignalPath();
+        }
+        /// @brief add a new pin to a signal path
+        /// @param first: the index of signal path
+        /// @param second: the name of cell
+        /// @param third: the name of pin
+        void addPinToSignalPath(IndexType pathIdx, const std::string & cellName, const std::string & pinName)
+        {
+            return _db.addPinToSignalPath(pathIdx, cellName, pinName);
+        }
+
         /// @brief mark a net as self-symmmetric
         /// @param the net index
         void markSelfSymNet(IndexType netIdx) { _db.net(netIdx).markSelfSym(); }
@@ -217,9 +232,9 @@ class IdeaPlaceEx
         /// @brief remove io net mark
         void revokeIoNet(IndexType netIdx) { _db.net(netIdx).setIsIo(false); }
         /// @brief mark a net as vdd
-        void markAsVddNet(IndexType netIdx) { _db.net(netIdx).markAsVdd(); _db.net(netIdx).setWeight(3); }
+        void markAsVddNet(IndexType netIdx) { _db.net(netIdx).markAsVdd(); _db.net(netIdx).setWeight(1); }
         /// @brief mark a net as vss
-        void markAsVssNet(IndexType netIdx) { _db.net(netIdx).markAsVss(); _db.net(netIdx).setWeight(3); }
+        void markAsVssNet(IndexType netIdx) { _db.net(netIdx).markAsVss(); _db.net(netIdx).setWeight(1); }
         /// @brief get the x coordinate of io net
         LocType iopinX(IndexType netIdx) { return _db.net(netIdx).virtualPinLoc().x(); }
         /// @brief get the y coordinate of io net

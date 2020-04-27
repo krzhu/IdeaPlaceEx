@@ -54,14 +54,14 @@ class VirtualPinAssigner
                 auto & net = _db.net(netIdx);
                 if (net.isVdd())
                 {
-                    net.setVirtualPin(_topPin);
                     _topPin.assign(netIdx);
+                    net.setVirtualPin(_topPin);
                     break;
                 }
                 if (net.isVss())
                 {
-                    net.setVirtualPin(_botPin);
                     _botPin.assign(netIdx);
+                    net.setVirtualPin(_botPin);
                     break;
                 }
             }

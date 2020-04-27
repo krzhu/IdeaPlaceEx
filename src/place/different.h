@@ -786,6 +786,100 @@ inline void CosineDatapathDifferentiable<NumType, CoordType>::accumlateGradient(
     _accumulateGradFunc(dy3, _tCellIdx, Orient2DType::VERTICAL);
 }
 
+
+/// @brief LSE-smoothed HPWL
+template<typename NumType, typename CoordType>
+struct PowerVerQuadraticWireLengthDifferentiable
+{
+    typedef NumType numerical_type;
+    typedef CoordType coordinate_type;
+
+    PowerVerQuadraticWireLengthDifferentiable(const std::function<NumType(void)> &getLambdaFunc) 
+    { _getLambdaFunc = getLambdaFunc; }
+
+    void setGetVarFunc(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) { _getVarFunc = getVarFunc; }
+    void setAccumulateGradFunc(const std::function<void(NumType, IndexType, Orient2DType)> &func) { _accumulateGradFunc = func; }
+
+    void setVirtualPin(const CoordType &x, const CoordType &y) 
+    { 
+        _validVirtualPin = 1; 
+        _virtualPinX = x;
+        _virtualPinY = y;
+    }
+    void removeVirtualPin() { _validVirtualPin = 0; }
+    void addVar(IndexType cellIdx, const CoordType &offsetX, const CoordType &offsetY)
+    {
+        _cells.emplace_back(cellIdx);
+        _offsetX.emplace_back(offsetX);
+        _offsetY.emplace_back(offsetY);
+    }
+    void setWeight(const NumType &weight) { _weight = weight; }
+    bool validHpwl() const { return _cells.size() + _validVirtualPin > 1;}
+
+
+
+    NumType evaluate() const
+    {
+        if (! validHpwl())
+        {
+            return 0;
+        }
+        if (_validVirtualPin != 1)
+        {
+            return 0;
+        }
+        const NumType lambda = _getLambdaFunc();
+        NumType obj = 0;
+        for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
+        {
+            NumType y = op::conv<NumType>(
+                    _getVarFunc(_cells[pinIdx], Orient2DType::VERTICAL) + _offsetY[pinIdx]
+                    );
+            obj += std::pow(y - _virtualPinY, 2.0);
+        }
+        return obj * _weight * lambda;
+    }
+
+    void accumlateGradient() const
+    {
+        if (! validHpwl())
+        {
+            return;
+        }
+        if (_validVirtualPin != 1)
+        {
+            return;
+        }
+        const NumType lambda = _getLambdaFunc();
+        for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
+        {
+            NumType y = op::conv<NumType>(
+                    _getVarFunc(_cells[pinIdx], Orient2DType::VERTICAL) + _offsetY[pinIdx]
+                    );
+            const NumType yPartial = 2 * (y - _virtualPinY);
+            _accumulateGradFunc(yPartial * _weight * lambda, _cells[pinIdx], Orient2DType::VERTICAL);
+        }
+    }
+
+    IntType _validVirtualPin = 0;
+    CoordType _virtualPinX = 0;
+    CoordType _virtualPinY = 0;
+    std::vector<IndexType> _cells;
+    std::vector<CoordType> _offsetX;
+    std::vector<CoordType> _offsetY;
+    NumType _weight = 1;
+    std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
+    std::function<CoordType(IndexType cellIdx, Orient2DType orient)> _getVarFunc; ///< A function to get current variable value
+    std::function<void(NumType, IndexType, Orient2DType)> _accumulateGradFunc; ///< A function to update partial
+};
+
+
+template <typename NumType, typename CoordType>
+struct is_placement_differentiable_concept<PowerVerQuadraticWireLengthDifferentiable<NumType, CoordType>>
+{
+    typedef std::true_type  is_placement_differentiable_concept_type;
+};
+
 } //namespace diff
 
 PROJECT_NAMESPACE_END
