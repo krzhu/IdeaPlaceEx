@@ -60,9 +60,9 @@ namespace nlp
         /// @brief stop after violating is small enough
         struct stop_after_violate_small
         {
-            static constexpr RealType overlapRatio = 0.01; ///< with respect to total cell area
+            static constexpr RealType overlapRatio = 0.005; ///< with respect to total cell area
             static constexpr RealType outOfBoundaryRatio = 0.05; ///< with respect to boundary
-            static constexpr RealType asymRatio = 0.05; ///< with respect to sqrt(total cell area)
+            static constexpr RealType asymRatio = 0.03; ///< with respect to sqrt(total cell area)
         };
 
         template<>
@@ -445,6 +445,7 @@ namespace nlp
                 nlp_numerical_type totalHpwlWeights = 0.0;
                 nlp_numerical_type totalCosWeights = 0.0;
                 nlp_numerical_type totalPowerWlWeights = 0.0;
+                static constexpr nlp_numerical_type maxMult = 100;
             };
 
             template<typename nlp_numerical_type>
@@ -491,7 +492,7 @@ namespace nlp
                     // match gradient norm for signal path
                     if (cosNorm > small)
                     {
-                        mult._constMults.at(1) = hpwlMultNorm * u.totalCosWeights  / cosNorm;
+                        mult._constMults.at(1) = std::min(hpwlMultNorm * u.totalCosWeights  / cosNorm, update_type::maxMult);
                     }
                     else
                     {
@@ -500,7 +501,7 @@ namespace nlp
                     // match gradient norm for signal path
                     if (powerWlNorm > small)
                     {
-                        mult._constMults.at(2) = hpwlMultNorm * u.totalPowerWlWeights  / powerWlNorm;
+                        mult._constMults.at(2) = std::min(hpwlMultNorm * u.totalPowerWlWeights  / powerWlNorm, update_type::maxMult);
                     }
                     else
                     {
@@ -747,8 +748,8 @@ namespace nlp
             struct reciprocal_by_obj
             {
                 // alpha = a / (x - k * obj_init) + b
-                static constexpr nlp_numerical_type alphaMax = 1.5;
-                static constexpr nlp_numerical_type alphaMin = 0.5;
+                static constexpr nlp_numerical_type alphaMax = 3.5;
+                static constexpr nlp_numerical_type alphaMin = 0.35;
                 static constexpr nlp_numerical_type k = 1e4; ///< k > 1.0
                 nlp_numerical_type a = -1.0; ///< (k ^2 - k) * obj_init * (alphaMax - alphaMin), should > 0
                 nlp_numerical_type b = 1.0; // -k * alphaMax + k * alphaMin + alphaMax; < 0 for most k

@@ -215,6 +215,11 @@ struct LseHpwlDifferentiable
             pMax[2] += exp(_virtualPinY / alpha);
             pMax[3] += exp(- _virtualPinY / alpha);
         }
+        // avoid overflow
+        for (IndexType i =0; i < 4; ++i)
+        {
+            pMax[i] = std::max(pMax[i], 1e-8);
+        }
         for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
         {
             IndexType cellIdx = _cells[pinIdx];

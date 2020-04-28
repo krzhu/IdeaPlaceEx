@@ -46,10 +46,7 @@ namespace nlp
             {
                 typedef converge_criteria_type converge_type;
                 converge_criteria_type _converge;
-                static constexpr nlp_numerical_type alpha = 0.005;
-                static constexpr nlp_numerical_type beta1 = 0.9;
-                static constexpr nlp_numerical_type beta2 = 0.999;
-                static constexpr nlp_numerical_type epsilon = 1e-8;
+                static constexpr nlp_numerical_type eta = 0.003;
 
             };
         } // namspace first_order
@@ -104,6 +101,48 @@ namespace nlp
                 } while (!converge_trait::stopCriteria(n, o, o._converge) );
                 n.calcObj();
                 DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
+                DBG("gradient norm %f \n", n._grad.norm());
+                DBG("converge at iter %d \n", iter);
+            }
+        };
+
+        template<typename converge_criteria_type, typename nlp_numerical_type>
+        struct optm_trait<first_order::nesterov<converge_criteria_type, nlp_numerical_type>>
+        {
+            typedef first_order::nesterov<converge_criteria_type, nlp_numerical_type> optm_type;
+            typedef typename optm_type::converge_type converge_type;
+            typedef nlp::converge::converge_criteria_trait<converge_type> converge_trait;
+            template<typename nlp_type, std::enable_if_t<nlp::is_first_order_diff<nlp_type>::value, void>* = nullptr>
+            static void optimize(nlp_type &n, optm_type &o)
+            {
+                converge_trait::clear(o._converge);
+                const IndexType numVars = n._numVariables;
+                IndexType iter = 0;
+                nlp_numerical_type lambdaPrev = 0;
+                nlp_numerical_type lambdaCurr = 1;
+                nlp_numerical_type gamma = 1;
+                typename nlp_type::EigenVector yCurr, yPrev;
+                yCurr.resize(numVars); yCurr.setZero();
+                yPrev.resize(numVars); yPrev = n._pl;
+                do 
+                {
+                    ++iter;
+                    n.calcGrad();
+                    yCurr = n._pl - o.eta * n._grad;
+                    n._pl = (1 - gamma) * yCurr + gamma * yPrev;
+
+                    yPrev = yCurr;
+
+                    const auto lambdaTemp = lambdaCurr;
+                    lambdaCurr = (1 + std::sqrt(1 + 4 * lambdaPrev * lambdaPrev)) * 0.5;
+                    lambdaPrev = lambdaTemp;
+
+                    gamma = (1 - lambdaPrev) / lambdaCurr;
+                    gamma = std::min(gamma, 0.999999999);
+                    gamma = std::max(gamma, 1e-8);
+                } while (!converge_trait::stopCriteria(n, o, o._converge) );
+                n.calcObj();
+                DBG("nesterov: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
                 DBG("gradient norm %f \n", n._grad.norm());
                 DBG("converge at iter %d \n", iter);
             }
