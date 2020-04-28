@@ -350,7 +350,11 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                 _cosOps.back().setGetVarFunc(getVarFunc);
                 if (_db.signalPath(pathIdx).isPower())
                 {
-                    _cosOps.back().setWeight(0.05);
+                    _cosOps.back().setWeight(0.1);
+                }
+                else
+                {
+                    _cosOps.back().setWeight(5);
                 }
             }
         }

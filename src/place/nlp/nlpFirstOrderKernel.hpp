@@ -40,6 +40,18 @@ namespace nlp
                 static constexpr nlp_numerical_type epsilon = 1e-8;
 
             };
+            /// @brief nesterov accelerated gradient
+            template<typename converge_criteria_type, typename nlp_numerical_type>
+            struct nesterov
+            {
+                typedef converge_criteria_type converge_type;
+                converge_criteria_type _converge;
+                static constexpr nlp_numerical_type alpha = 0.005;
+                static constexpr nlp_numerical_type beta1 = 0.9;
+                static constexpr nlp_numerical_type beta2 = 0.999;
+                static constexpr nlp_numerical_type epsilon = 1e-8;
+
+            };
         } // namspace first_order
         template<typename converge_criteria_type>
         struct optm_trait<first_order::naive_gradient_descent<converge_criteria_type>>
