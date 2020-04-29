@@ -748,9 +748,9 @@ namespace nlp
             struct reciprocal_by_obj
             {
                 // alpha = a / (x - k * obj_init) + b
-                static constexpr nlp_numerical_type alphaMax = 3.5;
-                static constexpr nlp_numerical_type alphaMin = 0.35;
-                static constexpr nlp_numerical_type k = 1e4; ///< k > 1.0
+                static constexpr nlp_numerical_type alphaMax = 2.0;
+                static constexpr nlp_numerical_type alphaMin = 0.4;
+                static constexpr nlp_numerical_type k = 100; ///< k > 1.0
                 nlp_numerical_type a = -1.0; ///< (k ^2 - k) * obj_init * (alphaMax - alphaMin), should > 0
                 nlp_numerical_type b = 1.0; // -k * alphaMax + k * alphaMin + alphaMax; < 0 for most k
                 nlp_numerical_type kObjInit = -1.0;

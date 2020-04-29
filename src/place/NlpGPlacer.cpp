@@ -34,7 +34,7 @@ void NlpGPlacerBase<nlp_settings>::initOptimizationKernelMembers()
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::assignIoPins()
 {
-    if ( !_db.parameters().ifUsePinAssignment()) { return; }
+    if ( !_db.parameters().ifUsePinAssignment()) { DBG("skipped \n"); return; }
     auto cellLocQueryFunc = [&](IndexType cellIdx)
     {
         RealType x = _pl(plIdx(cellIdx, Orient2DType::HORIZONTAL));
@@ -150,7 +150,6 @@ void NlpGPlacerBase<nlp_settings>::initVariables()
     // The number of nlp problem variables
     _numCells = _db.numCells();
     IntType size = _db.numCells() * 2 + _db.numSymGroups();
-    DBG("resize _pl to %d \n", size);
     _pl.resize(size);
 #ifndef MULTI_SYM_GROUP
     if (_db.numSymGroups() > 0)
@@ -370,7 +369,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         }
         _powerWlOps.emplace_back(nlp_power_wl_type(getLambdaFuncHpwl));
         auto &op = _powerWlOps.back();
-        op.setWeight(net.weight());
+        op.setWeight(net.weight() / 5);
         for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
         {
             // Get the pin location referenced to the cell
@@ -380,6 +379,9 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         }
         op.setGetVarFunc(getVarFunc);
     }
+    INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob %d asym %d sigFlow %d power %d \n", 
+    _hpwlOps.size()+ _ovlOps.size()+ _oobOps.size()+ _asymOps.size()+ _cosOps.size()+ _powerWlOps.size(),
+            _hpwlOps.size(), _ovlOps.size(), _oobOps.size(), _asymOps.size(), _cosOps.size(), _powerWlOps.size());
 }
 
 template<typename nlp_settings>
@@ -764,7 +766,6 @@ template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::initFirstOrderGrad()
 {
     const IntType size = this->_db.numCells() * 2 + this->_db.numSymGroups();
-    DBG("resize grad to %d \n", size);
     _grad.resize(size);
     _gradHpwl.resize(size);
     _gradOvl.resize(size);

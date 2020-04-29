@@ -56,13 +56,13 @@ class VirtualPinAssigner
                 {
                     _topPin.assign(netIdx);
                     net.setVirtualPin(_topPin);
-                    break;
+                    continue;
                 }
                 if (net.isVss())
                 {
                     _botPin.assign(netIdx);
                     net.setVirtualPin(_botPin);
-                    break;
+                    continue;
                 }
             }
 #ifdef DEBUG_PINASSIGN

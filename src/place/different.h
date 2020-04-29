@@ -814,6 +814,7 @@ struct PowerVerQuadraticWireLengthDifferentiable
         _validVirtualPin = 1; 
         _virtualPinX = x;
         _virtualPinY = y;
+        DBG("set virtualPin \n");
     }
     void removeVirtualPin() { _validVirtualPin = 0; }
     void addVar(IndexType cellIdx, const CoordType &offsetX, const CoordType &offsetY)

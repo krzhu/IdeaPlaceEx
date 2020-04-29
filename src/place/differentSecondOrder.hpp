@@ -32,8 +32,7 @@ namespace diff
         static void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType, Orient2DType)> &accumulateHessianFunc)
         {
             const NumType alpha = op._getAlphaFunc();
-            //const NumType lambda = op._getLambdaFunc();
-            const NumType lambda = 1;
+            const NumType lambda = op._getLambdaFunc();
 
             // first compute the exp sums
             NumType exp_xi_sum  = 0.0; // sum (exp(xi / alpha))
@@ -217,6 +216,30 @@ namespace diff
             {
                 accumulateHessianFunc(2 * lambda, ssIdx, ssIdx, Orient2DType::HORIZONTAL, Orient2DType::HORIZONTAL);
                 accumulateHessianFunc(2 * lambda, op._symGrpIdx, op._symGrpIdx, Orient2DType::NONE, Orient2DType::NONE);
+            }
+        }
+    };
+
+
+    template<typename NumType, typename CoordType>
+    struct jacobi_hessian_approx_trait<PowerVerQuadraticWireLengthDifferentiable<NumType, CoordType>>
+    {
+        typedef PowerVerQuadraticWireLengthDifferentiable<NumType, CoordType> operator_type;
+        static void accumulateHessian(const operator_type & op, const std::function<void(NumType, IndexType, IndexType, Orient2DType, Orient2DType)> &accumulateHessianFunc)
+        {
+
+            if (! op.validHpwl())
+            {
+                return;
+            }
+            if (op._validVirtualPin != 1)
+            {
+                return;
+            }
+            const NumType lambda = op._getLambdaFunc();
+            for (IndexType pinIdx = 0; pinIdx < op._cells.size(); ++pinIdx)
+            {
+                accumulateHessianFunc(2 * op._weight * lambda,op. _cells[pinIdx], op._cells[pinIdx], Orient2DType::VERTICAL, Orient2DType::VERTICAL);
             }
         }
     };

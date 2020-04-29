@@ -101,6 +101,7 @@ namespace nlp
         typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_oob_type> oob_hessian_trait;
         typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_asym_type> asym_hessian_trait;
         typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_cos_type> cos_hessian_trait;
+        typedef diff::jacobi_hessian_approx_trait<typename nlp_types::nlp_power_wl_type> power_wl_hessian_trait;
     };
 
 
@@ -113,6 +114,7 @@ namespace nlp
                 converge_type;
         //typedef optm::second_order::naive_gradient_descent<converge_type> optm_type;
         typedef optm::second_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
+        //typedef optm::second_order::nesterov<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
         //typedef optm::first_order::conjugate_gradient_wnlib optm_type;
         
         /* multipliers */
@@ -120,6 +122,7 @@ namespace nlp
         //typedef outer_multiplier::update::subgradient_normalized_by_init<nlp_default_types::nlp_numerical_type> mult_update_type;
         typedef outer_multiplier::update::direct_subgradient mult_update_type;
         typedef outer_multiplier::mult_const_hpwl_cos_and_penalty_by_type<nlp_default_types::nlp_numerical_type, mult_init_type, mult_update_type> mult_type;
+        typedef outer_multiplier::update::match_grad_const_multipliers<nlp_default_types::nlp_numerical_type> mult_adjust_type;
 
         /* alpha */
         typedef alpha::alpha_hpwl_ovl_oob<nlp_default_types::nlp_numerical_type> alpha_type;
@@ -514,12 +517,14 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         typedef typename first_order_type::nlp_oob_type nlp_oob_type;
         typedef typename first_order_type::nlp_asym_type nlp_asym_type;
         typedef typename first_order_type::nlp_cos_type nlp_cos_type;
+        typedef typename first_order_type::nlp_power_wl_type nlp_power_wl_type;
         
         typedef typename second_order_setting_type::hpwl_hessian_trait hpwl_hessian_trait;
         typedef typename second_order_setting_type::ovl_hessian_trait ovl_hessian_trait;
         typedef typename second_order_setting_type::oob_hessian_trait oob_hessian_trait;
         typedef typename second_order_setting_type::asym_hessian_trait asym_hessian_trait;
         typedef typename second_order_setting_type::cos_hessian_trait cos_hessian_trait;
+        typedef typename second_order_setting_type::power_wl_hessian_trait power_wl_hessian_trait;
 
         /* figure out the types for storing the hessian */
         // Determine whether the operators are return a diagonal hessian
@@ -528,12 +533,14 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         constexpr static BoolType isOobHessianDiagonal = diff::is_diagnol_matrix<oob_hessian_trait>::value;
         constexpr static BoolType isAsymHessianDiagonal = diff::is_diagnol_matrix<asym_hessian_trait>::value;
         constexpr static BoolType isCosHessianDiagonal = diff::is_diagnol_matrix<cos_hessian_trait>::value;
+        constexpr static BoolType isPowerWlHessianDiagonal = diff::is_diagnol_matrix<power_wl_hessian_trait>::value;
         constexpr static BoolType isHessianDiagonal = 
                 isHpwlHessianDiagonal
                 and isOvlHessianDiagonal
                 and isOobHessianDiagonal
                 and isAsymHessianDiagonal
-                and isCosHessianDiagonal;
+                and isCosHessianDiagonal
+                and isPowerWlHessianDiagonal;
 
         // define the supporting trait
         typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isHpwlHessianDiagonal> hpwl_hessian_diagonal_selector;
@@ -546,6 +553,8 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         friend asym_hessian_diagonal_selector;
         typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isCosHessianDiagonal> cos_hessian_diagonal_selector;
         friend cos_hessian_diagonal_selector;
+        typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isPowerWlHessianDiagonal> power_wl_hessian_diagonal_selector;
+        friend cos_hessian_diagonal_selector;
         typedef _nlp_second_order_details::is_diagonal_select<nlp_settings, isHessianDiagonal> hessian_diagonal_selector;
         friend hessian_diagonal_selector;
 
@@ -554,6 +563,7 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         typedef typename oob_hessian_diagonal_selector::matrix_type oob_hessian_matrix;
         typedef typename asym_hessian_diagonal_selector::matrix_type asym_hessian_matrix;
         typedef typename cos_hessian_diagonal_selector::matrix_type cos_hessian_matrix;
+        typedef typename power_wl_hessian_diagonal_selector::matrix_type power_wl_hessian_matrix;
         typedef typename hessian_diagonal_selector::matrix_type hessian_matrix;
 
         /* define the algorithms */
@@ -578,6 +588,10 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         typedef typename nlp_settings::nlp_second_order_algorithms_type::mult_type mult_type;
         typedef nlp::outer_multiplier::multiplier_trait<mult_type> mult_trait;
         friend mult_trait;
+
+        typedef typename nlp_settings::nlp_second_order_algorithms_type::mult_adjust_type mult_adjust_type;
+        typedef nlp::outer_multiplier::update::multiplier_update_trait<mult_adjust_type> mult_adjust_trait;
+        friend mult_adjust_trait;
 
         /* updating alpha parameters */
         typedef typename nlp_settings::nlp_second_order_algorithms_type::alpha_type alpha_type;
@@ -619,6 +633,7 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         {
             WATCH_QUICK_START();
             // setting up the multipliers
+            this->assignIoPins();
             this->_wrapObjAllTask.run();
             this->_wrapCalcGradTask.run();
             calcHessian();
@@ -627,6 +642,9 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
             mult_type multiplier = mult_trait::construct(*this);
             mult_trait::init(*this, multiplier);
             mult_trait::recordRaw(*this, multiplier);
+
+            mult_adjust_type multAdjuster = mult_adjust_trait::construct(*this, multiplier);
+            mult_adjust_trait::init(*this, multiplier, multAdjuster);
 
             alpha_type alpha = alpha_trait::construct(*this);
             alpha_trait::init(*this, alpha);
@@ -638,7 +656,6 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
             IntType iter = 0;
             do
             {
-                this->assignIoPins();
                 std::string debugGdsFilename  = "./debug/";
                 debugGdsFilename += "gp_iter_" + std::to_string(iter)+".gds";
                 base_type::drawCurrentLayout(debugGdsFilename);
@@ -646,8 +663,10 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
                 optm_trait::optimize(*this, optm);
                 mult_trait::update(*this, multiplier);
                 mult_trait::recordRaw(*this, multiplier);
+                mult_adjust_trait::update(*this, multiplier, multAdjuster);
 
                 alpha_update_trait::update(*this, alpha, alphaUpdate);
+                this->assignIoPins();
                 DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
                 ++iter;
             } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
@@ -664,6 +683,7 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
             using oob = nt::CalculateOperatorHessianTask<nlp_oob_type, oob_hessian_trait, EigenMatrix, oob_hessian_matrix>;
             using asym = nt::CalculateOperatorHessianTask<nlp_asym_type, asym_hessian_trait, EigenMatrix, asym_hessian_matrix>;
             using cos = nt::CalculateOperatorHessianTask<nlp_cos_type, cos_hessian_trait, EigenMatrix, cos_hessian_matrix>;
+            using pwl = nt::CalculateOperatorHessianTask<nlp_power_wl_type, power_wl_hessian_trait, EigenMatrix, power_wl_hessian_matrix>;
             auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return this->plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
             for (IndexType i = 0; i < this->_hpwlOps.size(); ++i)
             {
@@ -685,6 +705,10 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
             {
                 _calcCosHessianTasks.emplace_back(cos(&op, &_hessianCos, getIdxFunc));
             }
+            for (auto &op : this->_powerWlOps)
+            {
+                _calcPowerWlHessianTasks.emplace_back(pwl(&op, &_hessianPowerWl, getIdxFunc));
+            }
         }
         void _clearHessian()
         {
@@ -694,6 +718,7 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
             _hessianOob.setZero();
             _hessianAsym.setZero();
             _hessianCos.setZero();
+            _hessianPowerWl.setZero();
         }
         void _calcAllHessians()
         {
@@ -707,11 +732,13 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
             for (IndexType i = 0; i < _calcAsymHessianTasks.size(); ++i) { _calcAsymHessianTasks[i].calc(); }
             #pragma omp parallel for schedule(static)
             for (IndexType i = 0; i < _calcCosHessianTasks.size(); ++i) { _calcCosHessianTasks[i].calc(); }
+            #pragma omp parallel for schedule(static)
+            for (IndexType i = 0; i < _calcPowerWlHessianTasks.size(); ++i) { _calcPowerWlHessianTasks[i].calc(); }
         }
         void _updateAllHessian()
         {
             #pragma omp parallel for schedule(static)
-            for (IndexType i = 0; i < 5; ++i)
+            for (IndexType i = 0; i < 6; ++i)
             {
                 if (i == 0)
                 {
@@ -729,12 +756,16 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
                 {
                     for (auto & calc : _calcAsymHessianTasks) { calc.update(); }
                 }
-                else
+                else if (i == 4)
                 {
                     for (auto & calc : _calcCosHessianTasks) { calc.update(); }
                 }
+                else
+                {
+                    for (auto & calc : _calcPowerWlHessianTasks) { calc.update(); }
+                }
             }
-            _hessian = _hessianHpwl + _hessianOvl + _hessianOob + _hessianAsym + _hessianCos;
+            _hessian = _hessianHpwl + _hessianOvl + _hessianOob + _hessianAsym + _hessianCos + _hessianPowerWl;
         }
 
         void clipHessian()
@@ -755,12 +786,14 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
         oob_hessian_matrix _hessianOob; ///< The hessian for the out of boundary function
         asym_hessian_matrix _hessianAsym; ///< The hessian for the asymmetry function
         cos_hessian_matrix _hessianCos; ///< The hessian for the signal path function
+        power_wl_hessian_matrix _hessianPowerWl;
         /* Tasks */
         std::vector<nt::CalculateOperatorHessianTask<nlp_hpwl_type, hpwl_hessian_trait, EigenMatrix, hpwl_hessian_matrix>> _calcHpwlHessianTasks; ///< calculate and update the hessian
         std::vector<nt::CalculateOperatorHessianTask<nlp_ovl_type, ovl_hessian_trait, EigenMatrix, ovl_hessian_matrix>> _calcOvlHessianTasks; ///< calculate and update the hessian
         std::vector<nt::CalculateOperatorHessianTask<nlp_oob_type, oob_hessian_trait, EigenMatrix, oob_hessian_matrix>> _calcOobHessianTasks; ///< calculate and update the hessian
         std::vector<nt::CalculateOperatorHessianTask<nlp_asym_type, asym_hessian_trait, EigenMatrix, asym_hessian_matrix>> _calcAsymHessianTasks; ///< calculate and update the hessian
         std::vector<nt::CalculateOperatorHessianTask<nlp_cos_type, cos_hessian_trait, EigenMatrix, cos_hessian_matrix>> _calcCosHessianTasks; ///< calculate and update the hessian
+        std::vector<nt::CalculateOperatorHessianTask<nlp_power_wl_type, power_wl_hessian_trait, EigenMatrix, power_wl_hessian_matrix>> _calcPowerWlHessianTasks; ///< calculate and update the hessian
 
 
 };
@@ -776,6 +809,7 @@ inline void NlpGPlacerSecondOrder<nlp_settings>::initSecondOrder()
     oob_hessian_diagonal_selector::resize(_hessianOob, size);
     asym_hessian_diagonal_selector::resize(_hessianAsym, size);
     cos_hessian_diagonal_selector::resize(_hessianCos, size);
+    power_wl_hessian_diagonal_selector::resize(_hessianPowerWl , size);
 }
 
 
