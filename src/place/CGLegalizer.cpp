@@ -47,16 +47,6 @@ bool CGLegalizer::legalize()
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
         return true;
     }
-    if (!lpDetailedPlacement())
-    {
-        INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
-        return true;
-    }
-    if (!lpDetailedPlacement())
-    {
-        INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
-        return true;
-    }
     return true;
 
     INF("CG Legalizer: legalization finished\n");

@@ -13,6 +13,7 @@ void SigPathMgr::decomposeSignalPaths()
     for (const auto &path : _db.vSignalPaths())
     {
         _segByPath.emplace_back(std::vector<SigPathSeg>());
+        _currentFlowRemainingTwoPinSegs.emplace_back(std::vector<SigPathTwoPinSeg>());
         for (IndexType idx = 0; idx < path.vPinIdxArray().size() - 3; ++idx)
         {
             const IndexType pinIdx1 = path.vPinIdxArray().at(idx);   const auto &pin1 = _db.pin(pinIdx1); const IndexType cellIdx1 = pin1.cellIdx();
@@ -34,6 +35,16 @@ void SigPathMgr::decomposeSignalPaths()
                         cellIdx2, _db.cell(cellIdx2).name().c_str(), pinIdx2, _db.pin(pinIdx2).name().c_str(),
                         cellIdx3, _db.cell(cellIdx3).name().c_str(), pinIdx3, _db.pin(pinIdx3).name().c_str(),
                         cellIdx4, _db.cell(cellIdx4).name().c_str(), pinIdx4, _db.pin(pinIdx4).name().c_str());
+            }
+        }
+        // Process the corner case that a current flow path has only two pin. In this case it should implicitly mean the path ending in ground pin
+        if (path.vPinIdxArray().size() == 2 and path.isPower())
+        {
+            const IndexType pinIdx1 = path.vPinIdxArray().at(0);   const auto &pin1 = _db.pin(pinIdx1); const IndexType cellIdx1 = pin1.cellIdx();
+            const IndexType pinIdx2 = path.vPinIdxArray().at(1); const auto &pin2 = _db.pin(pinIdx2); const IndexType cellIdx2 = pin2.cellIdx();
+            if (cellIdx1 != cellIdx2)
+            {
+                _currentFlowRemainingTwoPinSegs.back().emplace_back(SigPathTwoPinSeg(cellIdx1, cellIdx2));
             }
         }
     }

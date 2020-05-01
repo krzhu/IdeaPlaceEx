@@ -701,10 +701,38 @@ struct CosineDatapathDifferentiable
             _tOffset.setY(tOffset.y());
         }
     
+    CosineDatapathDifferentiable(
+            IndexType sCellIdx, const XY<CoordType> &sOffset,
+            IndexType midCellIdx, const XY<CoordType> &midOffsetA, const XY<CoordType> &midOffsetB,
+            const std::function<NumType(void)> &getLambdaFunc)
+        : _sCellIdx(sCellIdx),
+          _midCellIdx(midCellIdx),
+          _getLambdaFunc(getLambdaFunc)
+        {
+            _sOffset.setX(op::conv<NumType>(sOffset.x()));
+            _sOffset.setY(op::conv<NumType>(sOffset.y()));
+            _midOffsetA.setX(op::conv<NumType>(midOffsetA.x()));
+            _midOffsetA.setY(op::conv<NumType>(midOffsetA.y()));
+            _midOffsetB.setX(op::conv<NumType>(midOffsetB.x()));
+            _midOffsetB.setY(op::conv<NumType>(midOffsetB.y()));
+            markTwoPin();
+            _enable = false;
+        }
+    
 
 
     void setGetVarFunc(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) { _getVarFunc = getVarFunc; }
     void setAccumulateGradFunc(const std::function<void(NumType, IndexType, Orient2DType)> &func) { _accumulateGradFunc = func; }
+
+    BoolType isTwoPin() const { return _tCellIdx == INDEX_TYPE_MAX; }
+    void markTwoPin() { _tCellIdx = INDEX_TYPE_MAX; }
+    void setTwoPinEndingOffset(const XY<CoordType> &tOffset)
+    {
+        Assert(isTwoPin());
+        _enable = true;
+        _tOffset.setX(tOffset.x());
+        _tOffset.setY(tOffset.y());
+    }
 
     NumType evaluate() const;
     void accumlateGradient() const;
@@ -722,18 +750,25 @@ struct CosineDatapathDifferentiable
     std::function<CoordType(IndexType cellIdx, Orient2DType orient)> _getVarFunc; ///< A function to get current variable value
     std::function<void(NumType, IndexType, Orient2DType)> _accumulateGradFunc; ///< A function to update partial
     NumType _weight = 1.0;
+    bool _enable = true;
 };
 
 template<typename NumType, typename CoordType>
 inline NumType CosineDatapathDifferentiable<NumType, CoordType>::evaluate() const
 {
+    if (not _enable) { return  0; }
     const NumType lambda = _getLambdaFunc();
     const NumType x1 = op::conv<NumType>(_getVarFunc(_sCellIdx, Orient2DType::HORIZONTAL));
     const NumType y1 = op::conv<NumType>(_getVarFunc(_sCellIdx, Orient2DType::VERTICAL));
     const NumType x2 = op::conv<NumType>(_getVarFunc(_midCellIdx, Orient2DType::HORIZONTAL));
     const NumType y2 = op::conv<NumType>(_getVarFunc(_midCellIdx, Orient2DType::VERTICAL));
-    const NumType x3 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::HORIZONTAL));
-    const NumType y3 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::VERTICAL));
+    NumType x3 = 0;
+    NumType y3 = 0;
+    if (_tCellIdx != INDEX_TYPE_MAX)
+    {
+        x3 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::HORIZONTAL));
+        y3 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::VERTICAL));
+    }
     const NumType ox1 = _sOffset.x();
     const NumType oy1 = _sOffset.y();
     const NumType ox2a = _midOffsetA.x();
@@ -743,20 +778,25 @@ inline NumType CosineDatapathDifferentiable<NumType, CoordType>::evaluate() cons
     const NumType ox3 = _tOffset.x();
     const NumType oy3 = _tOffset.y();
 
-
     return (((ox1 - ox2a + x1 - x2)*(ox3 - ox2b - x2 + x3) + (oy1 - oy2a + y1 - y2)*(oy3 - oy2b - y2 + y3))/(sqrt(pow(ox1 - ox2a + x1 - x2, 2.0) + pow(oy1 - oy2a + y1 - y2, 2.0))*sqrt(pow(ox3 - ox2b - x2 + x3, 2.0) + pow(oy3 - oy2b - y2 + y3, 2.0))) + 1) * lambda * _weight;
 }
 
 template<typename NumType, typename CoordType>
 inline void CosineDatapathDifferentiable<NumType, CoordType>::accumlateGradient() const
 {
+    if (not _enable) { return; }
     const NumType lambda = _getLambdaFunc();
     const NumType x1 = op::conv<NumType>(_getVarFunc(_sCellIdx, Orient2DType::HORIZONTAL));
     const NumType y1 = op::conv<NumType>(_getVarFunc(_sCellIdx, Orient2DType::VERTICAL));
     const NumType x2 = op::conv<NumType>(_getVarFunc(_midCellIdx, Orient2DType::HORIZONTAL));
     const NumType y2 = op::conv<NumType>(_getVarFunc(_midCellIdx, Orient2DType::VERTICAL));
-    const NumType x3 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::HORIZONTAL));
-    const NumType y3 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::VERTICAL));
+    NumType x3 = 0;
+    NumType y3 = 0;
+    if (_tCellIdx != INDEX_TYPE_MAX)
+    {
+        x3 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::HORIZONTAL));
+        y3 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::VERTICAL));
+    }
     const NumType ox1 = _sOffset.x();
     const NumType oy1 = _sOffset.y();
     const NumType ox2a = _midOffsetA.x();

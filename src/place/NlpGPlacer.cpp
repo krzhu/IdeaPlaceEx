@@ -61,6 +61,8 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
     assigner.reconfigureVirtualPinLocations(Box<LocType>(xLo, yLo, xHi, yHi));
     IndexType hpwlIdx = 0;
     IndexType pwlIdx = 0;
+    IndexType vssNetIdx = INDEX_TYPE_MAX;
+    XY<nlp_coordinate_type> vssPinLoc;
     if (assigner.pinAssignment(cellLocQueryFunc))
     {
         // update the hpwl operator
@@ -75,6 +77,11 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
                     pinLoc *= _scale;
                     _powerWlOps[pwlIdx].setVirtualPin(pinLoc.x(), pinLoc.y());
                     ++pwlIdx;
+                    if (net.isVss())
+                    {
+                        vssNetIdx = netIdx;
+                        vssPinLoc = pinLoc;
+                    }
                 }
                 else
                 {
@@ -83,6 +90,15 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
                     _hpwlOps[hpwlIdx].setVirtualPin(pinLoc.x(), pinLoc.y());
                     ++hpwlIdx;
                 }
+            }
+        }
+        // Update current flow
+        if (vssNetIdx != INDEX_TYPE_MAX)
+        {
+            for (auto & op : _cosOps)
+            {
+                if (not op.isTwoPin()) { continue; }
+                op.setTwoPinEndingOffset(vssPinLoc);
             }
         }
     }
@@ -324,7 +340,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         const auto &path = pathMgr.vvSegList().at(pathIdx);
         for (IndexType i = 0; i < path.size(); ++i)
         {
-            for (IndexType j = i+2; j < path.size(); ++j)
+            for (IndexType j = i; j < path.size(); ++j)
             {
                 IndexType sPinIdx = path[i].beginPinFirstSeg();
                 IndexType midPinIdxA = path[i].endPinFirstSeg();
@@ -349,12 +365,35 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                 _cosOps.back().setGetVarFunc(getVarFunc);
                 if (_db.signalPath(pathIdx).isPower())
                 {
-                    _cosOps.back().setWeight(0.1);
+                    _cosOps.back().setWeight(0.5);
                 }
                 else
                 {
                     _cosOps.back().setWeight(5);
                 }
+            }
+        }
+        // Process the current flow path with only two pin. Add a grond pin as ending.
+        for (const auto &twoPinSeg : pathMgr.currentFlowRemainingTwoPinSegs().at(pathIdx))
+        {
+            IndexType sPinIdx = twoPinSeg.beginPin();
+            IndexType tPinIdx = twoPinSeg.endPin();
+
+            const auto &sPin = _db.pin(sPinIdx);
+            IndexType sCellIdx = sPin.cellIdx();
+            const auto &tPin = _db.pin(tPinIdx);
+            IndexType tCellIdx = tPin.cellIdx();
+
+            auto sOffset = calculatePinOffset(sPinIdx);
+            auto tOffset = calculatePinOffset(tPinIdx);
+            _cosOps.emplace_back(sCellIdx, sOffset,
+                    tCellIdx, tOffset, tOffset,
+                    getLambdaFuncCosine);
+            _cosOps.back().markTwoPin();
+            _cosOps.back().setGetVarFunc(getVarFunc);
+            if (_db.signalPath(pathIdx).isPower())
+            {
+                _cosOps.back().setWeight(0.1);
             }
         }
     }

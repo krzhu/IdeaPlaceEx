@@ -811,6 +811,76 @@ namespace nlp
             };
 
 
+            /// @breif update the alpha that mapping objective function to alpha, from [0, init_obj] -> [min, max]
+            /// @tparam the index of which alpha to update
+            template<typename nlp_numerical_type, IndexType alphaIdx>
+            struct linear_by_obj
+            {
+                // alpha = a / (x - k * obj_init) + b
+                static constexpr nlp_numerical_type alphaMax = 2.0;
+                static constexpr nlp_numerical_type alphaMin = 0.4;
+                nlp_numerical_type objInit = -1.0;
+            };
+
+            template<typename nlp_numerical_type, IndexType alphaIdx>
+            struct alpha_update_trait<linear_by_obj<nlp_numerical_type, alphaIdx>> 
+            {
+                typedef linear_by_obj<nlp_numerical_type, alphaIdx> update_type;
+
+                template<typename nlp_type>
+                static constexpr typename nlp_type::nlp_numerical_type obj(nlp_type &nlp) 
+                { 
+                    switch(alphaIdx)
+                    {
+                        case 0: return nlp._objHpwlRaw; break;
+                        case 1: return nlp._objOvlRaw; break;
+                        default: return nlp._objOobRaw; break;
+                    }
+                }
+
+                template<typename nlp_type>
+                static constexpr update_type construct(nlp_type &, alpha_hpwl_ovl_oob<nlp_numerical_type> &) { return update_type(); }
+
+                template<typename nlp_type>
+                static constexpr void init(nlp_type &nlp, alpha_hpwl_ovl_oob<nlp_numerical_type> &alpha, update_type &update) 
+                { 
+                    if (obj(nlp) < REAL_TYPE_TOL)
+                    {
+                        DBG("alpha idx %d size %d \n", alphaIdx, alpha._alpha.size());
+                        alpha._alpha[alphaIdx] = update.alphaMax;
+                        return;
+                    }
+                    auto objInit = obj(nlp);
+                    alpha._alpha[alphaIdx] = update.alphaMax;
+                    update.objInit = objInit;
+                }
+
+                template<typename nlp_type>
+                static constexpr void update(nlp_type &nlp, alpha_hpwl_ovl_oob<nlp_numerical_type> &alpha, update_type &update) 
+                { 
+                    auto objCurr = obj(nlp);
+                    if (update.objInit < objCurr)
+                    {
+                        init(nlp, alpha, update);
+                        return;
+                    }
+                    if (update.objInit < REAL_TYPE_TOL)
+                    {
+                        init(nlp, alpha, update);
+                        return;
+                    }
+                    if (objCurr < REAL_TYPE_TOL)
+                    {
+                        alpha._alpha[alphaIdx] = update.alphaMin;
+                        return;
+                    }
+                    alpha._alpha[alphaIdx] = ((update.alphaMax - update.alphaMin) / update.objInit) * objCurr + update.alphaMin ;
+                    DBG("update alpha:: new alpha idx %d %f \n", alphaIdx, alpha._alpha[alphaIdx]);
+                }
+
+            };
+
+
         /// @brief a convenient wrapper for combining different types of stop_condition condition. the list in the template will be check one by one and return converge if any of them say so
         template<typename alpha_update_type, typename... others>
         struct alpha_update_list 
