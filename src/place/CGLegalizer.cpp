@@ -1171,6 +1171,7 @@ bool CGLegalizer::lpDetailedPlacement()
         return false;
     }
 
+
     // Vertical
     this->generateVerConstraints();
     INF("CG legalizer: detailed placement vertical LP...\n");
@@ -1186,7 +1187,6 @@ bool CGLegalizer::lpDetailedPlacement()
         return false;
     }
     
-    //_db.drawCellBlocks("./debug/after_dp_hor.gds");
 #ifdef DEBUG_LEGALIZE
 #ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_dp.gds");

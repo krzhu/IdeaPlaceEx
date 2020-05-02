@@ -196,7 +196,7 @@ class LpLegalizeSolver
 #else
         bool _isMultipleSymGrp = false;
 #endif 
-        bool _relaxEqualityConstraint = true;
+        bool _relaxEqualityConstraint = false;
         bool _useCurrentFlowConstraint = false;
         //SolverType _solver; ///< Solver
         /*  Optimization Results */

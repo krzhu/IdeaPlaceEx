@@ -34,7 +34,7 @@ void NlpGPlacerBase<nlp_settings>::initOptimizationKernelMembers()
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::assignIoPins()
 {
-    if ( !_db.parameters().ifUsePinAssignment()) { DBG("skipped \n"); return; }
+    if ( !_db.parameters().ifUsePinAssignment()) { return; }
     auto cellLocQueryFunc = [&](IndexType cellIdx)
     {
         RealType x = _pl(plIdx(cellIdx, Orient2DType::HORIZONTAL));
@@ -358,6 +358,10 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                 auto midOffsetA = calculatePinOffset(midPinIdxA);
                 auto midOffsetB = calculatePinOffset(midPinIdxB);
                 auto tOffset = calculatePinOffset(tPinIdx);
+                DBG("NlpGPlacer:: add sigpath cell %s -> cell %s -> cell %s \n",
+                        _db.cell(sCellIdx).name().c_str(), 
+                        _db.cell(mCellIdx).name().c_str(),
+                        _db.cell(tCellIdx).name().c_str());
                 _cosOps.emplace_back(sCellIdx, sOffset,
                         mCellIdx, midOffsetA, midOffsetB,
                         tCellIdx, tOffset,

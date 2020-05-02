@@ -165,6 +165,9 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     ProximityMgr proximityMgr(_db);
     proximityMgr.applyProximityWithDummyNets();
 
+    // Clean up the signal path
+    _db.splitSignalPathsBySymPairs();
+
     INF("Ideaplace: Entering global placement...\n");
 
     NlpGPlacerFirstOrder<nlp::nlp_default_settings> placer(_db);

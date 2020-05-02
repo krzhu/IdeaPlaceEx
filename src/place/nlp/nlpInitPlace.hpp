@@ -65,7 +65,7 @@ namespace nlp {
         /// @brief randomly spread the cells in a normal distrubtion near the center
         struct init_random_placement_with_normal_distribution_near_center
         {
-            static constexpr RealType randomInitPlaceStddev = 0.1; ///< The standard deviation of the initial random placement in terms of the width/height of the boundary
+            static constexpr RealType randomInitPlaceStddev = 0.03; ///< The standard deviation of the initial random placement in terms of the width/height of the boundary
         };
 
         template<>

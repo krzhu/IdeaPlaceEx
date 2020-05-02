@@ -115,6 +115,7 @@ namespace nlp
                         return false;
                     }
                 }
+
                 DBG("ovl area %f target %f \n oob area %f target %f \n asym dist %f target %f \n",  ovlArea, ovlThreshold, oobArea, oobThreshold, asymDist, asymThreshold);
                 return true;
             }
@@ -445,7 +446,7 @@ namespace nlp
                 nlp_numerical_type totalHpwlWeights = 0.0;
                 nlp_numerical_type totalCosWeights = 0.0;
                 nlp_numerical_type totalPowerWlWeights = 0.0;
-                static constexpr nlp_numerical_type maxMult = 100;
+                static constexpr nlp_numerical_type maxMult = 1000;
             };
 
             template<typename nlp_numerical_type>

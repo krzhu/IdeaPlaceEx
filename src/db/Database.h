@@ -138,6 +138,8 @@ class Database
         IndexType allocateSignalPath() { _signalPaths.emplace_back(SignalPath()); return _signalPaths.size() - 1; }
         SignalPath & signalPath(IndexType idx) { return _signalPaths.at(idx); }
         const SignalPath & signalPath(IndexType idx) const { return _signalPaths.at(idx); }
+        /// @brief split the signal path to seperate the sym pairs
+        void splitSignalPathsBySymPairs();
         /// @brief add a new pin to a signal path
         /// @param first: the index of signal path
         /// @param second: the name of cell

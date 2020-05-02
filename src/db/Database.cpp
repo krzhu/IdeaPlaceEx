@@ -225,4 +225,53 @@ void Database::drawCellBlocks(const std::string &filename)
 }
 
 #endif //DEBUG_DRAW
+
+void Database::splitSignalPathsBySymPairs()
+{
+    for (IndexType pathIdx = 0; pathIdx < this->vSignalPaths().size(); ++pathIdx)
+    {
+        auto &path = this->vSignalPaths().at(pathIdx);
+        // since the automatic generated current flow could include both sides of differential pair, we need to split the path is seen such scenario
+        std::set<IndexType> symCells; // The other side of cells of the cells have been seen in this path
+        auto judgeCellIdx = [&](IndexType cellIdx)
+        {
+            DBG("in lambda \n");
+            if (symCells.find(cellIdx) != symCells.end())
+            {
+                symCells.clear();
+                return false;
+            }
+            if (this->cell(cellIdx).hasSymPair())
+            {
+                symCells.insert(this->cell(cellIdx).symNetIdx());
+            }
+            return true;
+        };
+        bool needBreak = false;
+        IndexType breakIdx = 0;
+        for (IndexType idx = 0; idx < path.vPinIdxArray().size(); ++idx)
+        {
+            const IndexType pinIdx = path.vPinIdxArray().at(idx);   const auto &pin = this->pin(pinIdx); const IndexType cellIdx = pin.cellIdx();
+            if (not judgeCellIdx(cellIdx))
+            {
+                needBreak = true;
+                breakIdx = idx;
+                break;
+            }
+        }
+        if (needBreak)
+        {
+            // Split the parts after breakIdx into a new path
+            auto newPathIdx = this->allocateSignalPath();
+            this->signalPath(newPathIdx).copySettings(this->signalPath(pathIdx));
+            // copy the pins to the new path and erase from the original
+            for (IndexType idx = breakIdx; idx < this->signalPath(pathIdx).vPinIdxArray().size(); ++idx)
+            {
+                auto tempPath = this->signalPath(pathIdx);
+                this->signalPath(newPathIdx).addPinIdx(this->signalPath(pathIdx).vPinIdxArray().at(idx));
+            }
+            this->signalPath(pathIdx).vPinIdxArray().erase(this->signalPath(pathIdx).vPinIdxArray().begin() + breakIdx, this->signalPath(pathIdx).vPinIdxArray().end());
+        }
+    }
+}
 PROJECT_NAMESPACE_END

@@ -10,11 +10,13 @@ SigPathMgr::SigPathMgr(Database &db)
 
 void SigPathMgr::decomposeSignalPaths()
 {
-    for (const auto &path : _db.vSignalPaths())
+    for (IndexType pathIdx = 0; pathIdx < _db.vSignalPaths().size(); ++pathIdx)
     {
+        const auto &path = _db.vSignalPaths().at(pathIdx);
         _segByPath.emplace_back(std::vector<SigPathSeg>());
         _currentFlowRemainingTwoPinSegs.emplace_back(std::vector<SigPathTwoPinSeg>());
-        for (IndexType idx = 0; idx < path.vPinIdxArray().size() - 3; ++idx)
+        // since the automatic generated current flow could include both sides of differential pair, we need to split the path is seen such scenario
+        for (IntType idx = 0; idx < static_cast<IntType>(path.vPinIdxArray().size()) - 3; ++idx)
         {
             const IndexType pinIdx1 = path.vPinIdxArray().at(idx);   const auto &pin1 = _db.pin(pinIdx1); const IndexType cellIdx1 = pin1.cellIdx();
             const IndexType pinIdx2 = path.vPinIdxArray().at(idx+1); const auto &pin2 = _db.pin(pinIdx2); const IndexType cellIdx2 = pin2.cellIdx();
@@ -30,7 +32,7 @@ void SigPathMgr::decomposeSignalPaths()
                 // valid segment
                 _segs.emplace_back(SigPathSeg(pinIdx1, pinIdx2, pinIdx3, pinIdx4));
                 _segByPath.back().emplace_back(SigPathSeg(pinIdx1, pinIdx2, pinIdx3, pinIdx4));
-                DBG("SigPathMgr: add cell %d %s  pin %d %s-> cell %d %s pin %d %s -> cell %d %s pin %d %s -> cell %d %s -< pin %d  %s\n",
+                DBG("SigPathMgr: add cell %d %s  pin %d %s-> cell %d %s pin %d %s -> cell %d %s pin %d %s -> cell %d %s -> pin %d  %s\n",
                         cellIdx1, _db.cell(cellIdx1).name().c_str(), pinIdx1, _db.pin(pinIdx1).name().c_str(),
                         cellIdx2, _db.cell(cellIdx2).name().c_str(), pinIdx2, _db.pin(pinIdx2).name().c_str(),
                         cellIdx3, _db.cell(cellIdx3).name().c_str(), pinIdx3, _db.pin(pinIdx3).name().c_str(),
@@ -44,6 +46,10 @@ void SigPathMgr::decomposeSignalPaths()
             const IndexType pinIdx2 = path.vPinIdxArray().at(1); const auto &pin2 = _db.pin(pinIdx2); const IndexType cellIdx2 = pin2.cellIdx();
             if (cellIdx1 != cellIdx2)
             {
+                DBG("SigPathMgr: add cell %d %s  pin %d %s-> cell %d %s pin %d %s \n",
+                        cellIdx1, _db.cell(cellIdx1).name().c_str(), pinIdx1, _db.pin(pinIdx1).name().c_str(),
+                        cellIdx2, _db.cell(cellIdx2).name().c_str(), pinIdx2, _db.pin(pinIdx2).name().c_str());
+            }
                 _currentFlowRemainingTwoPinSegs.back().emplace_back(SigPathTwoPinSeg(cellIdx1, cellIdx2));
             }
         }

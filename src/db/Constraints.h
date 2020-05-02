@@ -116,6 +116,11 @@ class SignalPath
         void addPinIdx(IndexType pinIdx) { _pinIdxArray.emplace_back(pinIdx); }
         void markAsPower() { _isPower = true; }
         BoolType isPower() const { return _isPower; }
+        /// @brief copy the settings of another SigalPath
+        void copySettings(const SignalPath & other)
+        {
+            this->_isPower = other._isPower;
+        }
     private:
         std::vector<IndexType> _pinIdxArray; ///< The indices of pins composing the path
         BoolType _isPower = false;

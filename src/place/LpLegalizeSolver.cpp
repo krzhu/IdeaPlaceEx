@@ -111,8 +111,7 @@ void LpLegalizeSolver::addSymObj()
     {
         for (IndexType symGrpIdx = 0; symGrpIdx < _symRexLeft.size(); ++symGrpIdx)
         {
-            _obj += _largeNum * _symRexRight.at(symGrpIdx);
-            _obj += - _largeNum * _symRexLeft.at(symGrpIdx);
+            _obj += _largeNum * (_symRexRight.at(symGrpIdx) - _symRexLeft.at(symGrpIdx));
         }
     }
     else
@@ -131,8 +130,7 @@ void LpLegalizeSolver::addSymObj()
                     std::swap(tCellIdx, bCellIdx);
                 }
                 //  + M *( y_t - y_b)
-                _obj += _largeNum * _locs.at(tCellIdx);
-                _obj += -_largeNum * _locs.at(bCellIdx);
+                _obj += _largeNum * (_locs.at(tCellIdx) - _locs.at(bCellIdx));
             }
         }
     }
@@ -280,6 +278,7 @@ void LpLegalizeSolver::addBoundaryConstraints()
 #endif
                 lp_trait::addConstr(_solver, _locs.at(i) <= _wStar + _db.parameters().layoutOffset() - _db.cell(i).cellBBox().yLen());
             }
+            lp_trait::addConstr(_solver, _locs.at(i) >= + _db.parameters().layoutOffset());
         }
         else // if (_optArea == 0)
         {
@@ -366,6 +365,7 @@ void LpLegalizeSolver::addSymmetryConstraintsRex()
                 leftSymLoc = & _symRexLeft.at(0);
                 rightSymLoc = & _symRexRight.at(0);
             }
+            lp_trait::addConstr(_solver, *rightSymLoc - *leftSymLoc >= 0);
             for (IndexType symPairIdx = 0; symPairIdx < symGroup.numSymPairs(); ++symPairIdx)
             {
                 const auto &symPair = symGroup.symPair(symPairIdx);
@@ -516,6 +516,7 @@ void LpLegalizeSolver::addHpwlConstraints()
                             - _locs.at(pin.cellIdx()) 
                             >=  loc);
                 }
+                lp_trait::addConstr(_solver, _wlR.at(netIdx) - _wlL.at(netIdx) >= 0);
             }
             // Wirelength with virtual pin
             if (net.isValidVirtualPin())
