@@ -854,7 +854,6 @@ struct PowerVerQuadraticWireLengthDifferentiable
         _validVirtualPin = 1; 
         _virtualPinX = x;
         _virtualPinY = y;
-        DBG("set virtualPin \n");
     }
     void removeVirtualPin() { _validVirtualPin = 0; }
     void addVar(IndexType cellIdx, const CoordType &offsetX, const CoordType &offsetY)
@@ -929,6 +928,82 @@ struct is_placement_differentiable_concept<PowerVerQuadraticWireLengthDifferenti
 {
     typedef std::true_type  is_placement_differentiable_concept_type;
 };
+
+
+/// @brief Each individual operator includes three cells and hence the two vectors they compose
+template<typename NumType, typename CoordType>
+struct CurrentFlowDifferentiable
+{
+    typedef NumType numerical_type;
+    typedef CoordType coordinate_type;
+
+    CurrentFlowDifferentiable(
+            IndexType sCellIdx, const CoordType sOffset,
+            IndexType tCellIdx, const CoordType tOffset,
+            const std::function<NumType(void)> &getLambdaFunc)
+        : _sCellIdx(sCellIdx),
+          _tCellIdx(tCellIdx), 
+          _getLambdaFunc(getLambdaFunc)
+        {
+            _sOffset =  op::conv<NumType>(sOffset);
+            _tOffset =  op::conv<NumType>(tOffset);
+        }
+    
+
+
+    void setGetVarFunc(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) { _getVarFunc = getVarFunc; }
+    void setAccumulateGradFunc(const std::function<void(NumType, IndexType, Orient2DType)> &func) { _accumulateGradFunc = func; }
+    void setGetAlphaFunc(const std::function<NumType(void)> &getAlphaFunc) { _getAlphaFunc = getAlphaFunc; }
+
+    NumType evaluate() const;
+    void accumlateGradient() const;
+
+    void setWeight(NumType weight) { _weight = weight; }
+
+    IndexType _sCellIdx = INDEX_TYPE_MAX; ///< Source
+    NumType _sOffset; ///< The offset for source y
+    IndexType _tCellIdx = INDEX_TYPE_MAX; ///< Target
+    NumType _tOffset; ///< The offset for target y
+    std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
+    std::function<CoordType(IndexType cellIdx, Orient2DType orient)> _getVarFunc; ///< A function to get current variable value
+    std::function<void(NumType, IndexType, Orient2DType)> _accumulateGradFunc; ///< A function to update partial
+    NumType _weight = 1.0;
+    std::function<NumType(void)> _getAlphaFunc;
+};
+template<typename NumType, typename CoordType>
+inline NumType CurrentFlowDifferentiable<NumType, CoordType>::evaluate() const
+{
+    const NumType lambda = _getLambdaFunc();
+    const NumType alpha = _getAlphaFunc();
+    const NumType y1 = op::conv<NumType>(_getVarFunc(_sCellIdx, Orient2DType::VERTICAL));
+    const NumType y2 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::VERTICAL));
+    const NumType oy1 = _sOffset;
+    const NumType oy2 = _tOffset;
+
+    return alpha*std::log(std::exp(-(oy1 - oy2 + y1 - y2)/alpha) + 1) * lambda * _weight;
+}
+
+template<typename NumType, typename CoordType>
+inline void CurrentFlowDifferentiable<NumType, CoordType>::accumlateGradient() const
+{
+    const NumType lambda = _getLambdaFunc();
+    const NumType alpha = _getAlphaFunc();
+    const NumType y1 = op::conv<NumType>(_getVarFunc(_sCellIdx, Orient2DType::VERTICAL));
+    const NumType y2 = op::conv<NumType>(_getVarFunc(_tCellIdx, Orient2DType::VERTICAL));
+    const NumType oy1 = _sOffset;
+    const NumType oy2 = _tOffset;
+
+
+    NumType dy1 = - std::exp(-(oy1 - oy2 + y1 - y2)/alpha)/(std::exp(-(oy1 - oy2 + y1 - y2)/alpha) + 1);
+;
+    dy1 *= (lambda * _weight);
+
+    NumType dy2 = std::exp(-(oy1 - oy2 + y1 - y2)/alpha)/(std::exp(-(oy1 - oy2 + y1 - y2)/alpha) + 1);
+    dy2 *= (lambda * _weight);
+
+    _accumulateGradFunc(dy1 * _weight, _sCellIdx, Orient2DType::VERTICAL);
+    _accumulateGradFunc(dy2 * _weight, _tCellIdx, Orient2DType::VERTICAL);
+}
 
 } //namespace diff
 

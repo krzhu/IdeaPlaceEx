@@ -49,7 +49,6 @@ void SigPathMgr::decomposeSignalPaths()
                 DBG("SigPathMgr: add cell %d %s  pin %d %s-> cell %d %s pin %d %s \n",
                         cellIdx1, _db.cell(cellIdx1).name().c_str(), pinIdx1, _db.pin(pinIdx1).name().c_str(),
                         cellIdx2, _db.cell(cellIdx2).name().c_str(), pinIdx2, _db.pin(pinIdx2).name().c_str());
-            }
                 _currentFlowRemainingTwoPinSegs.back().emplace_back(SigPathTwoPinSeg(cellIdx1, cellIdx2));
             }
         }

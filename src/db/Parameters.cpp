@@ -11,5 +11,8 @@ Parameters::Parameters()
     _layoutOffset = 1000; ///< The default offset for the placement
     _defaultAspectRatio = 1.2;
     _maxWhiteSpace = 2;
+    _defaultSignalFlowWeight = 10;
+    _defaultCurrentFlowWeight = 0.5;
+    _defaultRelativeRatioOfPowerNet = 0.2;
 }
 PROJECT_NAMESPACE_END

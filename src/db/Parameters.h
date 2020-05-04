@@ -65,6 +65,12 @@ class Parameters
         RealType defaultAspectRatio() const { return _defaultAspectRatio; }
         /// @brief get the default max white space
         RealType maxWhiteSpace() const { return _maxWhiteSpace; }
+        /// @brief get the default signal flow operator weight
+        RealType defaultSignalFlowWeight() const { return _defaultSignalFlowWeight; }
+        /// @brief get the default current flow operator weight
+        RealType defaultCurrentFlowWeight() const { return _defaultCurrentFlowWeight; }
+        /// @@brief get the  weighing ratio of power to regular net
+        RealType defaultRelativeRatioOfPowerNet() const { return _defaultRelativeRatioOfPowerNet; }
     private:
         Box<LocType> _boundaryConstraint = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
         bool _ifUsePinAssignment; ///< If do pin assignment
@@ -75,6 +81,9 @@ class Parameters
         LocType _layoutOffset; ///< The default offset for the placement
         RealType _defaultAspectRatio; ///< The defaut aspect ratio for global placement
         RealType _maxWhiteSpace; ///< The default maximum white space target
+        RealType _defaultSignalFlowWeight; ///< The default weight for signal flow operators
+        RealType _defaultCurrentFlowWeight; ///< The default weight for current flow operators
+        RealType _defaultRelativeRatioOfPowerNet; ///< The weighing ratio of power to regular net
 
 };
 

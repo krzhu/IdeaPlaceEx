@@ -39,6 +39,8 @@ namespace nlp
                 static constexpr nlp_numerical_type beta2 = 0.999;
                 static constexpr nlp_numerical_type epsilon = 1e-8;
 
+                static constexpr nlp_numerical_type naiveGradientDescentStepSize = 0.001;
+
             };
             /// @brief nesterov accelerated gradient
             template<typename converge_criteria_type, typename nlp_numerical_type>
@@ -60,14 +62,16 @@ namespace nlp
             static void optimize(nlp_type &n, optm_type &o)
             {
                 converge_trait::clear(o._converge);
+                IndexType iter = 0;
                 do 
                 {
                     n.calcGrad();
                     n._pl -= optm_type::_stepSize * n._grad;
-                    n.calcObj();
-                    DBG("norm %f \n", n._gradOvl.norm());
-                    DBG("naive gradiend descent: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
+                    ++iter;
                 } while (!converge_trait::stopCriteria(n, o, o._converge) );
+                DBG("naive gradient decesent: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
+                DBG("gradient norm %f \n", n._grad.norm());
+                DBG("converge at iter %d \n", iter);
             }
         };
         template<typename converge_criteria_type, typename nlp_numerical_type>
@@ -94,7 +98,14 @@ namespace nlp
                     auto mt = m / (1 - pow(o.beta1, iter));
                     auto vt = v / (1 - pow(o.beta2, iter));
                     auto bot = vt.array().sqrt() + o.epsilon;
-                    n._pl = n._pl - o.alpha * ( mt.array() / bot).matrix();
+                    if (iter > 1000)
+                    {
+                        n._pl = n._pl - o.alpha * ( mt.array() / bot).matrix();
+                    }
+                    else
+                    {
+                        n._pl -= optm_type::naiveGradientDescentStepSize * n._grad;
+                    }
                     //n.calcObj();
                     //DBG("norm %f \n", n._grad.norm());
                     //DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);

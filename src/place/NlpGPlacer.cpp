@@ -309,42 +309,18 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
     }
     // Signal path
     SigPathMgr pathMgr(_db);
-#if 0
-    for (const auto &seg : pathMgr.vSegList())
-    {
-        IndexType sPinIdx = seg.beginPinFirstSeg();
-        IndexType midPinIdxA = seg.endPinFirstSeg();
-        IndexType midPinIdxB = seg.beginPinSecondSeg();
-        IndexType tPinIdx = seg.endPinSecondSeg();
-
-        const auto &sPin = _db.pin(sPinIdx);
-        IndexType sCellIdx = sPin.cellIdx();
-        const auto &mPinA = _db.pin(midPinIdxA);
-        IndexType mCellIdx = mPinA.cellIdx();
-        const auto &tPin = _db.pin(tPinIdx);
-        IndexType tCellIdx = tPin.cellIdx();
-
-        auto sOffset = calculatePinOffset(sPinIdx);
-        auto midOffsetA = calculatePinOffset(midPinIdxA);
-        auto midOffsetB = calculatePinOffset(midPinIdxB);
-        auto tOffset = calculatePinOffset(tPinIdx);
-        _cosOps.emplace_back(sCellIdx, sOffset,
-                mCellIdx, midOffsetA, midOffsetB,
-                tCellIdx, tOffset,
-                getLambdaFuncCosine);
-        _cosOps.back().setGetVarFunc(getVarFunc);
-    }
-#else
     for (IndexType pathIdx = 0; pathIdx < pathMgr.vvSegList().size(); ++pathIdx)
     {
+        if (_db.signalPath(pathIdx).isPower()) { continue; }
         const auto &path = pathMgr.vvSegList().at(pathIdx);
         for (IndexType i = 0; i < path.size(); ++i)
         {
             for (IndexType j = i; j < path.size(); ++j)
             {
+                IndexType midOfIJ = (i + j) / 2;
                 IndexType sPinIdx = path[i].beginPinFirstSeg();
-                IndexType midPinIdxA = path[i].endPinFirstSeg();
-                IndexType midPinIdxB = path[i].beginPinSecondSeg();
+                IndexType midPinIdxA = path[midOfIJ].endPinFirstSeg();
+                IndexType midPinIdxB = path[midOfIJ].beginPinSecondSeg();
                 IndexType tPinIdx = path[j].endPinSecondSeg();
 
                 const auto &sPin = _db.pin(sPinIdx);
@@ -367,15 +343,52 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                         tCellIdx, tOffset,
                         getLambdaFuncCosine);
                 _cosOps.back().setGetVarFunc(getVarFunc);
-                if (_db.signalPath(pathIdx).isPower())
-                {
-                    _cosOps.back().setWeight(0.5);
-                }
-                else
-                {
-                    _cosOps.back().setWeight(5);
-                }
+                _cosOps.back().setWeight(_db.parameters().defaultSignalFlowWeight());
             }
+        }
+    }
+    DBG("start current flow \n");
+    // Current flow
+    for (IndexType pathIdx = 0; pathIdx < pathMgr.vvSegList().size(); ++pathIdx)
+    {
+        if (not _db.signalPath(pathIdx).isPower()) { continue; }
+        const auto &path = pathMgr.vvSegList().at(pathIdx);
+        for (IndexType i = 0; i < path.size(); ++i)
+        {
+            IndexType sPinIdx = path[i].beginPinFirstSeg();
+            IndexType midPinIdxA = path[i].endPinFirstSeg();
+            IndexType midPinIdxB = path[i].beginPinSecondSeg();
+            IndexType tPinIdx = path[i].endPinSecondSeg();
+
+            const auto &sPin = _db.pin(sPinIdx);
+            IndexType sCellIdx = sPin.cellIdx();
+            const auto &mPinA = _db.pin(midPinIdxA);
+            IndexType mCellIdx = mPinA.cellIdx();
+            const auto &tPin = _db.pin(tPinIdx);
+            IndexType tCellIdx = tPin.cellIdx();
+
+            auto sOffset = calculatePinOffset(sPinIdx);
+            auto midOffsetA = calculatePinOffset(midPinIdxA);
+            auto midOffsetB = calculatePinOffset(midPinIdxB);
+            auto tOffset = calculatePinOffset(tPinIdx);
+            DBG("NlpGPlacer:: add current cell %s -> cell %s \n",
+                    _db.cell(sCellIdx).name().c_str(), 
+                    _db.cell(mCellIdx).name().c_str());
+            _crfOps.emplace_back(sCellIdx, sOffset.y(),
+                    mCellIdx, midOffsetA.y(),
+                    getLambdaFuncCosine);
+            _crfOps.back().setGetVarFunc(getVarFunc);
+            _crfOps.back().setGetAlphaFunc(getAlphaFunc);
+            _crfOps.back().setWeight(_db.parameters().defaultCurrentFlowWeight());
+            DBG("NlpGPlacer:: add current cell %s -> cell %s \n",
+                    _db.cell(mCellIdx).name().c_str(),
+                    _db.cell(tCellIdx).name().c_str());
+            _crfOps.emplace_back(mCellIdx, midOffsetB.y(),
+                    tCellIdx, tOffset.y(),
+                    getLambdaFuncCosine);
+            _crfOps.back().setGetVarFunc(getVarFunc);
+            _crfOps.back().setGetAlphaFunc(getAlphaFunc);
+            _crfOps.back().setWeight(_db.parameters().defaultCurrentFlowWeight());
         }
         // Process the current flow path with only two pin. Add a grond pin as ending.
         for (const auto &twoPinSeg : pathMgr.currentFlowRemainingTwoPinSegs().at(pathIdx))
@@ -390,18 +403,17 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
 
             auto sOffset = calculatePinOffset(sPinIdx);
             auto tOffset = calculatePinOffset(tPinIdx);
-            _cosOps.emplace_back(sCellIdx, sOffset,
-                    tCellIdx, tOffset, tOffset,
+            DBG("NlpGPlacer:: add current cell %s -> cell %s \n",
+                    _db.cell(sCellIdx).name().c_str(),
+                    _db.cell(tCellIdx).name().c_str());
+            _crfOps.emplace_back(sCellIdx, sOffset.y(),
+                    tCellIdx, tOffset.y(),
                     getLambdaFuncCosine);
-            _cosOps.back().markTwoPin();
-            _cosOps.back().setGetVarFunc(getVarFunc);
-            if (_db.signalPath(pathIdx).isPower())
-            {
-                _cosOps.back().setWeight(0.1);
-            }
+            _crfOps.back().setGetVarFunc(getVarFunc);
+            _crfOps.back().setGetAlphaFunc(getAlphaFunc);
+            _crfOps.back().setWeight(_db.parameters().defaultCurrentFlowWeight());
         }
     }
-#endif
     // power wirelength
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
@@ -412,7 +424,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         }
         _powerWlOps.emplace_back(nlp_power_wl_type(getLambdaFuncHpwl));
         auto &op = _powerWlOps.back();
-        op.setWeight(net.weight() / 5);
+        op.setWeight(net.weight() * _db.parameters().defaultRelativeRatioOfPowerNet());
         for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
         {
             // Get the pin location referenced to the cell
@@ -422,9 +434,9 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         }
         op.setGetVarFunc(getVarFunc);
     }
-    INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob %d asym %d sigFlow %d power %d \n", 
-    _hpwlOps.size()+ _ovlOps.size()+ _oobOps.size()+ _asymOps.size()+ _cosOps.size()+ _powerWlOps.size(),
-            _hpwlOps.size(), _ovlOps.size(), _oobOps.size(), _asymOps.size(), _cosOps.size(), _powerWlOps.size());
+    INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob %d asym %d sigFlow %d power %d crf \n", 
+    _hpwlOps.size()+ _ovlOps.size()+ _oobOps.size()+ _asymOps.size()+ _cosOps.size()+ _powerWlOps.size() + _crfOps.size(),
+            _hpwlOps.size(), _ovlOps.size(), _oobOps.size(), _asymOps.size(), _cosOps.size(), _powerWlOps.size(), _crfOps.size());
 }
 
 template<typename nlp_settings>
@@ -522,6 +534,11 @@ void NlpGPlacerBase<nlp_settings>::constructObjectiveCalculationTasks()
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_power_wl_type>::evaluate(wl);};
         _evaCosTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
+    for (const auto &op : _crfOps)
+    {
+        auto eva = [&]() { return diff::placement_differentiable_traits<nlp_crf_type>::evaluate(op);};
+        _evaCosTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
+    }
 }
 
 template<typename nlp_settings>
@@ -581,6 +598,15 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
         }
     };
     _sumObjPowerWlTask = Task<FuncTask>(FuncTask(powerWl));
+    auto crf = [&]()
+    {
+        _objCrf = 0.0;
+        for (const auto &eva : _evaCrfTasks)
+        {
+            _objCrf += eva.taskData().obj();
+        }
+    };
+    _sumObjCrfTask = Task<FuncTask>(FuncTask(crf));
     auto all = [&]()
     {
         _obj = 0.0;
@@ -590,6 +616,7 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
         _obj += _objAsym;
         _obj += _objCos;
         _obj += _objPowerWl;
+        _obj += _objCrf;
     };
     _sumObjAllTask = Task<FuncTask>(FuncTask(all));
 }
@@ -658,6 +685,16 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _sumObjPowerWlTask.run();
     };
     _wrapObjPowerWlTask = Task<FuncTask>(FuncTask(power));
+    auto crf = [&]()
+    {
+        #pragma omp parallel for schedule(static)
+        for (IndexType idx = 0; idx < _evaCrfTasks.size(); ++idx)
+        {
+            _evaCrfTasks[idx].run();
+        }
+        _sumObjCrfTask.run();
+    };
+    _wrapObjCrfTask = Task<FuncTask>(FuncTask(crf));
     auto all = [&]()
     {
         _wrapObjHpwlTask.run();
@@ -666,86 +703,12 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _wrapObjAsymTask.run();
         _wrapObjCosTask.run();
         _wrapObjPowerWlTask.run();
+        _wrapObjCrfTask.run();
         _sumObjAllTask.run();
     };
     _wrapObjAllTask = Task<FuncTask>(FuncTask(all));
 }
 #endif //DEBUG_SINGLE_THREAD_GP
-
-#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
-
-template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::regEvaHpwlTaskflow(tf::Taskflow &tfFlow)
-{
-    _sumObjHpwlTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < _hpwlOps.size(); ++idx)
-    {
-        _evaHpwlTasks[idx].regTask(tfFlow);
-        _evaHpwlTasks[idx].precede(_sumObjHpwlTask);
-    }
-}
-
-template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::regEvaOvlTaskflow(tf::Taskflow &tfFlow)
-{
-    _sumObjOvlTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < _ovlOps.size(); ++idx)
-    {
-        _evaOvlTasks[idx].regTask(tfFlow);
-        _evaOvlTasks[idx].precede(_sumObjOvlTask);
-    }
-}
-
-template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::regEvaOobTaskflow(tf::Taskflow &tfFlow)
-{
-    _sumObjOobTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < _oobOps.size(); ++idx)
-    {
-        _evaOobTasks[idx].regTask(tfFlow);
-        _evaOobTasks[idx].precede(_sumObjOobTask);
-    }
-}
-
-template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::regEvaAsymTaskflow(tf::Taskflow &tfFlow)
-{
-    _sumObjAsymTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < _asymOps.size(); ++idx)
-    {
-        _evaAsymTasks[idx].regTask(tfFlow);
-        _evaAsymTasks[idx].precede(_sumObjAsymTask);
-    }
-}
-
-template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::regEvaCosTaskflow(tf::Taskflow &tfFlow)
-{
-    _sumObjCosTask.regTask(tfFlow);
-    for (IndexType idx = 0; idx < _cosOps.size(); ++idx)
-    {
-        _evaCosTasks[idx].regTask(tfFlow);
-        _evaCosTasks[idx].precede(_sumObjCosTask);
-    }
-}
-
-template<typename nlp_settings>
-void NlpGPlacerBase<nlp_settings>::regEvaAllObjTaskflow(tf::Taskflow &tfFlow)
-{
-    _sumObjAllTask.regTask(tfFlow);
-    this->regEvaHpwlTaskflow(tfFlow);
-    this->regEvaOvlTaskflow(tfFlow);
-    this->regEvaOobTaskflow(tfFlow);
-    this->regEvaAsymTaskflow(tfFlow);
-    this->regEvaCosTaskflow(tfFlow);
-    _sumObjHpwlTask.precede(_sumObjAllTask);
-    _sumObjOvlTask.precede(_sumObjAllTask);
-    _sumObjOobTask.precede(_sumObjAllTask);
-    _sumObjAsymTask.precede(_sumObjAllTask);
-    _sumObjCosTask.precede(_sumObjAllTask);
-}
-
-#endif //IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
 
 /* FirstOrder */
 
@@ -816,6 +779,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::initFirstOrderGrad()
     _gradAsym.resize(size);
     _gradCos.resize(size);
     _gradPowerWl.resize(size);
+    _gradCrf.resize(size);
 }
 
 template<typename nlp_settings>
@@ -844,6 +808,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
     using Asym = CalculateOperatorPartialTask<nlp_asym_type, EigenVector>;
     using Cos = CalculateOperatorPartialTask<nlp_cos_type, EigenVector>;
     using Pwl = CalculateOperatorPartialTask<nlp_power_wl_type, EigenVector>;
+    using Crf = CalculateOperatorPartialTask<nlp_crf_type, EigenVector>;
     for (auto &hpwlOp : this->_hpwlOps)
     {
         _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
@@ -868,6 +833,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
     {
         _calcPowerWlPartialTasks.emplace_back(Task<Pwl>(&pwlOp));
     }
+    for (auto &crfOp : this->_crfOps)
+    {
+        _calcCrfPartialTasks.emplace_back(Task<Crf>(&crfOp));
+    }
 }
 
 template<typename nlp_settings>
@@ -879,6 +848,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
     using Asym = UpdateGradientFromPartialTask<nlp_asym_type, EigenVector>;
     using Cos = UpdateGradientFromPartialTask<nlp_cos_type, EigenVector>;
     using Pwl = UpdateGradientFromPartialTask<nlp_power_wl_type, EigenVector>;
+    using Crf = UpdateGradientFromPartialTask<nlp_crf_type, EigenVector>;
     auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return this->plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
     for (auto &hpwl : _calcHpwlPartialTasks)
     {
@@ -904,6 +874,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
     {
         _updatePowerWlPartialTasks.emplace_back(Task<Pwl>(Pwl(pwl.taskDataPtr(), &_gradPowerWl, getIdxFunc)));
     }
+    for (auto &crf : _calcCrfPartialTasks)
+    {
+        _updateCrfPartialTasks.emplace_back(Task<Crf>(Crf(crf.taskDataPtr(), &_gradCrf, getIdxFunc)));
+    }
 }
 
 template<typename nlp_settings>
@@ -916,6 +890,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructClearGradTasks()
     _clearAsymGradTask = Task<FuncTask>(FuncTask([&]() { _gradAsym.setZero(); }));
     _clearCosGradTask = Task<FuncTask>(FuncTask([&]() { _gradCos.setZero(); }));
     _clearPowerWlGradTask = Task<FuncTask>(FuncTask([&]() { _gradPowerWl.setZero(); }));
+    _clearCrfGradTask = Task<FuncTask>(FuncTask([&]() { _gradCrf.setZero(); }));
 }
 
 template<typename nlp_settings>
@@ -927,7 +902,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask()
     _sumAsymGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateAsymPartialTasks){ upd.run(); }}));
     _sumCosGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateCosPartialTasks){ upd.run(); }}));
     _sumPowerWlTaskGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updatePowerWlPartialTasks){ upd.run(); }}));
-    _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos + _gradPowerWl; }));
+    _sumCrfGradTask = Task<FuncTask>(FuncTask([&]() { for (auto &upd : _updateCrfPartialTasks) {upd.run(); }}));
+    _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos + _gradPowerWl + _gradCrf; }));
 }
 
 template<typename nlp_settings>
@@ -942,6 +918,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         _clearAsymGradTask.run();
         _clearCosGradTask.run();
         _clearPowerWlGradTask.run();
+        _clearCrfGradTask.run();
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcHpwlPartialTasks.size(); ++i ) { _calcHpwlPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updateHpwlPartialTasks.size(); ++i ) { _updateHpwlPartialTasks[i].run(); }
@@ -960,6 +937,9 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcPowerWlPartialTasks.size(); ++i ) { _calcPowerWlPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updatePowerWlPartialTasks.size(); ++i ) { _updatePowerWlPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcCrfPartialTasks.size(); ++i ) { _calcCrfPartialTasks[i].run(); }
+        for (IndexType i = 0; i < _updateCrfPartialTasks.size(); ++i ) { _updateCrfPartialTasks[i].run(); }
         _sumGradTask.run();
     };
     _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGradLambda));

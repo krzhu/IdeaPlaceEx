@@ -235,7 +235,6 @@ void Database::splitSignalPathsBySymPairs()
         std::set<IndexType> symCells; // The other side of cells of the cells have been seen in this path
         auto judgeCellIdx = [&](IndexType cellIdx)
         {
-            DBG("in lambda \n");
             if (symCells.find(cellIdx) != symCells.end())
             {
                 symCells.clear();
