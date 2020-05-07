@@ -9,11 +9,15 @@ using namespace nt;
 template<typename nlp_settings>
 IntType NlpGPlacerBase<nlp_settings>::solve()
 {
+    auto stopWatch = WATCH_CREATE_NEW("NlpGPlacer");
+    stopWatch->start();
+    _calcObjStopWatch = WATCH_CREATE_NEW("GP_calculate_obj");
     this->initProblem();
     this->initPlace();
     this->initOperators();
     this->constructTasks();
     this->optimize();
+    stopWatch->stop();
     return 0;
 }
 
@@ -697,6 +701,7 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
     _wrapObjCrfTask = Task<FuncTask>(FuncTask(crf));
     auto all = [&]()
     {
+        _calcObjStopWatch->start();
         _wrapObjHpwlTask.run();
         _wrapObjOvlTask.run();
         _wrapObjOobTask.run();
@@ -705,6 +710,7 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _wrapObjPowerWlTask.run();
         _wrapObjCrfTask.run();
         _sumObjAllTask.run();
+        _calcObjStopWatch->stop();
     };
     _wrapObjAllTask = Task<FuncTask>(FuncTask(all));
 }
@@ -715,7 +721,10 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::optimize()
 {
-    WATCH_QUICK_START();
+    _optimizerKernelStopWatch = WATCH_CREATE_NEW("GP_optimizer_kernel");
+    auto optimizeStopWatch = WATCH_CREATE_NEW("GP_optimize");
+    optimizeStopWatch->start();
+    auto updateProblemStopWatch = WATCH_CREATE_NEW("GP_update_problem");
     this->assignIoPins();
     // setting up the multipliers
     this->_wrapObjAllTask.run();
@@ -737,24 +746,23 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
     IntType iter = 0;
     do
     {
-        std::string debugGdsFilename  = "./debug/";
-        debugGdsFilename += "gp_iter_" + std::to_string(iter)+".gds";
-        base_type::drawCurrentLayout(debugGdsFilename);
         DBG("iter %d \n", iter);
+
         optm_trait::optimize(*this, optm);
+
+        updateProblemStopWatch->start();
         mult_trait::update(*this, multiplier);
         mult_trait::recordRaw(*this, multiplier);
         mult_adjust_trait::update(*this, multiplier, multAdjuster);
 
         alpha_update_trait::update(*this, alpha, alphaUpdate);
         this->assignIoPins();
+        updateProblemStopWatch->stop();
         
         DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
         ++iter;
     } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
-    auto end = WATCH_QUICK_END();
-    //std::cout<<"grad"<<"\n"<< _grad <<std::endl;
-    std::cout<<"time "<< end / 1000 <<" ms" <<std::endl;
+    optimizeStopWatch->stop();
     this->writeOut();
 }
 
@@ -909,8 +917,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask()
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
 {
+    _calcGradStopWatch = WATCH_CREATE_NEW("GP_calculate_gradient");
     auto calcGradLambda = [&]()
     {
+        _calcGradStopWatch->start();
         _clearGradTask.run();
         _clearHpwlGradTask.run();
         _clearOvlGradTask.run();
@@ -941,6 +951,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         for (IndexType i = 0; i < _calcCrfPartialTasks.size(); ++i ) { _calcCrfPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updateCrfPartialTasks.size(); ++i ) { _updateCrfPartialTasks[i].run(); }
         _sumGradTask.run();
+        _calcGradStopWatch->stop();
     };
     _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGradLambda));
 }

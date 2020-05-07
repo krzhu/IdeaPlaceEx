@@ -143,6 +143,8 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
 
 LocType IdeaPlaceEx::solve(LocType gridStep)
 {
+    auto stopWatch = WATCH_CREATE_NEW("IdeaPlaceEx");
+    stopWatch->start();
     omp_set_num_threads(_db.parameters().numThreads());
     // Start message printer timer
     MsgPrinter::startTimer();
@@ -208,10 +210,12 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
 #endif //DEBUG_DRAW
 #endif
 
+    stopWatch->stop();
+
     return symAxis;
 }
 
-bool IdeaPlaceEx::outputFileBased(int argc, char **argv)
+bool IdeaPlaceEx::outputFileBased(int , char **)
 {
     return true;
 }

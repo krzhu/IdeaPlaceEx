@@ -295,6 +295,8 @@ class NlpGPlacerBase
         std::vector<nlp_cos_type> _cosOps; ///< The signal flow operators
         std::vector<nlp_power_wl_type> _powerWlOps;
         std::vector<nlp_crf_type> _crfOps; ///< The current flow operators
+        /* run time */
+        std::unique_ptr<::klib::StopWatch> _calcObjStopWatch;
 };
 
 template<typename nlp_settings>
@@ -449,6 +451,9 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _sumCrfGradTask;
         // all the grads has been calculated but have not updated
         nt::Task<nt::FuncTask> _wrapCalcGradTask; ///<  calculating the gradient and sum them
+        /* run time */
+        std::unique_ptr<::klib::StopWatch> _calcGradStopWatch;
+        std::unique_ptr<::klib::StopWatch> _optimizerKernelStopWatch;
 };
 
 
@@ -657,7 +662,6 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
             {
                 std::string debugGdsFilename  = "./debug/";
                 debugGdsFilename += "gp_iter_" + std::to_string(iter)+".gds";
-                base_type::drawCurrentLayout(debugGdsFilename);
                 DBG("iter %d \n", iter);
                 optm_trait::optimize(*this, optm);
                 mult_trait::update(*this, multiplier);

@@ -13,11 +13,15 @@ bool CGLegalizer::legalize()
     //this->generateConstraints();
 
 
+    auto legalizationStopWath = WATCH_CREATE_NEW("legalization");
+    legalizationStopWath->start();
 
     this->generateHorConstraints();
     _wStar = lpLegalization(true);
     this->generateVerConstraints();
     _hStar = lpLegalization(false);
+    legalizationStopWath->stop();
+
     LocType xMin = LOC_TYPE_MAX;
     LocType xMax = LOC_TYPE_MIN;
     LocType yMin = LOC_TYPE_MAX;
@@ -33,6 +37,9 @@ bool CGLegalizer::legalize()
     _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
     _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
     //this->generateConstraints();
+    
+    auto dpStopWatch =  WATCH_CREATE_NEW("detailedPlacement");
+    dpStopWatch->start();
     if (_db.parameters().ifUsePinAssignment())
     {
         pinAssigner.solveFromDB();
@@ -40,13 +47,16 @@ bool CGLegalizer::legalize()
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
+        dpStopWatch->stop();
         return true;
     }
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
+        dpStopWatch->stop();
         return true;
     }
+    dpStopWatch->stop();
     return true;
 
     INF("CG Legalizer: legalization finished\n");

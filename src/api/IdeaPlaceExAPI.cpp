@@ -64,5 +64,15 @@ void initIdeaPlaceExAPI(py::module &m)
         .def("iopinY", &PROJECT_NAMESPACE::IdeaPlaceEx::iopinY, "Get the y coordinate of a net")
         .def("isIoPinVertical", &PROJECT_NAMESPACE::IdeaPlaceEx::isIopinVertical, "true if io pins are on top or bottom")
         .def("xCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::xCellLoc, "Get x coordinate of a cell location")
-        .def("yCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::yCellLoc, "Get y coordinate of a cell location");
+        .def("yCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::yCellLoc, "Get y coordinate of a cell location")
+        .def("runtimeIdeaPlaceEx", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeIdeaPlaceEx, "Get the runtime for the Ideaplace")
+        .def("runtimeGlobalPlace", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeGlobalPlace, "Get the time used for global placement")
+        .def("runtimeGlobalPlaceCalcObj", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeGlobalPlaceCalcObj, "Get the time used for calculating the objectives in global placement")
+        .def("runtimeGlobalPlaceCalcGrad", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeGlobalPlaceCalcGrad, "Get the time used for calculating the gradients in global placement")
+        .def("runtimeGlobalPlaceOptmKernel", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeGlobalPlaceOptmKernel, "Get the time used for optimizer kernel in the global placement")
+        .def("runtimeGlobalPlaceOptimize", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeGlobalPlaceOptimize, "Get the time used for global placement optimize routine")
+        .def("runtimeGlobalPlaceUpdateProblem", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeGlobalPlaceUpdateProblem, "Get the time used for updating the problem in gloobal placement")
+        .def("runtimeLegalization", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeLegalization, "Get the time used for legalization")
+        .def("runtimeDetailedPlacement", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeDetailedPlacement, "Get the time used for detailed placement")
+        ;
 }

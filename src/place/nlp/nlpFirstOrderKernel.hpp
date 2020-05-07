@@ -93,6 +93,9 @@ namespace nlp
                 {
                     ++iter;
                     n.calcGrad();
+
+                    n._optimizerKernelStopWatch->start();
+
                     m = o.beta1 * m + (1 - o.beta1) * n._grad;
                     v = o.beta2 * v + (1 - o.beta2) * n._grad.cwiseProduct(n._grad);
                     auto mt = m / (1 - pow(o.beta1, iter));
@@ -106,6 +109,8 @@ namespace nlp
                     {
                         n._pl -= optm_type::naiveGradientDescentStepSize * n._grad;
                     }
+
+                    n._optimizerKernelStopWatch->stop();
                     //n.calcObj();
                     //DBG("norm %f \n", n._grad.norm());
                     //DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
