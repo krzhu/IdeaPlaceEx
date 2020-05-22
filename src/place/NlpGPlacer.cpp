@@ -230,8 +230,8 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         IndexType cellIdx = pin.cellIdx();
         const auto &cell = _db.cell(cellIdx);
         // Get the cell location from the input arguments
-        XY<RealType> midLoc = XY<RealType>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-        XY<RealType> cellLoLoc = XY<RealType>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+        XY<nlp_coordinate_type> midLoc = XY<nlp_coordinate_type>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
+        XY<nlp_coordinate_type> cellLoLoc = XY<nlp_coordinate_type>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
         return midLoc - cellLoLoc;
     };
     // Hpwl

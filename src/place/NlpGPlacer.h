@@ -235,7 +235,7 @@ class NlpGPlacerBase
         /* NLP problem parameters */
         IndexType _numCells; ///< The number of cells
         RealType _alpha; ///< Used in LSE approximation hyperparameter
-        Box<RealType> _boundary; ///< The boundary constraint for the placement
+        Box<nlp_coordinate_type> _boundary; ///< The boundary constraint for the placement
         nlp_coordinate_type _scale = 0.01; /// The scale ratio between float optimization kernel coordinate and placement database coordinate unit
         nlp_coordinate_type _totalCellArea = 0; ///< The total cell area of the problem
         nlp_coordinate_type _defaultSymAxis = 0.0; ///< The default symmetric axis

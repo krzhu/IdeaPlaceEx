@@ -218,7 +218,7 @@ struct LseHpwlDifferentiable
         // avoid overflow
         for (IndexType i =0; i < 4; ++i)
         {
-            pMax[i] = std::max(pMax[i], 1e-8);
+            pMax[i] = std::max(pMax[i], op::conv<NumType>(1e-8));
         }
         for (IndexType pinIdx = 0; pinIdx < _cells.size(); ++pinIdx)
         {
@@ -391,8 +391,8 @@ struct place_overlap_trait
         const coordinate_type wj = ovl._cellWidthJ;
         const coordinate_type hj = ovl._cellHeightJ;
 
-        const auto overlapX = std::max(std::min(xi + wi, xj + wj) - std::max(xi, xj), 0.0);
-        const auto overlapY = std::max(std::min(yi + hi, yj + hj) - std::max(yi, yj), 0.0);
+        const auto overlapX = std::max(std::min(xi + wi, xj + wj) - std::max(xi, xj), op::conv<coordinate_type>(0.0));
+        const auto overlapY = std::max(std::min(yi + hi, yj + hj) - std::max(yi, yj), op::conv<coordinate_type>(0.0));
         return overlapX * overlapY;
     }
 };
@@ -521,8 +521,8 @@ struct place_out_of_boundary_trait
         const auto boxYHi = (*(oob._boundary)).yHi();
         const auto boxYLo = (*(oob._boundary)).yLo();
 
-        const auto overlapX = std::max(std::min(x + w, boxXHi) - std::max(x, boxXLo), 0.0);
-        const auto overlapY = std::max(std::min(y + h, boxYHi) - std::max(y, boxYLo), 0.0);
+        const auto overlapX = std::max(std::min(x + w, boxXHi) - std::max(x, boxXLo), op::conv<coordinate_type>(0.0));
+        const auto overlapY = std::max(std::min(y + h, boxYHi) - std::max(y, boxYLo), op::conv<coordinate_type>(0.0));
         return w*h - overlapX * overlapY;
     }
 };
