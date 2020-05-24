@@ -101,7 +101,9 @@ namespace nlp
                     oobArea +=  diff::place_out_of_boundary_trait<typename NlpType::nlp_oob_type>::oobArea(op);
                     if (oobArea > oobThreshold)
                     {
+#ifdef DEBUG_GR
                         DBG("fail on oob \n");
+#endif
                         return false;
                     }
                 }
@@ -113,12 +115,16 @@ namespace nlp
                     asymDist += diff::place_asym_trait<typename NlpType::nlp_asym_type>::asymDistanceNormalized(op);
                     if (asymDist > asymThreshold)
                     {
+#ifdef DEBUG_GR
                         DBG("fail on asym \n");
+#endif
                         return false;
                     }
                 }
 
+#ifdef DEBUG_GR
                 DBG("ovl area %f target %f \n oob area %f target %f \n asym dist %f target %f \n",  ovlArea, ovlThreshold, oobArea, oobThreshold, asymDist, asymThreshold);
+#endif
                 return true;
             }
         };
@@ -355,11 +361,13 @@ namespace nlp
                     {
                         mult._variedMults.at(3) = hpwlMultNormPenaltyRatio / maxPenaltyNorm;
                     }
+#ifdef DEBUG_GR
                     // crf
                     DBG("init mult: hpwl %f cos %f power wl %f \n",
                             mult._constMults[0], mult._constMults[1], mult._constMults[2]);
                     DBG("init mult: ovl %f oob %f asym %f current flow %f\n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._variedMults[3]);
+#endif
                 }
             };
         }; // namespace init
@@ -409,14 +417,18 @@ namespace nlp
                     const auto rawOob = nlp._objOob / mult._variedMults.at(1);
                     const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
                     const auto fViolate = rawOvl + rawOob + rawAsym;
+#ifdef DEBUG_GR
                     DBG("update mult: raw ovl %f oob %f asym %f total %f \n", rawOvl, rawOob, rawAsym, fViolate);
                     DBG("update mult:  before ovl %f oob %f asym %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+#endif
                     mult._variedMults.at(0) += update.penalty * (rawOvl / fViolate);
                     mult._variedMults.at(1) += update.penalty * (rawOob / fViolate);
                     mult._variedMults.at(2) += update.penalty * (rawAsym / fViolate);
+#ifdef DEBUG_GR
                     DBG("update mult: afterafter  ovl %f oob %f asym %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+#endif
                 }
             };
 
@@ -448,16 +460,20 @@ namespace nlp
                     const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
                     const auto rawCos = nlp._objCos / mult._constMults.at(1);
                     const auto rawCrf = nlp._objCrf / mult._variedMults.at(3);
+#ifdef DEBUG_GR
                     DBG("update mult: raw ovl %f oob %f asym %f cos %f powerWl %f current flow\n", rawOvl, rawOob, rawAsym, rawCos, nlp._objPowerWl, rawCrf);
                     DBG("update mult:  before ovl %f oob %f asym %f current flow %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._variedMults[3]);
+#endif
                     mult._variedMults.at(0) += update.stepSize * (rawOvl );
                     mult._variedMults.at(1) += update.stepSize * (rawOob );
                     mult._variedMults.at(2) += update.stepSize * (rawAsym );
                     mult._variedMults.at(3) += update.stepSize * (rawCrf );
                     mult._constMults.at(1) += update.stepSize * (rawCos);
+#ifdef DEBUG_GR
                     DBG("update mult: afterafter  ovl %f oob %f asym %f cos %f current flow %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._constMults[1], mult._variedMults[3]);
+#endif
                 }
             };
 
@@ -552,7 +568,9 @@ namespace nlp
                     mult._constMults.at(1) = u.ratio * cosMatch + (1 - u.ratio) * u.cosInitMult; 
                     mult._constMults.at(2) = u.ratio * powerWlMatch + (1 - u.ratio) * u.powerWlInitMult; 
                     u.decay();
+#ifdef DEBUG_GR
                     DBG("match_grad_const_multipliers: multipliers hpwl %f cos %f power wl %f \n", mult._constMults.at(0), mult._constMults.at(1), mult._constMults.at(2));
+#endif
                 }
             };
 
@@ -594,14 +612,18 @@ namespace nlp
                     const auto normalizedOvl = rawOvl * update.normalizeFactor.at(0);
                     const auto normalizedOob = rawOob * update.normalizeFactor.at(1);
                     const auto normalizedAsym = rawAsym  * update.normalizeFactor.at(2);
+#ifdef DEBUG_GR
                     DBG("update mult: raw ovl %f oob %f asym %f total %f \n", normalizedOvl, normalizedOob, normalizedAsym);
                     DBG("update mult:  before ovl %f oob %f asym %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+#endif
                     mult._variedMults.at(0) += update.stepSize * (normalizedOvl );
                     mult._variedMults.at(1) += update.stepSize * (normalizedOob );
                     mult._variedMults.at(2) += update.stepSize * (normalizedAsym );
+#ifdef DEBUG_GR
                     DBG("update mult: afterafter  ovl %f oob %f asym %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
+#endif
                 }
             };
 
@@ -767,7 +789,6 @@ namespace nlp
                     if (obj(nlp) < REAL_TYPE_TOL)
                     {
                         update.theConstant = -1;
-                        DBG("alpha idx %d size %d \n", alphaIdx, alpha._alpha.size());
                         alpha._alpha[alphaIdx] = update.alphaMax;
                         return;
                     }
@@ -788,8 +809,10 @@ namespace nlp
                         return;
                     }
                     alpha._alpha[alphaIdx] = std::exp(update.theConstant * obj(nlp)) + update.alphaMin - 1;
+#ifdef DEBUG_GR
                     DBG("new alpha idx %d %f \n", alphaIdx, alpha._alpha[alphaIdx]);
                     DBG("obj %f , the const %f \n", obj(nlp), update.theConstant);
+#endif 
                 }
 
             };
@@ -833,7 +856,6 @@ namespace nlp
                 { 
                     if (obj(nlp) < REAL_TYPE_TOL)
                     {
-                        DBG("alpha idx %d size %d \n", alphaIdx, alpha._alpha.size());
                         alpha._alpha[alphaIdx] = update.alphaMax;
                         return;
                     }
@@ -858,7 +880,9 @@ namespace nlp
                         return;
                     }
                     alpha._alpha[alphaIdx] = - update.a / (obj(nlp) - update.kObjInit) + update.b;
+#ifdef DEBUG_GR
                     DBG("update alpha:: new alpha idx %d %f \n", alphaIdx, alpha._alpha[alphaIdx]);
+#endif
                 }
 
             };
@@ -900,7 +924,6 @@ namespace nlp
                 { 
                     if (obj(nlp) < REAL_TYPE_TOL)
                     {
-                        DBG("alpha idx %d size %d \n", alphaIdx, alpha._alpha.size());
                         alpha._alpha[alphaIdx] = update.alphaMax;
                         return;
                     }
@@ -929,7 +952,9 @@ namespace nlp
                         return;
                     }
                     alpha._alpha[alphaIdx] = ((update.alphaMax - update.alphaMin) / update.objInit) * objCurr + update.alphaMin ;
+#ifdef DEBUG_GR
                     DBG("update alpha:: new alpha idx %d %f \n", alphaIdx, alpha._alpha[alphaIdx]);
+#endif
                 }
 
             };

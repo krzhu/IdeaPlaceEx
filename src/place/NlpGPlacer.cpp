@@ -338,10 +338,12 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                 auto midOffsetA = calculatePinOffset(midPinIdxA);
                 auto midOffsetB = calculatePinOffset(midPinIdxB);
                 auto tOffset = calculatePinOffset(tPinIdx);
+#ifdef DEBUG_GR
                 DBG("NlpGPlacer:: add sigpath cell %s -> cell %s -> cell %s \n",
                         _db.cell(sCellIdx).name().c_str(), 
                         _db.cell(mCellIdx).name().c_str(),
                         _db.cell(tCellIdx).name().c_str());
+#endif
                 _cosOps.emplace_back(sCellIdx, sOffset,
                         mCellIdx, midOffsetA, midOffsetB,
                         tCellIdx, tOffset,
@@ -351,7 +353,6 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
             }
         }
     }
-    DBG("start current flow \n");
     // Current flow
     for (IndexType pathIdx = 0; pathIdx < pathMgr.vvSegList().size(); ++pathIdx)
     {
@@ -375,18 +376,22 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
             auto midOffsetA = calculatePinOffset(midPinIdxA);
             auto midOffsetB = calculatePinOffset(midPinIdxB);
             auto tOffset = calculatePinOffset(tPinIdx);
+#ifdef DEBUG_GR
             DBG("NlpGPlacer:: add current cell %s -> cell %s \n",
                     _db.cell(sCellIdx).name().c_str(), 
                     _db.cell(mCellIdx).name().c_str());
+#endif
             _crfOps.emplace_back(sCellIdx, sOffset.y(),
                     mCellIdx, midOffsetA.y(),
                     getLambdaFuncCosine);
             _crfOps.back().setGetVarFunc(getVarFunc);
             _crfOps.back().setGetAlphaFunc(getAlphaFunc);
             _crfOps.back().setWeight(_db.parameters().defaultCurrentFlowWeight());
+#ifdef DEBUG_GR
             DBG("NlpGPlacer:: add current cell %s -> cell %s \n",
                     _db.cell(mCellIdx).name().c_str(),
                     _db.cell(tCellIdx).name().c_str());
+#endif
             _crfOps.emplace_back(mCellIdx, midOffsetB.y(),
                     tCellIdx, tOffset.y(),
                     getLambdaFuncCosine);
@@ -407,9 +412,11 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
 
             auto sOffset = calculatePinOffset(sPinIdx);
             auto tOffset = calculatePinOffset(tPinIdx);
+#ifdef DEBUG_GR
             DBG("NlpGPlacer:: add current cell %s -> cell %s \n",
                     _db.cell(sCellIdx).name().c_str(),
                     _db.cell(tCellIdx).name().c_str());
+#endif
             _crfOps.emplace_back(sCellIdx, sOffset.y(),
                     tCellIdx, tOffset.y(),
                     getLambdaFuncCosine);
@@ -746,10 +753,9 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
     IntType iter = 0;
     do
     {
-        DBG("iter %d \n", iter);
+        INF("First order NLP: iter %d \n", iter);
 
         optm_trait::optimize(*this, optm);
-
         updateProblemStopWatch->start();
         mult_trait::update(*this, multiplier);
         mult_trait::recordRaw(*this, multiplier);
@@ -759,7 +765,9 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
         this->assignIoPins();
         updateProblemStopWatch->stop();
         
+#ifdef DEBUG_GR
         DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
+#endif
         ++iter;
     } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
     optimizeStopWatch->stop();

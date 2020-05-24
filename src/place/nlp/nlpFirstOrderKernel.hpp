@@ -69,9 +69,11 @@ namespace nlp
                     n._pl -= optm_type::_stepSize * n._grad;
                     ++iter;
                 } while (!converge_trait::stopCriteria(n, o, o._converge) );
+#ifdef DEBUG_GR
                 DBG("naive gradient decesent: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
                 DBG("gradient norm %f \n", n._grad.norm());
                 DBG("converge at iter %d \n", iter);
+#endif
             }
         };
         template<typename converge_criteria_type, typename nlp_numerical_type>
@@ -116,9 +118,11 @@ namespace nlp
                     //DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
                 } while (!converge_trait::stopCriteria(n, o, o._converge) );
                 n.calcObj();
+#ifdef DEBUG_GR
                 DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
                 DBG("gradient norm %f \n", n._grad.norm());
                 DBG("converge at iter %d \n", iter);
+#endif
             }
         };
 
@@ -158,9 +162,11 @@ namespace nlp
                     gamma = std::max(gamma, 1e-8);
                 } while (!converge_trait::stopCriteria(n, o, o._converge) );
                 n.calcObj();
+#ifdef DEBUG_GR
                 DBG("nesterov: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
                 DBG("gradient norm %f \n", n._grad.norm());
                 DBG("converge at iter %d \n", iter);
+#endif
             }
         };
 

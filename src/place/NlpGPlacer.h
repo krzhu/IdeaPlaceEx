@@ -373,6 +373,46 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
 
 
         NlpGPlacerFirstOrder(Database &db) : NlpGPlacerBase<nlp_settings>(db) {}
+        void writeoutCsv()
+        {
+            std::string ver1f = "ver1.csv";
+            std::string ver2f = "ver2.csv";
+            std::ofstream ver1(ver1f.c_str());
+            std::ofstream ver2(ver2f.c_str());
+            ver1 << "x y val\n";
+            ver2 << "x y val\n";
+
+            for (RealType x = -8; x < 8; x+=(16.0/300))
+            {
+                for (RealType y = -8; y < 8; y+=(16.0/300))
+                {
+                    this->_pl(this->plIdx(0, Orient2DType::HORIZONTAL)) = x;
+                    this->_pl(this->plIdx(0, Orient2DType::VERTICAL)) = y;
+                    this->_wrapObjAllTask.run();
+                    auto obj = this->_obj;
+                    ver1 << x << " "<< y << " " << obj << "\n";
+                }
+            }
+            auto getLambda = [&](){ return 1.0; };
+            for (auto &op : this->_hpwlOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_cosOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_ovlOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_oobOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_asymOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_powerWlOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_crfOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (RealType x = -8; x < 8; x+=(16.0/300))
+            {
+                for (RealType y = -8; y < 8; y+=(16.0/300))
+                {
+                    this->_pl(this->plIdx(0, Orient2DType::HORIZONTAL)) = x;
+                    this->_pl(this->plIdx(0, Orient2DType::VERTICAL)) = y;
+                    this->_wrapObjAllTask.run();
+                    auto obj = this->_obj;
+                    ver2 << x << " "<< y << " " << obj << "\n";
+                }
+            }
+        }
     protected:
         /* calculating gradient */
         void calcGrad()
