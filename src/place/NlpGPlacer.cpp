@@ -495,6 +495,7 @@ void NlpGPlacerBase<nlp_settings>::writeOut()
         _db.cell(cellIdx).setXLoc(xLo - cell.cellBBox().xLo());
         _db.cell(cellIdx).setYLoc(yLo - cell.cellBBox().yLo());
     }
+
 }
 
 template<typename nlp_settings>
