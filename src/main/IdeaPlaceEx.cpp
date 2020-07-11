@@ -143,6 +143,8 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
 
 LocType IdeaPlaceEx::solve(LocType gridStep)
 {
+    auto stopWatch = WATCH_CREATE_NEW("IdeaPlaceEx");
+    stopWatch->start();
     omp_set_num_threads(_db.parameters().numThreads());
     // Start message printer timer
     MsgPrinter::startTimer();
@@ -190,6 +192,41 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     // Restore proxmity group
     proximityMgr.restore();
 
+    // stats for sigpath current path
+    LocType sigHpwl = 0;
+    LocType crfOverflow = 0;
+    auto findpinLoc = [&](IndexType pinIdx)
+    {
+        const auto &pin = _db.pin(pinIdx);
+        const auto &cell = _db.cell(pin.cellIdx());
+        return cell.loc() + pin.midLoc();
+    };
+    for (const auto &sigpath : _db.vSignalPaths())
+    {
+        if (sigpath.isPower())
+        {
+            for (IndexType i = 0; i < sigpath.vPinIdxArray().size() - 1; ++i)
+            {
+                IndexType pinIdx1 = sigpath.vPinIdxArray().at(i);
+                IndexType pinIdx2 = sigpath.vPinIdxArray().at(i+1);
+                crfOverflow += std::max((findpinLoc(pinIdx2) - findpinLoc(pinIdx1)).y(), 0);
+            }
+        }
+        else
+        {
+            for (IndexType i = 0; i < sigpath.vPinIdxArray().size() - 1; ++i)
+            {
+                IndexType pinIdx1 = sigpath.vPinIdxArray().at(i);
+                IndexType pinIdx2 = sigpath.vPinIdxArray().at(i+1);
+                auto loc1 = findpinLoc(pinIdx1);
+                auto loc2 = findpinLoc(pinIdx2);
+                auto dif = ::klib::manhattanDistance(loc1, loc2);
+                sigHpwl += dif;
+            }
+        }
+    }
+    INF("\n\n\nOVERFLOW: crf %d \n HPWL: path %d \n \n\n", crfOverflow, sigHpwl);
+
     _db.checkSym();
 
     if (gridStep > 0)
@@ -208,10 +245,12 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
 #endif //DEBUG_DRAW
 #endif
 
+    stopWatch->stop();
+
     return symAxis;
 }
 
-bool IdeaPlaceEx::outputFileBased(int argc, char **argv)
+bool IdeaPlaceEx::outputFileBased(int , char **)
 {
     return true;
 }

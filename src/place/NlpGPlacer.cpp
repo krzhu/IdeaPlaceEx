@@ -9,11 +9,15 @@ using namespace nt;
 template<typename nlp_settings>
 IntType NlpGPlacerBase<nlp_settings>::solve()
 {
+    auto stopWatch = WATCH_CREATE_NEW("NlpGPlacer");
+    stopWatch->start();
+    _calcObjStopWatch = WATCH_CREATE_NEW("GP_calculate_obj");
     this->initProblem();
     this->initPlace();
     this->initOperators();
     this->constructTasks();
     this->optimize();
+    stopWatch->stop();
     return 0;
 }
 
@@ -226,8 +230,8 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         IndexType cellIdx = pin.cellIdx();
         const auto &cell = _db.cell(cellIdx);
         // Get the cell location from the input arguments
-        XY<RealType> midLoc = XY<RealType>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-        XY<RealType> cellLoLoc = XY<RealType>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
+        XY<nlp_coordinate_type> midLoc = XY<nlp_coordinate_type>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
+        XY<nlp_coordinate_type> cellLoLoc = XY<nlp_coordinate_type>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
         return midLoc - cellLoLoc;
     };
     // Hpwl
@@ -334,10 +338,12 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                 auto midOffsetA = calculatePinOffset(midPinIdxA);
                 auto midOffsetB = calculatePinOffset(midPinIdxB);
                 auto tOffset = calculatePinOffset(tPinIdx);
+#ifdef DEBUG_GR
                 DBG("NlpGPlacer:: add sigpath cell %s -> cell %s -> cell %s \n",
                         _db.cell(sCellIdx).name().c_str(), 
                         _db.cell(mCellIdx).name().c_str(),
                         _db.cell(tCellIdx).name().c_str());
+#endif
                 _cosOps.emplace_back(sCellIdx, sOffset,
                         mCellIdx, midOffsetA, midOffsetB,
                         tCellIdx, tOffset,
@@ -347,7 +353,6 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
             }
         }
     }
-    DBG("start current flow \n");
     // Current flow
     for (IndexType pathIdx = 0; pathIdx < pathMgr.vvSegList().size(); ++pathIdx)
     {
@@ -371,18 +376,22 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
             auto midOffsetA = calculatePinOffset(midPinIdxA);
             auto midOffsetB = calculatePinOffset(midPinIdxB);
             auto tOffset = calculatePinOffset(tPinIdx);
+#ifdef DEBUG_GR
             DBG("NlpGPlacer:: add current cell %s -> cell %s \n",
                     _db.cell(sCellIdx).name().c_str(), 
                     _db.cell(mCellIdx).name().c_str());
+#endif
             _crfOps.emplace_back(sCellIdx, sOffset.y(),
                     mCellIdx, midOffsetA.y(),
                     getLambdaFuncCosine);
             _crfOps.back().setGetVarFunc(getVarFunc);
             _crfOps.back().setGetAlphaFunc(getAlphaFunc);
             _crfOps.back().setWeight(_db.parameters().defaultCurrentFlowWeight());
+#ifdef DEBUG_GR
             DBG("NlpGPlacer:: add current cell %s -> cell %s \n",
                     _db.cell(mCellIdx).name().c_str(),
                     _db.cell(tCellIdx).name().c_str());
+#endif
             _crfOps.emplace_back(mCellIdx, midOffsetB.y(),
                     tCellIdx, tOffset.y(),
                     getLambdaFuncCosine);
@@ -403,9 +412,11 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
 
             auto sOffset = calculatePinOffset(sPinIdx);
             auto tOffset = calculatePinOffset(tPinIdx);
+#ifdef DEBUG_GR
             DBG("NlpGPlacer:: add current cell %s -> cell %s \n",
                     _db.cell(sCellIdx).name().c_str(),
                     _db.cell(tCellIdx).name().c_str());
+#endif
             _crfOps.emplace_back(sCellIdx, sOffset.y(),
                     tCellIdx, tOffset.y(),
                     getLambdaFuncCosine);
@@ -484,6 +495,7 @@ void NlpGPlacerBase<nlp_settings>::writeOut()
         _db.cell(cellIdx).setXLoc(xLo - cell.cellBBox().xLo());
         _db.cell(cellIdx).setYLoc(yLo - cell.cellBBox().yLo());
     }
+
 }
 
 template<typename nlp_settings>
@@ -697,6 +709,7 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
     _wrapObjCrfTask = Task<FuncTask>(FuncTask(crf));
     auto all = [&]()
     {
+        _calcObjStopWatch->start();
         _wrapObjHpwlTask.run();
         _wrapObjOvlTask.run();
         _wrapObjOobTask.run();
@@ -705,6 +718,7 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _wrapObjPowerWlTask.run();
         _wrapObjCrfTask.run();
         _sumObjAllTask.run();
+        _calcObjStopWatch->stop();
     };
     _wrapObjAllTask = Task<FuncTask>(FuncTask(all));
 }
@@ -715,7 +729,10 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::optimize()
 {
-    WATCH_QUICK_START();
+    _optimizerKernelStopWatch = WATCH_CREATE_NEW("GP_optimizer_kernel");
+    auto optimizeStopWatch = WATCH_CREATE_NEW("GP_optimize");
+    optimizeStopWatch->start();
+    auto updateProblemStopWatch = WATCH_CREATE_NEW("GP_update_problem");
     this->assignIoPins();
     // setting up the multipliers
     this->_wrapObjAllTask.run();
@@ -737,24 +754,24 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
     IntType iter = 0;
     do
     {
-        std::string debugGdsFilename  = "./debug/";
-        debugGdsFilename += "gp_iter_" + std::to_string(iter)+".gds";
-        base_type::drawCurrentLayout(debugGdsFilename);
-        DBG("iter %d \n", iter);
+        INF("First order NLP: iter %d \n", iter);
+
         optm_trait::optimize(*this, optm);
+        updateProblemStopWatch->start();
         mult_trait::update(*this, multiplier);
         mult_trait::recordRaw(*this, multiplier);
         mult_adjust_trait::update(*this, multiplier, multAdjuster);
 
         alpha_update_trait::update(*this, alpha, alphaUpdate);
         this->assignIoPins();
+        updateProblemStopWatch->stop();
         
+#ifdef DEBUG_GR
         DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
+#endif
         ++iter;
     } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
-    auto end = WATCH_QUICK_END();
-    //std::cout<<"grad"<<"\n"<< _grad <<std::endl;
-    std::cout<<"time "<< end / 1000 <<" ms" <<std::endl;
+    optimizeStopWatch->stop();
     this->writeOut();
 }
 
@@ -909,8 +926,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask()
 template<typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
 {
+    _calcGradStopWatch = WATCH_CREATE_NEW("GP_calculate_gradient");
     auto calcGradLambda = [&]()
     {
+        _calcGradStopWatch->start();
         _clearGradTask.run();
         _clearHpwlGradTask.run();
         _clearOvlGradTask.run();
@@ -941,6 +960,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         for (IndexType i = 0; i < _calcCrfPartialTasks.size(); ++i ) { _calcCrfPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updateCrfPartialTasks.size(); ++i ) { _updateCrfPartialTasks[i].run(); }
         _sumGradTask.run();
+        _calcGradStopWatch->stop();
     };
     _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGradLambda));
 }

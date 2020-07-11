@@ -235,7 +235,7 @@ class NlpGPlacerBase
         /* NLP problem parameters */
         IndexType _numCells; ///< The number of cells
         RealType _alpha; ///< Used in LSE approximation hyperparameter
-        Box<RealType> _boundary; ///< The boundary constraint for the placement
+        Box<nlp_coordinate_type> _boundary; ///< The boundary constraint for the placement
         nlp_coordinate_type _scale = 0.01; /// The scale ratio between float optimization kernel coordinate and placement database coordinate unit
         nlp_coordinate_type _totalCellArea = 0; ///< The total cell area of the problem
         nlp_coordinate_type _defaultSymAxis = 0.0; ///< The default symmetric axis
@@ -295,6 +295,8 @@ class NlpGPlacerBase
         std::vector<nlp_cos_type> _cosOps; ///< The signal flow operators
         std::vector<nlp_power_wl_type> _powerWlOps;
         std::vector<nlp_crf_type> _crfOps; ///< The current flow operators
+        /* run time */
+        std::unique_ptr<::klib::StopWatch> _calcObjStopWatch;
 };
 
 template<typename nlp_settings>
@@ -371,6 +373,46 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
 
 
         NlpGPlacerFirstOrder(Database &db) : NlpGPlacerBase<nlp_settings>(db) {}
+        void writeoutCsv()
+        {
+            std::string ver1f = "ver1.csv";
+            std::string ver2f = "ver2.csv";
+            std::ofstream ver1(ver1f.c_str());
+            std::ofstream ver2(ver2f.c_str());
+            ver1 << "x y val\n";
+            ver2 << "x y val\n";
+
+            for (RealType x = -8; x < 8; x+=(16.0/300))
+            {
+                for (RealType y = -8; y < 8; y+=(16.0/300))
+                {
+                    this->_pl(this->plIdx(0, Orient2DType::HORIZONTAL)) = x;
+                    this->_pl(this->plIdx(0, Orient2DType::VERTICAL)) = y;
+                    this->_wrapObjAllTask.run();
+                    auto obj = this->_obj;
+                    ver1 << x << " "<< y << " " << obj << "\n";
+                }
+            }
+            auto getLambda = [&](){ return 1.0; };
+            for (auto &op : this->_hpwlOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_cosOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_ovlOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_oobOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_asymOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_powerWlOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (auto &op : this->_crfOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
+            for (RealType x = -8; x < 8; x+=(16.0/300))
+            {
+                for (RealType y = -8; y < 8; y+=(16.0/300))
+                {
+                    this->_pl(this->plIdx(0, Orient2DType::HORIZONTAL)) = x;
+                    this->_pl(this->plIdx(0, Orient2DType::VERTICAL)) = y;
+                    this->_wrapObjAllTask.run();
+                    auto obj = this->_obj;
+                    ver2 << x << " "<< y << " " << obj << "\n";
+                }
+            }
+        }
     protected:
         /* calculating gradient */
         void calcGrad()
@@ -449,6 +491,9 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _sumCrfGradTask;
         // all the grads has been calculated but have not updated
         nt::Task<nt::FuncTask> _wrapCalcGradTask; ///<  calculating the gradient and sum them
+        /* run time */
+        std::unique_ptr<::klib::StopWatch> _calcGradStopWatch;
+        std::unique_ptr<::klib::StopWatch> _optimizerKernelStopWatch;
 };
 
 
@@ -657,7 +702,6 @@ class NlpGPlacerSecondOrder : public NlpGPlacerFirstOrder<nlp_settings>
             {
                 std::string debugGdsFilename  = "./debug/";
                 debugGdsFilename += "gp_iter_" + std::to_string(iter)+".gds";
-                base_type::drawCurrentLayout(debugGdsFilename);
                 DBG("iter %d \n", iter);
                 optm_trait::optimize(*this, optm);
                 mult_trait::update(*this, multiplier);

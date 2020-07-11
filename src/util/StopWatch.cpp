@@ -9,7 +9,7 @@ namespace klib
     std::unique_ptr<StopWatch> StopWatchMgr::createNewStopWatch(std::string &&name) 
     {
         auto idx = _us.size();
-        _us.emplace_back(std::numeric_limits<uint64_t>::max());
+        _us.emplace_back(0);
         _nameToIdxMap[std::move(name)] = idx;
         return std::make_unique<StopWatch>(StopWatch(idx));
     }

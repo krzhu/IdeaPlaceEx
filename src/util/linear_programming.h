@@ -24,7 +24,7 @@ namespace _lp {
     };
 
     template<>
-    struct lp_rank<1>
+    struct lp_rank<0>
     {
 #ifndef LP_NOT_USE_GUROBI
         static const bool if_enable = true;
@@ -36,7 +36,7 @@ namespace _lp {
     };
 
     template<>
-    struct lp_rank<0>
+    struct lp_rank<1>
     {
 #ifndef LP_NOT_USE_LPSOLVE
         static const bool if_enable = true;

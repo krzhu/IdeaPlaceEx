@@ -48,7 +48,7 @@ LocType Database::hpwl() const
             yMax = std::max(yMax, pinFinalLoc.y());
             yMin = std::min(yMin, pinFinalLoc.y());
         }
-        hpwl = ((xMax - xMin) + (yMax - yMin)) * net.weight();
+        hpwl += ((xMax - xMin) + (yMax - yMin)) * net.weight();
     }
     return hpwl;
 }
@@ -87,7 +87,7 @@ LocType Database::hpwlWithVitualPins() const
             yMax = std::max(yMax, virPin.y());
             yMin = std::min(yMin, virPin.y());
         }
-        hpwl = ((xMax - xMin) + (yMax - yMin)) * net.weight();
+        hpwl += ((xMax - xMin) + (yMax - yMin)) * net.weight();
     }
     return hpwl;
 }
