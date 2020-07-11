@@ -62,7 +62,9 @@ class Database
         /// @brief get a symmetric group
         /// @param the index of the symmetric group
         SymGroup & symGroup(IndexType idx) { return _symGroups.at(idx); }
-        const std::vector<SymGroup> &symGrps() const { return _symGroups; }
+        /// @brief get the vector of symmetric groups
+        /// @return the vector of symmetric groups
+        const std::vector<SymGroup> & vSymGrpArray() const { return _symGroups; }
         /// @brief get the number of cells
         /// @return the number of cells
         IndexType numCells() const { return _cellArray.size(); }
@@ -136,6 +138,42 @@ class Database
         IndexType allocateSignalPath() { _signalPaths.emplace_back(SignalPath()); return _signalPaths.size() - 1; }
         SignalPath & signalPath(IndexType idx) { return _signalPaths.at(idx); }
         const SignalPath & signalPath(IndexType idx) const { return _signalPaths.at(idx); }
+        /// @brief split the signal path to seperate the sym pairs
+        void splitSignalPathsBySymPairs();
+        /// @brief add a new pin to a signal path
+        /// @param first: the index of signal path
+        /// @param second: the name of cell
+        /// @param third: the name of pin
+        void addPinToSignalPath(IndexType pathIdx, const std::string & cellName, const std::string & pinName)
+        {
+            auto & sig = this->signalPath(pathIdx);
+            IndexType pinIdx = INDEX_TYPE_MAX;
+            IndexType cellIdx = INDEX_TYPE_MAX;
+            for (IndexType idx = 0; idx < this->numCells(); ++idx)
+            {
+                const auto & cell = this->cell(idx);
+                if (cell.name() == cellName)
+                {
+                    cellIdx = idx;
+                    for (IndexType jdx = 0; jdx < cell.numPinIdx(); ++jdx)
+                    {
+                        const auto &pin = this->pin(cell.pinIdx(jdx));
+                        if (pin.name() == pinName)
+                        {
+                            pinIdx = cell.pinIdx(jdx);
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            AssertMsg(cellIdx != INDEX_TYPE_MAX, "Unknown pin! cellname: %s, pinname %s \n", cellName.c_str(), pinName.c_str());
+            if (pinIdx  == INDEX_TYPE_MAX)
+            {
+                WRN("%s unknown pin name. cell name %s pin name %s \n", __FUNCTION__, cellName.c_str(), pinName.c_str());
+            }
+            sig.addPinIdx(pinIdx);
+        }
         /*------------------------------*/ 
         /* Technology-dependent         */
         /*------------------------------*/ 

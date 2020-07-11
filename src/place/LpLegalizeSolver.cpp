@@ -1,4 +1,5 @@
 #include "CGLegalizer.h"
+#include "signalPathMgr.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -110,8 +111,7 @@ void LpLegalizeSolver::addSymObj()
     {
         for (IndexType symGrpIdx = 0; symGrpIdx < _symRexLeft.size(); ++symGrpIdx)
         {
-            _obj += _largeNum * _symRexRight.at(symGrpIdx);
-            _obj += - _largeNum * _symRexLeft.at(symGrpIdx);
+            _obj += _largeNum * (_symRexRight.at(symGrpIdx) - _symRexLeft.at(symGrpIdx));
         }
     }
     else
@@ -130,8 +130,7 @@ void LpLegalizeSolver::addSymObj()
                     std::swap(tCellIdx, bCellIdx);
                 }
                 //  + M *( y_t - y_b)
-                _obj += _largeNum * _locs.at(tCellIdx);
-                _obj += -_largeNum * _locs.at(bCellIdx);
+                _obj += _largeNum * (_locs.at(tCellIdx) - _locs.at(bCellIdx));
             }
         }
     }
@@ -270,15 +269,16 @@ void LpLegalizeSolver::addBoundaryConstraints()
 #ifdef DEBUG_LEGALIZE
                 DBG("Add boundary constraint: x_%d <= %f - %d \n", i, _wStar, _db.cell(i).cellBBox().xLen());
 #endif
-                lp_trait::addConstr(_solver, _locs.at(i) <= _wStar - _db.cell(i).cellBBox().xLen());
+                lp_trait::addConstr(_solver, _locs.at(i) <= _wStar + _db.parameters().layoutOffset() - _db.cell(i).cellBBox().xLen());
             }
             else
             {
 #ifdef DEBUG_LEGALIZE
                 DBG("Add boundary constraint: y_%d <= %f - %d \n", i, _wStar, _db.cell(i).cellBBox().yLen());
 #endif
-                lp_trait::addConstr(_solver, _locs.at(i) <= _wStar - _db.cell(i).cellBBox().yLen());
+                lp_trait::addConstr(_solver, _locs.at(i) <= _wStar + _db.parameters().layoutOffset() - _db.cell(i).cellBBox().yLen());
             }
+            lp_trait::addConstr(_solver, _locs.at(i) >= + _db.parameters().layoutOffset());
         }
         else // if (_optArea == 0)
         {
@@ -365,6 +365,7 @@ void LpLegalizeSolver::addSymmetryConstraintsRex()
                 leftSymLoc = & _symRexLeft.at(0);
                 rightSymLoc = & _symRexRight.at(0);
             }
+            lp_trait::addConstr(_solver, *rightSymLoc - *leftSymLoc >= 0);
             for (IndexType symPairIdx = 0; symPairIdx < symGroup.numSymPairs(); ++symPairIdx)
             {
                 const auto &symPair = symGroup.symPair(symPairIdx);
@@ -515,6 +516,7 @@ void LpLegalizeSolver::addHpwlConstraints()
                             - _locs.at(pin.cellIdx()) 
                             >=  loc);
                 }
+                lp_trait::addConstr(_solver, _wlR.at(netIdx) - _wlL.at(netIdx) >= 0);
             }
             // Wirelength with virtual pin
             if (net.isValidVirtualPin())
@@ -544,6 +546,44 @@ void LpLegalizeSolver::addHpwlConstraints()
     }
 }
 
+void LpLegalizeSolver::addCurrentFlowConstraints()
+{
+    if (_isHor) { return; }
+    if (not _useCurrentFlowConstraint) { return; }
+    SigPathMgr pathMgr(_db);
+    for (IndexType pathIdx = 0; pathIdx < pathMgr.vvSegList().size(); ++pathIdx)
+    {
+        const auto &path = pathMgr.vvSegList().at(pathIdx);
+        if (not _db.signalPath(pathIdx).isPower())
+        {
+            continue;
+        }
+        for (const auto & seg : path)
+        {
+            IndexType sPinIdx = seg.beginPinFirstSeg();
+            IndexType midPinIdxA = seg.endPinFirstSeg();
+            IndexType midPinIdxB = seg.beginPinSecondSeg();
+            IndexType tPinIdx = seg.endPinSecondSeg();
+
+            const auto &sPin = _db.pin(sPinIdx);
+            IndexType sCellIdx = sPin.cellIdx();
+            const auto &mPinA = _db.pin(midPinIdxA);
+            const auto &mPinB = _db.pin(midPinIdxB);
+            IndexType mCellIdx = mPinA.cellIdx();
+            const auto &tPin = _db.pin(tPinIdx);
+            IndexType tCellIdx = tPin.cellIdx();
+
+            const auto &sPinOffset = sPin.midLoc() - _db.cell(sCellIdx).cellBBox().ll();
+            const auto &midPinOffsetA = mPinA.midLoc() - _db.cell(mCellIdx).cellBBox().ll();
+            const auto &midPinOffsetB = mPinB.midLoc() - _db.cell(mCellIdx).cellBBox().ll();
+            const auto &tPinOffset = tPin.midLoc() - _db.cell(tCellIdx).cellBBox().ll();
+
+            lp_trait::addConstr(_solver, _locs.at(mCellIdx) - _locs.at(sCellIdx) <= sPinOffset.y() - midPinOffsetA.y());
+            lp_trait::addConstr(_solver, _locs.at(tCellIdx) - _locs.at(mCellIdx) <= midPinOffsetB.y() - tPinOffset.y());
+        }
+    }
+}
+
 void LpLegalizeSolver::addIlpConstraints()
 {
     // Add boundary constraint
@@ -554,6 +594,8 @@ void LpLegalizeSolver::addIlpConstraints()
     addSymmetryConstraints();
     // Add HPWL constraints
     addHpwlConstraints();
+    /// Add current flow constraints
+    addCurrentFlowConstraints();
 }
 
 PROJECT_NAMESPACE_END

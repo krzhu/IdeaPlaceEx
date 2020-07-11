@@ -115,7 +115,7 @@ class Net
         /// @brief mark this net as vdd
         void markAsVdd() { _isVdd = true; _isVss = false; _isIo = false; }
         /// @brief mark this net as vss
-        void markAsVss() { _isVss = true; _isVdd = false; _isIo = false; }
+        void markAsVss() { DBG("mark net %s as vss \n", _name.c_str()); _isVss = true; _isVdd = false; _isIo = false; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 

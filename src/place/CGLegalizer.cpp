@@ -13,11 +13,15 @@ bool CGLegalizer::legalize()
     //this->generateConstraints();
 
 
-    this->generateVerConstraints();
-    _hStar = lpLegalization(false);
+    auto legalizationStopWath = WATCH_CREATE_NEW("legalization");
+    legalizationStopWath->start();
 
     this->generateHorConstraints();
     _wStar = lpLegalization(true);
+    this->generateVerConstraints();
+    _hStar = lpLegalization(false);
+    legalizationStopWath->stop();
+
     LocType xMin = LOC_TYPE_MAX;
     LocType xMax = LOC_TYPE_MIN;
     LocType yMin = LOC_TYPE_MAX;
@@ -33,6 +37,9 @@ bool CGLegalizer::legalize()
     _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
     _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
     //this->generateConstraints();
+    
+    auto dpStopWatch =  WATCH_CREATE_NEW("detailedPlacement");
+    dpStopWatch->start();
     if (_db.parameters().ifUsePinAssignment())
     {
         pinAssigner.solveFromDB();
@@ -40,8 +47,16 @@ bool CGLegalizer::legalize()
     if (!lpDetailedPlacement())
     {
         INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
+        dpStopWatch->stop();
         return true;
     }
+    if (!lpDetailedPlacement())
+    {
+        INF("CG Legalizer: detailed placement fine tunning failed. Directly output legalization output. \n");
+        dpStopWatch->stop();
+        return true;
+    }
+    dpStopWatch->stop();
     return true;
 
     INF("CG Legalizer: legalization finished\n");
@@ -146,20 +161,19 @@ void CGLegalizer::generateHorConstraints()
     // Init the irredundant constraint edges
     
     
-    //auto exemptSymPairFunc = [&](IndexType cellIdx1, IndexType cellIdx2)
-    //{
-    //    if (_db.cell(cellIdx1).hasSymPair())
-    //    {
-    //        if(_db.cell(cellIdx1).symNetIdx() == cellIdx2)
-    //        {
-    //            return true;
-    //        }
-    //    }
-    //    return false;
-    //};
+    auto exemptSelfSymsFunc = [&](IndexType cellIdx1, IndexType cellIdx2)
+    {
+        if (cellIdx1 >= _db.numCells()) { return false; }
+        if (cellIdx2 >= _db.numCells()) { return false; }
+        if (_db.cell(cellIdx1).isSelfSym() and _db.cell(cellIdx2).isSelfSym())
+        {
+            return true;
+        }
+        return false;
+    };
     
     SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints, _vConstraints);
-    //sweepline.setExemptFunc(exemptSymPairFunc);
+    sweepline.setExemptFunc(exemptSelfSymsFunc);
     sweepline.solve();
 }
 void CGLegalizer::generateVerConstraints()
@@ -1167,6 +1181,7 @@ bool CGLegalizer::lpDetailedPlacement()
         return false;
     }
 
+
     // Vertical
     this->generateVerConstraints();
     INF("CG legalizer: detailed placement vertical LP...\n");
@@ -1182,7 +1197,6 @@ bool CGLegalizer::lpDetailedPlacement()
         return false;
     }
     
-    //_db.drawCellBlocks("./debug/after_dp_hor.gds");
 #ifdef DEBUG_LEGALIZE
 #ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_dp.gds");
