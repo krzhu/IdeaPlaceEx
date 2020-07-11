@@ -24,7 +24,7 @@ class VirtualPinAssigner
         }
         /* Kernal interface */
         /// @brief cnfigure the virtual boundary based on databse
-        void reconfigureVirtualPinLocationFromDB();
+        void reconfigureVirtualPinLocationFromDB(IndexType iter);
         /// @brief reconfigure the virtual boundary and pin locations
         void reconfigureVirtualPinLocations(const Box<LocType> &cellsBBox);
         /// @brief solve pin assignment from information from DB
@@ -54,15 +54,15 @@ class VirtualPinAssigner
                 auto & net = _db.net(netIdx);
                 if (net.isVdd())
                 {
-                    net.setVirtualPin(_topPin);
                     _topPin.assign(netIdx);
-                    break;
+                    net.setVirtualPin(_topPin);
+                    continue;
                 }
                 if (net.isVss())
                 {
-                    net.setVirtualPin(_botPin);
                     _botPin.assign(netIdx);
-                    break;
+                    net.setVirtualPin(_botPin);
+                    continue;
                 }
             }
 #ifdef DEBUG_PINASSIGN

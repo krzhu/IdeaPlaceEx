@@ -171,6 +171,8 @@ class LpLegalizeSolver
         void addSymmetryConstraintsRex();
         /// @brief add hpwl constraints
         void addHpwlConstraints();
+        /// @brief add current flow constraint
+        void addCurrentFlowConstraints();
     private:
         /* Configurations - Inputs */
         Database &_db; ///< The database for the Ideaplace
@@ -195,6 +197,7 @@ class LpLegalizeSolver
         bool _isMultipleSymGrp = false;
 #endif 
         bool _relaxEqualityConstraint = false;
+        bool _useCurrentFlowConstraint = false;
         //SolverType _solver; ///< Solver
         /*  Optimization Results */
         RealType _largeNum = 900000.0; ///< A large number

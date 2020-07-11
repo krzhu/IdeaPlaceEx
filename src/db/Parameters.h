@@ -19,7 +19,7 @@ class Parameters
 {
     public:
         /// @brief default constrcutor
-        explicit Parameters() = default;
+        explicit Parameters();
         /*------------------------------*/ 
         /* Set the parameters           */
         /*------------------------------*/ 
@@ -61,14 +61,29 @@ class Parameters
         LocType virtualPinInterval() const { return _virtualPinInterval; }
         /// @brief get the layout offset
         LocType layoutOffset() const { return _layoutOffset; }
+        /// @brief get the default aspect ratio for the global placement
+        RealType defaultAspectRatio() const { return _defaultAspectRatio; }
+        /// @brief get the default max white space
+        RealType maxWhiteSpace() const { return _maxWhiteSpace; }
+        /// @brief get the default signal flow operator weight
+        RealType defaultSignalFlowWeight() const { return _defaultSignalFlowWeight; }
+        /// @brief get the default current flow operator weight
+        RealType defaultCurrentFlowWeight() const { return _defaultCurrentFlowWeight; }
+        /// @@brief get the  weighing ratio of power to regular net
+        RealType defaultRelativeRatioOfPowerNet() const { return _defaultRelativeRatioOfPowerNet; }
     private:
         Box<LocType> _boundaryConstraint = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
-        bool _ifUsePinAssignment = true; ///< If do pin assignment
-        IndexType _numThreads = 10;
-        LocType _gridStep = -1;
-        LocType _virtualBoundaryExtension = 200; ///< The extension of current virtual boundary to the bounding box of placement
-        LocType _virtualPinInterval = 400; ///< The interval between each virtual pin
-        LocType _layoutOffset = 1000; ///< The default offset for the placement
+        bool _ifUsePinAssignment; ///< If do pin assignment
+        IndexType _numThreads;
+        LocType _gridStep;
+        LocType _virtualBoundaryExtension; ///< The extension of current virtual boundary to the bounding box of placement
+        LocType _virtualPinInterval; ///< The interval between each virtual pin
+        LocType _layoutOffset; ///< The default offset for the placement
+        RealType _defaultAspectRatio; ///< The defaut aspect ratio for global placement
+        RealType _maxWhiteSpace; ///< The default maximum white space target
+        RealType _defaultSignalFlowWeight; ///< The default weight for signal flow operators
+        RealType _defaultCurrentFlowWeight; ///< The default weight for current flow operators
+        RealType _defaultRelativeRatioOfPowerNet; ///< The weighing ratio of power to regular net
 
 };
 

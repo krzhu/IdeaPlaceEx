@@ -12,11 +12,17 @@ bool VirtualPinAssigner::solveFromDB()
 #ifdef DEBUG_PINASSIGN
     DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
 #endif
-    reconfigureVirtualPinLocationFromDB();
-    return pinAssignmentFromDB();
+    IndexType iter = 0;
+    reconfigureVirtualPinLocationFromDB(iter);
+    while(! pinAssignmentFromDB())
+    {
+        ++iter;
+        reconfigureVirtualPinLocationFromDB(iter);
+    }
+    return true;
 }
 
-void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
+void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB(IndexType iter)
 {
 #ifdef DEBUG_PINASSIGN
     DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
@@ -27,6 +33,7 @@ void VirtualPinAssigner::reconfigureVirtualPinLocationFromDB()
         const auto &cell = _db.cell(cellIdx);
         boundary.unionBox(cell.cellBBoxOff());
     }
+    boundary.enlargeBy(iter * _boundary.yLen() / 10);
     reconfigureVirtualPinLocations(boundary);
 }
 
@@ -253,6 +260,12 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     curNetBBox.resize(_db.numNets());
     std::vector<char> nopinNets;
     nopinNets.resize(_db.numNets(), false);
+    auto findRealPinLoc = [&](IndexType pinIdx)
+    {
+        XY<LocType> pinOff = _db.pin(pinIdx).midLoc();
+        XY<LocType> cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
+        return cellLoc + pinOff;
+    };
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
     {
         if (_db.net(netIdx).numPinIdx() < 1)
@@ -261,16 +274,14 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
             continue;
         }
         IndexType pinIdx = _db.net(netIdx).pinIdx(0);
-        XY<LocType> pinOff = _db.pin(pinIdx).midLoc();
-        XY<LocType> cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
-        curNetBBox.at(netIdx) = Box<LocType>(cellLoc + pinOff, cellLoc + pinOff); // Init into an area=0 box
+        auto pinOff = findRealPinLoc(pinIdx);
+        curNetBBox.at(netIdx) = Box<LocType>(pinOff, pinOff); // Init into an area=0 box
         // The rest pins
         for (IndexType idx = 1; idx < _db.net(netIdx).numPinIdx(); ++idx)
         {
             pinIdx = _db.net(netIdx).pinIdx(idx);
-            pinOff = _db.pin(pinIdx).midLoc();
-            cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
-            curNetBBox.at(netIdx).join(cellLoc + pinOff);
+            pinOff = findRealPinLoc(pinIdx);
+            curNetBBox.at(netIdx).join(pinOff);
         }
     }
 
@@ -289,15 +300,35 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         return difX + difY;
     };
 
+    auto calculateShortestManhattanDistance = [&](IndexType netIdx, IndexType ioPinIdx)
+    {
+        LocType dist = LOC_TYPE_MAX;
+        const auto &iopinLoc = _virtualPins.at(ioPinIdx).loc();
+        for (IndexType pinIdx : _db.net(netIdx).pinIdxArray())
+        {
+            auto pinOff = findRealPinLoc(pinIdx);
+            dist = std::min(::klib::manhattanDistance(iopinLoc, pinOff), dist);
+        }
+        if (iopinLoc.x() < _boundary.center().x())
+        {
+            dist *= 1.2;
+        }
+        return dist;
+    };
+
     // Calculate the added HPWL if adding the virtual pin
     auto directNetToPinCostFunc = [&](IndexType netIdx, IndexType virtualPinIdx)
     {
-        return calculateIncreasedHpwl(netIdx, virtualPinIdx);
+        return calculateShortestManhattanDistance(netIdx, virtualPinIdx);
     };
 
     auto useASymNet = [&](IndexType netIdx)
     {
         if (!_db.net(netIdx).isIo())
+        {
+            return false;
+        }
+        if (_db.net(netIdx).isVdd() or _db.net(netIdx).isVss())
         {
             return false;
         }
@@ -340,8 +371,9 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         if (_db.net(netIdx).hasSymNet())
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
-            auto netCost0 = calculateIncreasedHpwl(netIdx, leftPinIdx) + calculateIncreasedHpwl(otherNetIdx, rightPinIdx);
-            auto netCost1 = calculateIncreasedHpwl(otherNetIdx, leftPinIdx) + calculateIncreasedHpwl(netIdx, rightPinIdx);
+            auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
+            return netCost0;
+            auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
             return std::min(netCost0, netCost1);
         }
         Assert(false);
@@ -354,13 +386,17 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         {
             return false;
         }
+        if (_db.net(netIdx).isVdd() or _db.net(netIdx).isVss())
+        {
+            return false;
+        }
         //if (_db.net(netIdx).isSelfSym())
         //{
         //    return true;
         //}
         if (_db.net(netIdx).hasSymNet())
         {
-            if (netIdx < _db.net(netIdx).symNetIdx())
+            if (_db.net(netIdx).isLeftSym())
             {
                 return true;
             }
@@ -392,9 +428,10 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         if (_db.net(netIdx).hasSymNet())
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
-            auto netCost0 = calculateIncreasedHpwl(netIdx, leftPinIdx) + calculateIncreasedHpwl(otherNetIdx, rightPinIdx);
-            auto netCost1 = calculateIncreasedHpwl(otherNetIdx, leftPinIdx) + calculateIncreasedHpwl(netIdx, rightPinIdx);
-            if (netCost0 <= netCost1)
+            //auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
+            //auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
+            if (1)
+            //if (netCost0 <= netCost1)
             {
                 // net -> left. other net -> right
                 directAssignNetToPinFunc(netIdx, leftPinIdx);
@@ -498,7 +535,6 @@ bool VirtualPinAssigner::_lpSimplexPinAssignment(
 
     if (m < ns or 2 * m < ns + na)
     {
-        AssertMsg(false, "Ideaplace: assign IO pins: Not enought pin candidates. Please implement the fixing routine.\n");
         return false;
     }
 

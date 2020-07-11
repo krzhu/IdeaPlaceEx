@@ -63,21 +63,25 @@ endif()
 message(STATUS "Find Lemon: ${LEMON_ROOT_DIR}")
 unset(LEMON_DIR CACHE)
 
-# Find the directory for WNLIB. If cache variable WNLIB_DIR is defined, use it as the path to WNLIB, otherwise use the system WNLIB_DIR
-if (WNLIB_DIR)
-    set(WNLIB_ROOT_DIR ${WNLIB_DIR})
-    message(STATUS "Use WNLIB: ${WNLIB_ROOT_DIR}")
+
+# Find cpp_task
+if (CPP_TASKFLOW_DIR)
+    set(CPP_TASKFLOW_ROOT_DIR ${CPP_TASKFLOW_DIR})
 else()
-    set(WNLIB_ROOT_DIR $ENV{WNLIB_DIR})
-    message(STATUS "Use system WNLIB ${WNLIB_ROOT_DIR}")
+    set(CPP_TASKFLOW_ROOT_DIR $ENV{CPP_TASKFLOW_DIR})
 endif()
-unset (WNLIB_DIR CACHE)
-find_library(WNLIB_LIBRARIES
-    NAMES text.a
-    HINTS ${WNLIB_ROOT_DIR}/acc
-    )
-message(STATUS "WNLIB_ROOT_DIR = ${WNLIB_ROOT_DIR}")
-message(STATUS "WNLIB_LIBRARIES = ${WNLIB_LIBRARIES}")
+message(STATUS "Find cpp_taskflow: ${CPP_TASKFLOW_ROOT_DIR}")
+unset(CPP_TASKFLOW_DIR CACHE)
+
+
+# Find Eigen
+if (EIGEN_DIR)
+    set(EIGEN_ROOT_DIR ${EIGEN_DIR})
+else()
+    set(EIGEN_ROOT_DIR $ENV{EIGEN_INC})
+endif()
+message(STATUS "Find Eigen: ${EIGEN_ROOT_DIR}")
+unset(LEMON_DIR CACHE)
 
 
 # Find the directory for LPSOLVE. If cache variable LPSOLVE_DIR is defined, use it as the path to LPSOLVE, otherwise use the system LPSOLVE_DIR
@@ -139,7 +143,7 @@ file(GLOB SOURCES src/global/*.h    src/global/*.cpp
                   src/util/*.h      src/util/*.cpp 
                   src/parser/*.h    src/parser/*.cpp
                   src/writer/gdsii/*.h    src/writer/gdsii/*.cpp
-                  src/place/*.h    src/place/*.cpp
+                  src/place/*.h    src/place/*.cpp src/place/nlp/*.cpp
                   src/pinassign/*.h src/pinassign/*.cpp
                   src/main/IdeaPlaceEx.h src/main/IdeaPlaceEx.cpp)
 
@@ -209,6 +213,28 @@ else()
     add_compile_definitions(LP_NOT_USE_GUROBI)
 endif()
 
+#wnlib: conjugate gradient for reference
+if (WNLIB_DIR)
+    set(WNLIB_ROOT_DIR ${WNLIB_DIR})
+    message(STATUS "Use wnlib ${WNLIB_ROOT_DIR}")
+    set(USE_WNLIB TRUE)
+elseif(DEFINED ENV{WNLIB_DIR})
+    set(WNLIB_ROOT_DIR $ENV{WNLIB_DIR})
+    message(STATUS "Use system wnlib ${WNLIB_ROOT_DIR}")
+    set(USE_WNLIB TRUE)
+else()
+    message(STATUS "Disable wnlib")
+    set(USE_WNLIB FALSE)
+endif()
+unset(WNLIB_DIR CACHE)
+
+if (USE_WNLIB)
+    find_library(WNLIB_LIBRARIES
+        NAMES text.a
+        HINTS ${WNLIB_ROOT_DIR}/acc
+        )
+endif()
+
 
 
 #Print out the used build type
@@ -226,38 +252,48 @@ ELSE()
     set(CMAKE_BUILD_TYPE Release)
 ENDIF()
 #set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
-set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -march=native -fopenmp ")
+set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -fopenmp ")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline ")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_PROFILE "-O3 -pg -Winline")
-#set(CMAKE_EXE_LINKER_FLAGS "-pthread -static-libgcc -static-libstdc++ -static")
-set(CMAKE_EXE_LINKER_FLAGS "-pthread")
+set(CMAKE_EXE_LINKER_FLAGS "-pthread -static-libgcc -static-libstdc++")
+#set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 
-set(TO_LINK_LIBS ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES} ${WNLIB_LIBRARIES})
+set(TO_LINK_LIBS ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES})
 
-if (USE_LPSOLVE)
-    set(TO_LINK_LIBS ${TO_LINK_LIBS} ${LPSOLVE_LIBRARIES})
-endif()
 
-if (USE_GUROBI)
-    set(TO_LINK_LIBS ${TO_LINK_LIBS} ${GUROBI_LIBRARIES})
-endif()
-
-add_executable(${PROJECT_NAME} ${SOURCES} ${EXE_SOURCES})
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src
+set(TO_INCLUDE_PATH 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${Boost_INCLUDE_DIR}
     ${ZLIB_INCLUDE_DIRS}
     ${LIMBO_ROOT_DIR}/include
     ${SPARSEHASH_ROOT_DIR}/include
-    ${WNLIB_ROOT_DIR}/acc/h
-    ${LPSOLVE_ROOT_DIR} 
     ${PYTHON_INCLUDE_DIRS}
     ${PYBIND11_ROOT_DIR}/include
     ${LEMON_ROOT_DIR}/include
-    ${GUROBI_ROOT_DIR}/include
+    ${EIGEN_ROOT_DIR}
+    ${CPP_TASKFLOW_ROOT_DIR}
 )
+
+if (USE_LPSOLVE)
+    set(TO_LINK_LIBS ${TO_LINK_LIBS} ${LPSOLVE_LIBRARIES})
+    set(TO_INCLUDE_PATH ${TO_INCLUDE_PATH} ${LPSOLVE_ROOT_DIR})
+endif()
+
+if (USE_GUROBI)
+    set(TO_LINK_LIBS ${TO_LINK_LIBS} ${GUROBI_LIBRARIES})
+    set(TO_INCLUDE_PATH ${TO_INCLUDE_PATH} ${GUROBI_ROOT_DIR}/include)
+endif()
+
+if (USE_WNLIB)
+    set(TO_LINK_LIBS ${TO_LINK_LIBS} ${WNLIB_LIBRARIES})
+    set(TO_INCLUDE_PATH ${TO_INCLUDE_PATH} ${WNLIB_ROOT_DIR}/acc/h)
+endif()
+
+add_executable(${PROJECT_NAME} ${SOURCES} ${EXE_SOURCES})
+
+include_directories(${TO_INCLUDE_PATH})
 
 
 target_link_libraries(${PROJECT_NAME} 

@@ -18,9 +18,6 @@
 
 PROJECT_NAMESPACE_BEGIN
 
-// A global pointer to NLP
-// This is for a trick to overly use static members in the NlpWnconj class
-NlpWnconj *nlpPtr = nullptr;
 
 void IdeaPlaceEx::readTechSimpleFile(const std::string &techsimple)
 {
@@ -66,6 +63,11 @@ void IdeaPlaceEx::readSymNetFile(const std::string &symnetFile)
 {
     WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
     ParserSymNet(_db).read(symnetFile);
+}
+void IdeaPlaceEx::readSigpathFile(const std::string &sigpathFile)
+{
+    WRN("Ideaplace: Using file parser %s. This is designed for internal debugging only and may not be kept maintained \n", __FUNCTION__);
+    ParserSignalPath(_db).read(sigpathFile);
 }
 
 bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
@@ -122,7 +124,7 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
     if (_args.sigpathFileIsSet())
     {
         INF("IdeaPlaceEx:%s Read in .sigpath ... \n", __FUNCTION__);
-        ParserSignalPath(_db).read(_args.sigpathFile());
+        readSigpathFile(_args.sigpathFile());
     }
 
 
@@ -141,6 +143,8 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv)
 
 LocType IdeaPlaceEx::solve(LocType gridStep)
 {
+    auto stopWatch = WATCH_CREATE_NEW("IdeaPlaceEx");
+    stopWatch->start();
     omp_set_num_threads(_db.parameters().numThreads());
     // Start message printer timer
     MsgPrinter::startTimer();
@@ -163,11 +167,13 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     ProximityMgr proximityMgr(_db);
     proximityMgr.applyProximityWithDummyNets();
 
+    // Clean up the signal path
+    _db.splitSignalPathsBySymPairs();
+
     INF("Ideaplace: Entering global placement...\n");
-    NlpWnconj nlp(_db);
-    nlp.setToughMode(false);
-    nlpPtr = &nlp;
-    nlp.solve();
+
+    NlpGPlacerFirstOrder<nlp::nlp_default_settings> placer(_db);
+    placer.solve();
 #ifdef DEBUG_GR
 #ifdef DEBUG_DRAW
     _db.drawCellBlocks("./debug/after_gr.gds");
@@ -181,26 +187,45 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
     pinAssigner.solveFromDB();
     INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
     INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n",  _db.hpwlWithVitualPins());
-    if (!legalizeResult)
-    {
-        Assert(false);
-        INF("IdeaPlaceEx: failed to find feasible solution in the first iteration. Try again \n");
-        NlpWnconj tryagain(_db);
-        tryagain.setToughMode(true);
-        nlpPtr = &tryagain;
-        tryagain.solve();
-#ifdef DEBUG_GR
-#ifdef DEBUG_DRAW
-    _db.drawCellBlocks("./debug/after_gr.gds");
-#endif //DEBUG_DRAW
-#endif
-        CGLegalizer legalizer2(_db);
-        legalizer2.legalize();
-    }
     LocType symAxis(0);
 
     // Restore proxmity group
     proximityMgr.restore();
+
+    // stats for sigpath current path
+    LocType sigHpwl = 0;
+    LocType crfOverflow = 0;
+    auto findpinLoc = [&](IndexType pinIdx)
+    {
+        const auto &pin = _db.pin(pinIdx);
+        const auto &cell = _db.cell(pin.cellIdx());
+        return cell.loc() + pin.midLoc();
+    };
+    for (const auto &sigpath : _db.vSignalPaths())
+    {
+        if (sigpath.isPower())
+        {
+            for (IndexType i = 0; i < sigpath.vPinIdxArray().size() - 1; ++i)
+            {
+                IndexType pinIdx1 = sigpath.vPinIdxArray().at(i);
+                IndexType pinIdx2 = sigpath.vPinIdxArray().at(i+1);
+                crfOverflow += std::max((findpinLoc(pinIdx2) - findpinLoc(pinIdx1)).y(), 0);
+            }
+        }
+        else
+        {
+            for (IndexType i = 0; i < sigpath.vPinIdxArray().size() - 1; ++i)
+            {
+                IndexType pinIdx1 = sigpath.vPinIdxArray().at(i);
+                IndexType pinIdx2 = sigpath.vPinIdxArray().at(i+1);
+                auto loc1 = findpinLoc(pinIdx1);
+                auto loc2 = findpinLoc(pinIdx2);
+                auto dif = ::klib::manhattanDistance(loc1, loc2);
+                sigHpwl += dif;
+            }
+        }
+    }
+    INF("\n\n\nOVERFLOW: crf %d \n HPWL: path %d \n \n\n", crfOverflow, sigHpwl);
 
     _db.checkSym();
 
@@ -220,10 +245,12 @@ LocType IdeaPlaceEx::solve(LocType gridStep)
 #endif //DEBUG_DRAW
 #endif
 
+    stopWatch->stop();
+
     return symAxis;
 }
 
-bool IdeaPlaceEx::outputFileBased(int argc, char **argv)
+bool IdeaPlaceEx::outputFileBased(int , char **)
 {
     return true;
 }

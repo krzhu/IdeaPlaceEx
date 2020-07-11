@@ -16,6 +16,7 @@
 #include "util/MsgPrinter.h"
 #include "util/Assert.h"
 #include "util/kLibBase.h"
+#include "util/StopWatch.hpp"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -24,6 +25,10 @@ static const auto &INF = MsgPrinter::inf;
 static const auto &WRN = MsgPrinter::wrn;
 static const auto &ERR = MsgPrinter::err;
 static const auto &DBG = MsgPrinter::dbg;
+static const auto &WATCH_QUICK_START = klib::StopWatchMgr::quickStart;
+static const auto &WATCH_QUICK_END = klib::StopWatchMgr::quickEnd;
+static const auto &WATCH_CREATE_NEW = klib::StopWatchMgr::createNewStopWatch;;
+static const auto &WATCH_LOOK_RECORD_TIME = klib::StopWatchMgr::time;
 
 PROJECT_NAMESPACE_END
 

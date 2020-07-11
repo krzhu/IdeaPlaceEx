@@ -12,6 +12,7 @@ bool ParserSymNet::read(const std::string &filename)
         Assert(false);
         return false;
     }
+    INF("Symnet parser: reading %s...\n", filename.c_str());
     std::string lineStr;
     while (std::getline(inf, lineStr))
     {
@@ -26,9 +27,13 @@ bool ParserSymNet::read(const std::string &filename)
         {
             _pairs.emplace_back(std::make_pair(split.at(0), split.at(1)));
         }
-        if (split.size() == 1)
+        else if (split.size() == 1)
         {
             _selfs.emplace_back(split.at(0));
+        }
+        else
+        {
+            Assert(false);
         }
     }
 
@@ -57,8 +62,9 @@ bool ParserSymNet::processNamePair()
         {
             IndexType netIdx1 = netNameMap[pair.first];
             IndexType netIdx2 = netNameMap[pair.second];
-            _db.net(netIdx1).setSymNet(netIdx2);
-            _db.net(netIdx2).setSymNet(netIdx1);
+            _db.net(netIdx1).setSymNet(netIdx2, true);
+            _db.net(netIdx2).setSymNet(netIdx1, false);
+            INF("ParserSymNet:: left net %s %d\n, right net %s %d\n", _db.net(netIdx1).name().c_str(), netIdx1, _db.net(netIdx2).name().c_str(), netIdx2);
         }
         else
         {

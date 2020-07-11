@@ -11,7 +11,7 @@
 #include "db/Database.h"
 /* Solver */
 #include "place/CGLegalizer.h"
-#include "place/NlpWnconj.h" //< This stupid package must be included here
+#include "place/NlpGPlacer.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -62,6 +62,9 @@ class IdeaPlaceEx
         /// @brief read the symnet file
         /// @param the filename for the symnet file
         void readSymNetFile(const std::string &symnetFile);
+        /// @brief read the sigpath file
+        /// @param the filename for the sigpath file
+        void readSigpathFile(const std::string &sigpathFile);
         /*------------------------------*/ 
         /* paramters                    */
         /*------------------------------*/ 
@@ -103,6 +106,13 @@ class IdeaPlaceEx
             _db.pin(pinIdx).setCellIdx(cellIdx);
             _db.cell(cellIdx).addPin(pinIdx);
             return pinIdx;
+        }
+        /// @brief set the name of a pin
+        /// @param the index of the pin
+        /// @param the name of the pin
+        void setPinName(IndexType pinIdx, const std::string &name)
+        {
+            _db.pin(pinIdx).setName(name);
         }
         /// @brief add pin shape for a pin
         /// @param the index of the pin
@@ -192,9 +202,30 @@ class IdeaPlaceEx
         /// @param first and second: two net indices. The order does not matter
         void addSymNetPair(IndexType netIdx1, IndexType netIdx2)
         {
-            _db.net(netIdx1).setSymNet(netIdx2);
-            _db.net(netIdx2).setSymNet(netIdx1);
+            _db.net(netIdx1).setSymNet(netIdx2, true);
+            _db.net(netIdx2).setSymNet(netIdx1, false);
         }
+        /// @brief allocate a signal path
+        /// @return the index of the signal path
+        IndexType allocateSignalPath()
+        {
+            return _db.allocateSignalPath();
+        }
+        /// @brief mark a signal path as power
+        /// @param the index of the signal path
+        void markSignalPathAsPower(IndexType pathIdx)
+        {
+            _db.signalPath(pathIdx).markAsPower();
+        }
+        /// @brief add a new pin to a signal path
+        /// @param first: the index of signal path
+        /// @param second: the name of cell
+        /// @param third: the name of pin
+        void addPinToSignalPath(IndexType pathIdx, const std::string & cellName, const std::string & pinName)
+        {
+            return _db.addPinToSignalPath(pathIdx, cellName, pinName);
+        }
+
         /// @brief mark a net as self-symmmetric
         /// @param the net index
         void markSelfSymNet(IndexType netIdx) { _db.net(netIdx).markSelfSym(); }
@@ -207,9 +238,9 @@ class IdeaPlaceEx
         /// @brief remove io net mark
         void revokeIoNet(IndexType netIdx) { _db.net(netIdx).setIsIo(false); }
         /// @brief mark a net as vdd
-        void markAsVddNet(IndexType netIdx) { _db.net(netIdx).markAsVdd(); }
+        void markAsVddNet(IndexType netIdx) { _db.net(netIdx).markAsVdd(); _db.net(netIdx).setWeight(1); }
         /// @brief mark a net as vss
-        void markAsVssNet(IndexType netIdx) { _db.net(netIdx).markAsVss(); }
+        void markAsVssNet(IndexType netIdx) { _db.net(netIdx).markAsVss(); _db.net(netIdx).setWeight(1); }
         /// @brief get the x coordinate of io net
         LocType iopinX(IndexType netIdx) { return _db.net(netIdx).virtualPinLoc().x(); }
         /// @brief get the y coordinate of io net
@@ -260,6 +291,63 @@ class IdeaPlaceEx
                 return INDEX_TYPE_MAX;
             return _db.cell(cellIdx).pinIdx(pinCellIdx); 
         }
+        /* Run time */
+        /// @brief get the total run time
+        /// @return time in us
+        decltype(auto) runtimeIdeaPlaceEx()
+        {
+            return WATCH_LOOK_RECORD_TIME("IdeaPlaceEx");
+        }
+        /// @brief get the the run time for global placement
+        /// @return time in us
+        decltype(auto) runtimeGlobalPlace()
+        {
+            return WATCH_LOOK_RECORD_TIME("NlpGPlacer");
+        }
+        /// @brief get the the run time for calculating objectives in global placement
+        /// @return time in us
+        decltype(auto) runtimeGlobalPlaceCalcObj()
+        {
+            return WATCH_LOOK_RECORD_TIME("GP_calculate_obj");
+        }
+        /// @brief get the the run time for calculating gradients in global placement
+        /// @return time in us
+        decltype(auto) runtimeGlobalPlaceCalcGrad()
+        {
+            return WATCH_LOOK_RECORD_TIME("GP_calculate_gradient");
+        }
+        /// @brief get the the run time for the optimization kernel in global placement
+        /// @return time in us
+        decltype(auto) runtimeGlobalPlaceOptmKernel()
+        {
+            return WATCH_LOOK_RECORD_TIME("GP_optimizer_kernel");
+        }
+        /// @brief get the the run time for the optimization kernel in global placement
+        /// @return time in us
+        decltype(auto) runtimeGlobalPlaceOptimize()
+        {
+            return WATCH_LOOK_RECORD_TIME("GP_optimize");
+        }
+        /// @brief get the the run time for updating the problem (e.g. multipliers) in global placement
+        /// @return time in us
+        decltype(auto) runtimeGlobalPlaceUpdateProblem()
+        {
+            return WATCH_LOOK_RECORD_TIME("GP_update_problem");
+        }
+        /// @brief get the the run time for legalization
+        /// @return time in us
+        decltype(auto) runtimeLegalization()
+        {
+            return WATCH_LOOK_RECORD_TIME("legalization");
+        }
+        /// @brief get the the run time for detailed placement
+        /// @return time in us
+        decltype(auto) runtimeDetailedPlacement()
+        {
+            return WATCH_LOOK_RECORD_TIME("detailedPlacement");
+        }
+
+
     protected:
         Database _db; ///< The placement engine database 
 };
