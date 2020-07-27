@@ -6,7 +6,6 @@ set(PROJECT_NAME "IdeaPlaceEx")
 project(${PROJECT_NAME})
 
 find_package (PkgConfig)
-#pkg_check_modules (CAIRO cairo)
 
 #The project version number
 set(VERSION_MAJOR   0   CACHE STRING "Project major version number.")
@@ -17,16 +16,6 @@ set(VERSION_PATCH   0   CACHE STRING "Project patch version number.")
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(DOCUMENT_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/docs)
 set(PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-#Find correct boost
-#set(Boost_NO_BOOST_CMAKE ON)
-#set(Boost_NO_SYSTEM_PATH ON)
-#set(BOOST_ROOT $ENV{BOOST_ROOT})
-#set(BOOST_LIBRARYDIR $ENV{BOOST_LIB})
-#set(Boost_LIBRARY_DIRS $ENV{BOOST_LIB})
-#set(Boost_INCLUDE_DIR $ENV{BOOST_INC})
-#set(BOOST_INCLUDEDIR $ENV{BOOST_INC})
-#set(BOOST_MIN_VERSION "1.60.0")
 
 #Check if intall prefix flag is found, if not, set a default path
 if (CMAKE_INSTALL_PREFIX)
@@ -63,15 +52,6 @@ endif()
 message(STATUS "Find Lemon: ${LEMON_ROOT_DIR}")
 unset(LEMON_DIR CACHE)
 
-
-# Find cpp_task
-if (CPP_TASKFLOW_DIR)
-    set(CPP_TASKFLOW_ROOT_DIR ${CPP_TASKFLOW_DIR})
-else()
-    set(CPP_TASKFLOW_ROOT_DIR $ENV{CPP_TASKFLOW_DIR})
-endif()
-message(STATUS "Find cpp_taskflow: ${CPP_TASKFLOW_ROOT_DIR}")
-unset(CPP_TASKFLOW_DIR CACHE)
 
 
 # Find Eigen
@@ -166,17 +146,6 @@ endif()
 unset(PYBIND11_DIR CACHE)
 add_subdirectory(${PYBIND11_ROOT_DIR} "./pybind11")
 
-#
-##Google Test
-#if (GTEST_DIR)
-#    set(GTEST_ROOT_DIR ${GTEST_DIR})
-#    message(STATUS "Use google test: ${GTEST_ROOT_DIR}")
-#else()
-#    set(GTEST_ROOT_DIR $ENV{GTEST_DIR})
-#    message(STATUS "Use system google test: ${GTEST_ROOT_DIR}")
-#endif()
-#unset(GTEST_DIR CACHE)
-#
 # Python
 find_package(PythonLibs REQUIRED)
 
@@ -251,13 +220,11 @@ ELSE()
     message(STATUS "Using build type DEFAULT: using Release flag")
     set(CMAKE_BUILD_TYPE Release)
 ENDIF()
-#set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -fopenmp ")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline ")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_PROFILE "-O3 -pg -Winline")
 set(CMAKE_EXE_LINKER_FLAGS "-pthread -static-libgcc -static-libstdc++")
-#set(CMAKE_EXE_LINKER_FLAGS "-pthread")
 
 
 set(TO_LINK_LIBS ${STATIC_LIB} ${Boost_LIBRARIES} ${ZLIB_LIBRARIES})
@@ -268,12 +235,10 @@ set(TO_INCLUDE_PATH
     ${Boost_INCLUDE_DIR}
     ${ZLIB_INCLUDE_DIRS}
     ${LIMBO_ROOT_DIR}/include
-    ${SPARSEHASH_ROOT_DIR}/include
     ${PYTHON_INCLUDE_DIRS}
     ${PYBIND11_ROOT_DIR}/include
     ${LEMON_ROOT_DIR}/include
     ${EIGEN_ROOT_DIR}
-    ${CPP_TASKFLOW_ROOT_DIR}
 )
 
 if (USE_LPSOLVE)
