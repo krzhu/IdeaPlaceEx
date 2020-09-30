@@ -435,7 +435,7 @@ namespace nlp
             /// @brief direct subgradient
             struct direct_subgradient
             {
-                static constexpr RealType stepSize = 0.01;
+                static constexpr RealType stepSize = 0.003;
             };
 
             template<>
@@ -486,7 +486,7 @@ namespace nlp
                 static constexpr nlp_numerical_type maxMult = 500;
                 bool _recordedInit = false; ///< Whether the init multipliers have been recorded
                 nlp_numerical_type ratio = 1.0; ///< The ratio of matched part vs constant part
-                static constexpr nlp_numerical_type ratioDecayRate = 0.98; ///< The decay factor of "ratio"
+                static constexpr nlp_numerical_type ratioDecayRate = 0.8; ///< The decay factor of "ratio"
                 nlp_numerical_type hpwlInitMult = 1.0;
                 nlp_numerical_type cosInitMult = 1.0;
                 nlp_numerical_type powerWlInitMult = 1.0;

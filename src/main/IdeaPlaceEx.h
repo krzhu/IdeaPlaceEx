@@ -287,6 +287,7 @@ class IdeaPlaceEx
         /// @return the pinIdx in database
         IndexType pinIdx(IndexType cellIdx, IndexType pinCellIdx) 
         { 
+            DBG("cellIdx %d num cells %d \n", cellIdx, _db.numCells());
             if (pinCellIdx >= _db.cell(cellIdx).numPinIdx())
                 return INDEX_TYPE_MAX;
             return _db.cell(cellIdx).pinIdx(pinCellIdx); 
