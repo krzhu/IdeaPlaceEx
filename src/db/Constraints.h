@@ -99,6 +99,8 @@ class ProximityGroup
       /// @brief get the vector of the cell indices
       /// @return get the vector of the cell indices
       const std::vector<IndexType> &cells() const { return _cells; }
+      /// @brief get the weight of this proximity group
+      IntType weight() const { return _weight; }
 
     private:
       std::vector<IndexType> _cells; ///< The cells belonging to this proximity group
@@ -124,6 +126,42 @@ class SignalPath
     private:
         std::vector<IndexType> _pinIdxArray; ///< The indices of pins composing the path
         BoolType _isPower = false;
+};
+
+/// @brief the relational constraints, either horizontal or vertical
+class RelationalConstraint {
+    public:
+        enum class CompareType 
+        {
+            CENTER = 0
+        };
+        explicit RelationalConstraint(IndexType llCellIdx, IndexType urCellIdx, Orient2DType relationalType, IntType weight=1, CompareType compareType=CompareType::CENTER)
+            : _llCellIdx(llCellIdx), _urCellIdx(urCellIdx), _relationalType(relationalType), _weight(weight), _compareType(compareType)
+        {}
+        /* Getter */
+        /// @brief get the cell index at the lower/left position
+        /// @return the the cell index at the lower/left position
+        IndexType llCellIdx() const { return _llCellIdx; }
+        /// @brief get the cell index at the upper/right position
+        /// @return the the cell index at the upper/right  position
+        IndexType urCellIdx() const { return _urCellIdx; }
+        /// @brief get whether this is a horizontal or vertical constraint
+        /// @return the orientation type
+        Orient2DType relationalType() const { return _relationalType; }
+        /// @brief get the weight
+        /// @return the weights of this constraint
+        IntType weight() const { return _weight; }
+        /// @brief get the compare type for the relation
+        /// @return the strategy, eg. center
+        CompareType compareType() const { return _compareType; }
+    private:
+        IndexType _llCellIdx = INDEX_TYPE_MAX; ///< cell index at the lower/left position
+        IndexType _urCellIdx = INDEX_TYPE_MAX; ///< cell index at the upper/right position
+        Orient2DType _relationalType = Orient2DType::NONE; ///< Horizontal or vertical constraint
+        IntType _weight = 1;
+        CompareType _compareType = CompareType::CENTER; ///< The strategy for compare the relational relation
+
+
 };
 
 PROJECT_NAMESPACE_END

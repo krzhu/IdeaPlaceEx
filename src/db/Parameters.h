@@ -71,6 +71,8 @@ class Parameters
         RealType defaultCurrentFlowWeight() const { return _defaultCurrentFlowWeight; }
         /// @@brief get the  weighing ratio of power to regular net
         RealType defaultRelativeRatioOfPowerNet() const { return _defaultRelativeRatioOfPowerNet; }
+        /// @brief get the default weighing factor of the relational constraints
+        RealType defaultRelationalConstraintWeight() const { return _defaultRelationalConstraintWeight; }
     private:
         Box<LocType> _boundaryConstraint = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
         bool _ifUsePinAssignment; ///< If do pin assignment
@@ -84,6 +86,7 @@ class Parameters
         RealType _defaultSignalFlowWeight; ///< The default weight for signal flow operators
         RealType _defaultCurrentFlowWeight; ///< The default weight for current flow operators
         RealType _defaultRelativeRatioOfPowerNet; ///< The weighing ratio of power to regular net
+        RealType _defaultRelationalConstraintWeight; ///< The weighing ratio of relational constraints
 
 };
 

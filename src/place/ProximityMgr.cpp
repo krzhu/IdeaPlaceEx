@@ -17,7 +17,7 @@ void ProximityMgr::addDummyNetForProximityGroup(const ProximityGroup &pg)
     auto &net = _db.net(netIdx);
     net.setIsIo(false);
     net.markAsDummyNet();
-    net.setWeight(DEFAULT_DUMMY_NET_WEIGHT);
+    net.setWeight(DEFAULT_DUMMY_NET_WEIGHT * pg.weight());
     for (IndexType cellIdx : pg.cells())
     {
         IndexType pinIdx = _db.allocatePin();

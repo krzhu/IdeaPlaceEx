@@ -174,6 +174,12 @@ class Database
             }
             sig.addPinIdx(pinIdx);
         }
+        /// @brief get the relational constrains
+        /// @return the relational constraint vector
+        const std::vector<RelationalConstraint> & relationalConstraints()  const { return _relationalConstraints; }
+        /// @brief get the relational constrains
+        /// @return the relational constraint vector
+        std::vector<RelationalConstraint> & relationalConstraints()  { return _relationalConstraints; }
         /*------------------------------*/ 
         /* Technology-dependent         */
         /*------------------------------*/ 
@@ -216,6 +222,7 @@ class Database
         std::vector<SymGroup> _symGroups; ///< The symmetric groups
         std::vector<ProximityGroup> _proximityGrps; ///< The proximity group constraints
         std::vector<SignalPath> _signalPaths; ///< The signal/current paths
+        std::vector<RelationalConstraint> _relationalConstraints; ///< The horizontal/vertical constraints
         Tech _tech; ///< The tech information
         Parameters _para; ///< The parameters for the placement engine
 };

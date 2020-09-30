@@ -17,7 +17,7 @@ PROJECT_NAMESPACE_BEGIN
 /// @brief the proximity manager
 class ProximityMgr
 {
-    static constexpr IntType DEFAULT_DUMMY_NET_WEIGHT = 10;
+    static constexpr IntType DEFAULT_DUMMY_NET_WEIGHT = 1;
     /// @brief quick shortcut for recording the pin idx in cell 
     struct PinInCellIdx
     {

@@ -381,8 +381,8 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                     _db.cell(sCellIdx).name().c_str(), 
                     _db.cell(mCellIdx).name().c_str());
 #endif
-            _crfOps.emplace_back(sCellIdx, sOffset.y(),
-                    mCellIdx, midOffsetA.y(),
+            _crfOps.emplace_back(mCellIdx, midOffsetA.y(),
+                    sCellIdx, sOffset.y(),
                     getLambdaFuncCosine);
             _crfOps.back().setGetVarFunc(getVarFunc);
             _crfOps.back().setGetAlphaFunc(getAlphaFunc);
@@ -392,8 +392,8 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                     _db.cell(mCellIdx).name().c_str(),
                     _db.cell(tCellIdx).name().c_str());
 #endif
-            _crfOps.emplace_back(mCellIdx, midOffsetB.y(),
-                    tCellIdx, tOffset.y(),
+            _crfOps.emplace_back(tCellIdx, tOffset.y(),
+                    mCellIdx, midOffsetB.y(),
                     getLambdaFuncCosine);
             _crfOps.back().setGetVarFunc(getVarFunc);
             _crfOps.back().setGetAlphaFunc(getAlphaFunc);
@@ -417,8 +417,8 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                     _db.cell(sCellIdx).name().c_str(),
                     _db.cell(tCellIdx).name().c_str());
 #endif
-            _crfOps.emplace_back(sCellIdx, sOffset.y(),
-                    tCellIdx, tOffset.y(),
+            _crfOps.emplace_back(tCellIdx, tOffset.y(),
+                    sCellIdx, sOffset.y(),
                     getLambdaFuncCosine);
             _crfOps.back().setGetVarFunc(getVarFunc);
             _crfOps.back().setGetAlphaFunc(getAlphaFunc);
@@ -444,6 +444,55 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
             op.addVar(_db.pin(pinIdx).cellIdx(), pinLoc.x(), pinLoc.y());
         }
         op.setGetVarFunc(getVarFunc);
+    }
+    // Vertical and horizontal constrains
+    for (const auto &constr : _db.relationalConstraints())
+    {
+        IndexType sCellIdx = constr.llCellIdx();
+        IndexType tCellIdx = constr.urCellIdx();
+
+        XY<LocType> sOffset, tOffset;
+
+        if (constr.compareType() == RelationalConstraint::CompareType::CENTER)
+        {
+            sOffset = _db.cell(sCellIdx).cellBBox().center();
+            tOffset = _db.cell(tCellIdx).cellBBox().center();
+        }
+        else
+        {
+            AssertMsg(false, "Not implemented");
+            return;
+        }
+
+#ifdef DEBUG_GR
+        DBG("NlpGPlacer:: add relational constraint cell %s -> cell %s \n",
+                _db.cell(sCellIdx).name().c_str(),
+                _db.cell(tCellIdx).name().c_str());
+#endif
+        if (constr.relationalType() == Orient2DType::VERTICAL) 
+        {
+
+            _verOps.emplace_back(sCellIdx, sOffset.y(),
+                    tCellIdx, tOffset.y(),
+                    getLambdaFuncCosine);
+            _verOps.back().setGetVarFunc(getVarFunc);
+            _verOps.back().setGetAlphaFunc(getAlphaFunc);
+            _verOps.back().setWeight(_db.parameters().defaultRelationalConstraintWeight() * constr.weight());
+        }
+        else if (constr.relationalType() == Orient2DType::HORIZONTAL) 
+        {
+            _horOps.emplace_back(sCellIdx, sOffset.x(),
+                    tCellIdx, tOffset.x(),
+                    getLambdaFuncCosine);
+            _horOps.back().setGetVarFunc(getVarFunc);
+            _horOps.back().setGetAlphaFunc(getAlphaFunc);
+            _horOps.back().setWeight(_db.parameters().defaultRelationalConstraintWeight() * constr.weight());
+        }
+        else
+        {
+            AssertMsg(false, "Unexpected type");
+            return;
+        }
     }
     INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob %d asym %d sigFlow %d power %d crf \n", 
     _hpwlOps.size()+ _ovlOps.size()+ _oobOps.size()+ _asymOps.size()+ _cosOps.size()+ _powerWlOps.size() + _crfOps.size(),
@@ -551,6 +600,16 @@ void NlpGPlacerBase<nlp_settings>::constructObjectiveCalculationTasks()
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_crf_type>::evaluate(op);};
         _evaCosTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
+    for (const auto &op : _verOps)
+    {
+        auto eva = [&]() { return diff::placement_differentiable_traits<nlp_ver_type>::evaluate(op);};
+        _evaVerTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
+    }
+    for (const auto &op : _horOps)
+    {
+        auto eva = [&]() { return diff::placement_differentiable_traits<nlp_hor_type>::evaluate(op);};
+        _evaHorTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
+    }
 }
 
 template<typename nlp_settings>
@@ -619,6 +678,24 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
         }
     };
     _sumObjCrfTask = Task<FuncTask>(FuncTask(crf));
+    auto ver = [&]()
+    {
+        _objVer = 0.0;
+        for (const auto &eva : _evaVerTasks)
+        {
+            _objVer += eva.taskData().obj();
+        }
+    };
+    _sumObjVerTask = Task<FuncTask>(FuncTask(ver));
+    auto hor = [&]()
+    {
+        _objHor = 0.0;
+        for (const auto &eva : _evaVerTasks)
+        {
+            _objHor += eva.taskData().obj();
+        }
+    };
+    _sumObjHorTask = Task<FuncTask>(FuncTask(hor));
     auto all = [&]()
     {
         _obj = 0.0;
@@ -629,6 +706,8 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
         _obj += _objCos;
         _obj += _objPowerWl;
         _obj += _objCrf;
+        _obj += _objVer;
+        _obj += _objHor;
     };
     _sumObjAllTask = Task<FuncTask>(FuncTask(all));
 }
@@ -707,6 +786,26 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _sumObjCrfTask.run();
     };
     _wrapObjCrfTask = Task<FuncTask>(FuncTask(crf));
+    auto ver = [&]()
+    {
+        #pragma omp parallel for schedule(static)
+        for (IndexType idx = 0; idx < _evaVerTasks.size(); ++idx)
+        {
+            _evaVerTasks[idx].run();
+        }
+        _sumObjVerTask.run();
+    };
+    _wrapObjVerTask = Task<FuncTask>(FuncTask(ver));
+    auto hor = [&]()
+    {
+        #pragma omp parallel for schedule(static)
+        for (IndexType idx = 0; idx < _evaHorTasks.size(); ++idx)
+        {
+            _evaHorTasks[idx].run();
+        }
+        _sumObjHorTask.run();
+    };
+    _wrapObjHorTask = Task<FuncTask>(FuncTask(hor));
     auto all = [&]()
     {
         _calcObjStopWatch->start();
@@ -717,6 +816,8 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _wrapObjCosTask.run();
         _wrapObjPowerWlTask.run();
         _wrapObjCrfTask.run();
+        _wrapObjVerTask.run();
+        _wrapObjHorTask.run();
         _sumObjAllTask.run();
         _calcObjStopWatch->stop();
     };
@@ -797,6 +898,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::initFirstOrderGrad()
     _gradCos.resize(size);
     _gradPowerWl.resize(size);
     _gradCrf.resize(size);
+    _gradVer.resize(size);
+    _gradHor.resize(size);
 }
 
 template<typename nlp_settings>
@@ -826,6 +929,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
     using Cos = CalculateOperatorPartialTask<nlp_cos_type, EigenVector>;
     using Pwl = CalculateOperatorPartialTask<nlp_power_wl_type, EigenVector>;
     using Crf = CalculateOperatorPartialTask<nlp_crf_type, EigenVector>;
+    using Ver = CalculateOperatorPartialTask<nlp_ver_type, EigenVector>;
+    using Hor = CalculateOperatorPartialTask<nlp_hor_type, EigenVector>;
     for (auto &hpwlOp : this->_hpwlOps)
     {
         _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
@@ -854,6 +959,14 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
     {
         _calcCrfPartialTasks.emplace_back(Task<Crf>(&crfOp));
     }
+    for (auto &verOp : this->_verOps)
+    {
+        _calcVerPartialTasks.emplace_back(Task<Ver>(&verOp));
+    }
+    for (auto &horOp : this->_horOps)
+    {
+        _calcHorPartialTasks.emplace_back(Task<Hor>(&horOp));
+    }
 }
 
 template<typename nlp_settings>
@@ -866,6 +979,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
     using Cos = UpdateGradientFromPartialTask<nlp_cos_type, EigenVector>;
     using Pwl = UpdateGradientFromPartialTask<nlp_power_wl_type, EigenVector>;
     using Crf = UpdateGradientFromPartialTask<nlp_crf_type, EigenVector>;
+    using Ver = UpdateGradientFromPartialTask<nlp_ver_type, EigenVector>;
+    using Hor = UpdateGradientFromPartialTask<nlp_hor_type, EigenVector>;
     auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return this->plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
     for (auto &hpwl : _calcHpwlPartialTasks)
     {
@@ -895,6 +1010,14 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
     {
         _updateCrfPartialTasks.emplace_back(Task<Crf>(Crf(crf.taskDataPtr(), &_gradCrf, getIdxFunc)));
     }
+    for (auto &ver : _calcVerPartialTasks)
+    {
+        _updateVerPartialTasks.emplace_back(Task<Ver>(Ver(ver.taskDataPtr(), &_gradVer, getIdxFunc)));
+    }
+    for (auto &hor : _calcHorPartialTasks)
+    {
+        _updateHorPartialTasks.emplace_back(Task<Hor>(Hor(hor.taskDataPtr(), &_gradHor, getIdxFunc)));
+    }
 }
 
 template<typename nlp_settings>
@@ -908,6 +1031,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructClearGradTasks()
     _clearCosGradTask = Task<FuncTask>(FuncTask([&]() { _gradCos.setZero(); }));
     _clearPowerWlGradTask = Task<FuncTask>(FuncTask([&]() { _gradPowerWl.setZero(); }));
     _clearCrfGradTask = Task<FuncTask>(FuncTask([&]() { _gradCrf.setZero(); }));
+    _clearVerGradTask = Task<FuncTask>(FuncTask([&]() { _gradVer.setZero(); }));
+    _clearHorGradTask = Task<FuncTask>(FuncTask([&]() { _gradHor.setZero(); }));
 }
 
 template<typename nlp_settings>
@@ -920,7 +1045,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask()
     _sumCosGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateCosPartialTasks){ upd.run(); }}));
     _sumPowerWlTaskGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updatePowerWlPartialTasks){ upd.run(); }}));
     _sumCrfGradTask = Task<FuncTask>(FuncTask([&]() { for (auto &upd : _updateCrfPartialTasks) {upd.run(); }}));
-    _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos + _gradPowerWl + _gradCrf; }));
+    _sumVerGradTask = Task<FuncTask>(FuncTask([&]() { for (auto &upd : _updateVerPartialTasks) {upd.run(); }}));
+    _sumHorGradTask = Task<FuncTask>(FuncTask([&]() { for (auto &upd : _updateHorPartialTasks) {upd.run(); }}));
+    _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos + _gradPowerWl + _gradCrf
+                + _gradVer + _gradHor; }));
 }
 
 template<typename nlp_settings>
@@ -938,6 +1066,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         _clearCosGradTask.run();
         _clearPowerWlGradTask.run();
         _clearCrfGradTask.run();
+        _clearVerGradTask.run();
+        _clearHorGradTask.run();
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcHpwlPartialTasks.size(); ++i ) { _calcHpwlPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updateHpwlPartialTasks.size(); ++i ) { _updateHpwlPartialTasks[i].run(); }
@@ -959,6 +1089,12 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcCrfPartialTasks.size(); ++i ) { _calcCrfPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updateCrfPartialTasks.size(); ++i ) { _updateCrfPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcVerPartialTasks.size(); ++i ) { _calcVerPartialTasks[i].run(); }
+        for (IndexType i = 0; i < _updateVerPartialTasks.size(); ++i ) { _updateVerPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcHorPartialTasks.size(); ++i ) { _calcHorPartialTasks[i].run(); }
+        for (IndexType i = 0; i < _updateHorPartialTasks.size(); ++i ) { _updateHorPartialTasks[i].run(); }
         _sumGradTask.run();
         _calcGradStopWatch->stop();
     };

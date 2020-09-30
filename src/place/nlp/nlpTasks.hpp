@@ -427,9 +427,9 @@ namespace nt
     };
 
     template<typename nlp_numerical_type, typename nlp_coordinate_type>
-    struct calc_operator_partial_build_cellmap_trait<diff::CurrentFlowDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    struct calc_operator_partial_build_cellmap_trait<diff::VerticalConstraintDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
     {
-        typedef diff::CurrentFlowDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
+        typedef diff::VerticalConstraintDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
         template<typename calc_type>
         static void build(nlp_op_type &op, calc_type &calc)
         {
@@ -441,6 +441,23 @@ namespace nt
             calc._inverseCellMap[1] = op._tCellIdx;
         }
     };
+
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::HorizontalConstraintDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    {
+        typedef diff::HorizontalConstraintDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
+        template<typename calc_type>
+        static void build(nlp_op_type &op, calc_type &calc)
+        {
+            calc._numCells = 2; // Always have exactly two cells
+            calc._inverseCellMap.resize(2);
+            calc._cellMap[op._sCellIdx] = 0;
+            calc._inverseCellMap[0] = op._sCellIdx;
+            calc._cellMap[op._tCellIdx] = 1;
+            calc._inverseCellMap[1] = op._tCellIdx;
+        }
+    };
+
 
 } //namespace nt
 

@@ -48,7 +48,9 @@ namespace nlp
         typedef diff::AsymmetryDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_asym_type;
         typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_cos_type;
         typedef diff::PowerVerQuadraticWireLengthDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_power_wl_type;
-        typedef diff::CurrentFlowDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_crf_type;
+        typedef diff::VerticalConstraintDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_crf_type;
+        typedef diff::VerticalConstraintDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_ver_type;
+        typedef diff::HorizontalConstraintDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_hor_type;
     };
     
     struct nlp_default_zero_order_algorithms
@@ -91,7 +93,9 @@ namespace nlp
         typedef alpha::update::alpha_update_list<
                 alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 1>,
                 alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 2>,
-                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 3>
+                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 3>,
+                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 4>,
+                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 5>
             > alpha_update_type;
     };
 
@@ -168,6 +172,8 @@ class NlpGPlacerBase
         typedef typename nlp_types::nlp_cos_type nlp_cos_type;
         typedef typename nlp_types::nlp_power_wl_type nlp_power_wl_type;
         typedef typename nlp_types::nlp_crf_type nlp_crf_type;
+        typedef typename nlp_types::nlp_ver_type nlp_ver_type;
+        typedef typename nlp_types::nlp_hor_type nlp_hor_type;
 
 
         /* algorithms */
@@ -248,6 +254,8 @@ class NlpGPlacerBase
         nlp_numerical_type _objCos = 0.0; ///< The current value for the cosine signal path penalty
         nlp_numerical_type _objPowerWl = 0.0; ///< power wire length
         nlp_numerical_type _objCrf = 0.0; ///< Current flow
+        nlp_numerical_type _objVer = 0.0; ///< Vertical constraint
+        nlp_numerical_type _objHor = 0.0; ///< Horizontal constraint
         nlp_numerical_type _obj = 0.0; ///< The current value for the total objective penalty
         nlp_numerical_type _objHpwlRaw = 0.0; ///< The current value for hpwl
         nlp_numerical_type _objOvlRaw = 0.0; ///< The current value for overlapping penalty
@@ -256,6 +264,8 @@ class NlpGPlacerBase
         nlp_numerical_type _objCosRaw = 0.0; ///< The current value for the cosine signal path penalty
         nlp_numerical_type _objPowrWlRaw = 0.0; ///< Power wire length
         nlp_numerical_type _objCrfRaw = 0.0; ///< Current flow
+        nlp_numerical_type _objVerRaw = 0.0; ///< Vertical constraint
+        nlp_numerical_type _objHorRaw = 0.0; ///< Horizontal constraint
         /* NLP optimization kernel memebers */
         stop_condition_type _stopCondition;
         /* Optimization data */
@@ -269,6 +279,8 @@ class NlpGPlacerBase
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCosTasks;  ///< The tasks for evaluating signal path objectives
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaPowerWlTasks;  
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCrfTasks; ///< The tasks for evaluating current flow objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaVerTasks; ///< The tasks for evaluating vertial constraint cost
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaHorTasks; ///< The tasks for evaluating horizontal constraint cost
         // Sum the objectives
         nt::Task<nt::FuncTask> _sumObjHpwlTask; ///< The task for summing hpwl objective
         nt::Task<nt::FuncTask> _sumObjOvlTask; ///< The task for summing the overlapping objective
@@ -277,6 +289,8 @@ class NlpGPlacerBase
         nt::Task<nt::FuncTask> _sumObjCosTask; ///< The task for summing the cosine signal path objective
         nt::Task<nt::FuncTask> _sumObjPowerWlTask; ///< The task for summing the cosine signal path objective
         nt::Task<nt::FuncTask> _sumObjCrfTask; ///< The task for summing the current flow objective
+        nt::Task<nt::FuncTask> _sumObjVerTask; ///< The task for summing the vertical constraint cost
+        nt::Task<nt::FuncTask> _sumObjHorTask; ///< The task for summing the horizontal constraint cost
         nt::Task<nt::FuncTask> _sumObjAllTask; ///< The task for summing the different objectives together
         // Wrapper tasks for debugging
         nt::Task<nt::FuncTask> _wrapObjHpwlTask; ///< The task for wrap the objective 
@@ -286,6 +300,8 @@ class NlpGPlacerBase
         nt::Task<nt::FuncTask> _wrapObjCosTask;
         nt::Task<nt::FuncTask> _wrapObjPowerWlTask;
         nt::Task<nt::FuncTask> _wrapObjCrfTask; ///< The wrapper for caculating the current flow objective
+        nt::Task<nt::FuncTask> _wrapObjVerTask; ///< The wrapper for caculating the vertical constraint objective
+        nt::Task<nt::FuncTask> _wrapObjHorTask; ///< The wrapper for caculating the horizontal constraint objective
         nt::Task<nt::FuncTask> _wrapObjAllTask;
         /* Operators */
         std::vector<nlp_hpwl_type> _hpwlOps; ///< The HPWL cost 
@@ -295,6 +311,8 @@ class NlpGPlacerBase
         std::vector<nlp_cos_type> _cosOps; ///< The signal flow operators
         std::vector<nlp_power_wl_type> _powerWlOps;
         std::vector<nlp_crf_type> _crfOps; ///< The current flow operators
+        std::vector<nlp_ver_type> _verOps; ///< The vertical constraint operators
+        std::vector<nlp_hor_type> _horOps; ///< The horizontal constraint operators
         /* run time */
         std::unique_ptr<::klib::StopWatch> _calcObjStopWatch;
 };
@@ -334,6 +352,8 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         typedef typename base_type::nlp_cos_type nlp_cos_type;
         typedef typename base_type::nlp_power_wl_type nlp_power_wl_type;
         typedef typename base_type::nlp_crf_type nlp_crf_type;
+        typedef typename base_type::nlp_ver_type nlp_ver_type;
+        typedef typename base_type::nlp_hor_type nlp_hor_type;
 
         typedef typename nlp_settings::nlp_first_order_algorithms_type nlp_first_order_algorithms;
         typedef typename nlp_first_order_algorithms::converge_type converge_type;
@@ -454,6 +474,8 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         EigenVector _gradCos; ///< The first order gradient of cosine signal path objective
         EigenVector _gradPowerWl;
         EigenVector _gradCrf;
+        EigenVector _gradVer; ///< The graident for vertical constraint cost
+        EigenVector _gradHor; ///< The graident for horizontal constraint cost
         /* Tasks */
         // Calculate the partials
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_hpwl_type, EigenVector>>> _calcHpwlPartialTasks;
@@ -463,6 +485,8 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_cos_type,  EigenVector>>> _calcCosPartialTasks;
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_power_wl_type,  EigenVector>>> _calcPowerWlPartialTasks;
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_crf_type,  EigenVector>>> _calcCrfPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_ver_type,  EigenVector>>> _calcVerPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_hor_type,  EigenVector>>> _calcHorPartialTasks;
         // Update the partials
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_hpwl_type, EigenVector>>> _updateHpwlPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_ovl_type,  EigenVector>>> _updateOvlPartialTasks;
@@ -471,8 +495,10 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_cos_type,  EigenVector>>> _updateCosPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_power_wl_type,  EigenVector>>> _updatePowerWlPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_crf_type,  EigenVector>>> _updateCrfPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_ver_type,  EigenVector>>> _updateVerPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_hor_type,  EigenVector>>> _updateHorPartialTasks;
         // Clear the gradient. Use to clear the _gradxxx records. Needs to call before updating the partials
-        nt::Task<nt::FuncTask> _clearGradTask; //FIXME: not used right noe
+        nt::Task<nt::FuncTask> _clearGradTask; //FIXME: not used right one
         nt::Task<nt::FuncTask> _clearHpwlGradTask;
         nt::Task<nt::FuncTask> _clearOvlGradTask;
         nt::Task<nt::FuncTask> _clearOobGradTask;
@@ -480,6 +506,8 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _clearCosGradTask;
         nt::Task<nt::FuncTask> _clearPowerWlGradTask;
         nt::Task<nt::FuncTask> _clearCrfGradTask;
+        nt::Task<nt::FuncTask> _clearVerGradTask;
+        nt::Task<nt::FuncTask> _clearHorGradTask;
         // Sum the _grad from individual
         nt::Task<nt::FuncTask> _sumGradTask;
         nt::Task<nt::FuncTask> _sumHpwlGradTask;
@@ -489,6 +517,8 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _sumCosGradTask;
         nt::Task<nt::FuncTask> _sumPowerWlTaskGradTask;
         nt::Task<nt::FuncTask> _sumCrfGradTask;
+        nt::Task<nt::FuncTask> _sumVerGradTask;
+        nt::Task<nt::FuncTask> _sumHorGradTask;
         // all the grads has been calculated but have not updated
         nt::Task<nt::FuncTask> _wrapCalcGradTask; ///<  calculating the gradient and sum them
         /* run time */

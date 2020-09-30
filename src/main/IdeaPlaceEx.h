@@ -198,6 +198,11 @@ class IdeaPlaceEx
         {
             _db.proximityGrp(proximityGrpIdx).addCell(cellIdx);
         }
+        /// @brief set the proximity group weight
+        void setProximityGroupWeight(IndexType proximityGrpIdx, IntType weight) 
+        {
+            _db.proximityGrp(proximityGrpIdx).setWeight(weight);
+        }
         /// @brief set a pair of symmetric nets
         /// @param first and second: two net indices. The order does not matter
         void addSymNetPair(IndexType netIdx1, IndexType netIdx2)
@@ -249,6 +254,20 @@ class IdeaPlaceEx
         /// @return true: top or bottom
         /// @return false: left or right
         bool isIopinVertical(IndexType netIdx) const { return _db.net(netIdx).iopinVertical(); }
+        /// @brief add a horizontal constraint
+        /// @param first: the left cell index
+        /// @param second: the index of the right cell
+        /// @param third: a weight (integer)
+        void addHorConstr(IndexType lCellIdx, IndexType rCellIdx, IntType weight) {
+            _db.relationalConstraints().emplace_back(RelationalConstraint(lCellIdx, rCellIdx, Orient2DType::HORIZONTAL, weight));
+        }
+        /// @brief add a horizontal constraint
+        /// @param first: the left cell index
+        /// @param second: the index of the right cell
+        /// @param third: a weight (integer)
+        void addVerConstr(IndexType lCellIdx, IndexType rCellIdx, IntType weight) {
+            _db.relationalConstraints().emplace_back(RelationalConstraint(lCellIdx, rCellIdx, Orient2DType::VERTICAL, weight));
+        }
         /*------------------------------*/ 
         /* Standard output interface    */
         /*------------------------------*/ 
@@ -287,7 +306,6 @@ class IdeaPlaceEx
         /// @return the pinIdx in database
         IndexType pinIdx(IndexType cellIdx, IndexType pinCellIdx) 
         { 
-            DBG("cellIdx %d num cells %d \n", cellIdx, _db.numCells());
             if (pinCellIdx >= _db.cell(cellIdx).numPinIdx())
                 return INDEX_TYPE_MAX;
             return _db.cell(cellIdx).pinIdx(pinCellIdx); 

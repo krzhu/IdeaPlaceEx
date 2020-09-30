@@ -14,5 +14,6 @@ Parameters::Parameters()
     _defaultSignalFlowWeight = 10;
     _defaultCurrentFlowWeight = 0.5;
     _defaultRelativeRatioOfPowerNet = 0.2;
+    _defaultRelationalConstraintWeight = 0.1;
 }
 PROJECT_NAMESPACE_END

@@ -243,6 +243,8 @@ namespace nlp
                     mult._variedMults.at(1) = 1; // oob
                     mult._variedMults.at(2) = 1; // asym
                     mult._variedMults.at(3) = 1; // crf
+                    mult._variedMults.at(4) = 1; // ver
+                    mult._variedMults.at(5) = 1; // hor
                 }
 
             };
@@ -266,6 +268,8 @@ namespace nlp
                     RealType totalCosWeights = 0.0;
                     RealType totalPowerWlWeights = 0.0;
                     RealType totalCrfWeights = 0.0;
+                    RealType totalVerWeights = 0.0;
+                    RealType totalHorWeights = 0.0;
                     for (const auto & op : nlp._hpwlOps)
                     {
                         totalHpwlWeights += op._weight;
@@ -282,6 +286,14 @@ namespace nlp
                     {
                         totalCrfWeights += op._weight;
                     }
+                    for (const auto & op : nlp._verOps)
+                    {
+                        totalVerWeights += op._weight;
+                    }
+                    for (const auto & op : nlp._horOps)
+                    {
+                        totalHorWeights += op._weight;
+                    }
                     mult._constMults.at(0) = 1.0; // hpwl
                     const auto hpwlMult = mult._constMults.at(0);
                     const auto hpwlNorm = nlp._gradHpwl.norm();
@@ -293,6 +305,8 @@ namespace nlp
                     const auto oobNorm = nlp._gradOob.norm();
                     const auto asymNorm = nlp._gradAsym.norm();
                     const auto crfNorm = nlp._gradCrf.norm();
+                    const auto verNorm = nlp._gradVer.norm();
+                    const auto horNorm = nlp._gradHor.norm();
                     const auto maxPenaltyNorm = ovlNorm;
                     // Make a threshold on by referencing hpwl to determine whether one is small
                     const auto small  = init_type::small * hpwlNorm;
@@ -301,7 +315,7 @@ namespace nlp
                     if (hpwlNorm < REAL_TYPE_TOL)
                     {
                         mult._constMults.resize(3, 1);
-                        mult._variedMults.resize(4, 1);
+                        mult._variedMults.resize(6, 1);
                         WRN("Ideaplace: NLP global placement: init multipliers: wire length  gradient norm is very small %f!, ", hpwlNorm);
                         return;
                     }
@@ -361,6 +375,24 @@ namespace nlp
                     {
                         mult._variedMults.at(3) = hpwlMultNormPenaltyRatio / maxPenaltyNorm;
                     }
+                    // ver
+                    if (verNorm > small)
+                    {
+                        mult._variedMults.at(4) = hpwlMultNormPenaltyRatio * totalVerWeights / totalHpwlWeights / verNorm;
+                    }
+                    else
+                    {
+                        mult._variedMults.at(4) = hpwlMultNormPenaltyRatio / maxPenaltyNorm;
+                    }
+                    // hor
+                    if (horNorm > small)
+                    {
+                        mult._variedMults.at(5) = hpwlMultNormPenaltyRatio * totalHorWeights / totalHpwlWeights / horNorm;
+                    }
+                    else
+                    {
+                        mult._variedMults.at(5) = hpwlMultNormPenaltyRatio / maxPenaltyNorm;
+                    }
 #ifdef DEBUG_GR
                     // crf
                     DBG("init mult: hpwl %f cos %f power wl %f \n",
@@ -412,6 +444,7 @@ namespace nlp
                 template<typename nlp_type, typename mult_type,  std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
                 static void update(nlp_type &nlp, mult_type &mult, update_type &update)
                 {
+                    AssertMsg(false, "haven't implemente the ver and hor in shared_constant_increase_penalty multiplier updating");
                     nlp._wrapObjAllTask.run();
                     const auto rawOvl = nlp._objOvl / mult._variedMults.at(0);
                     const auto rawOob = nlp._objOob / mult._variedMults.at(1);
@@ -460,6 +493,8 @@ namespace nlp
                     const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
                     const auto rawCos = nlp._objCos / mult._constMults.at(1);
                     const auto rawCrf = nlp._objCrf / mult._variedMults.at(3);
+                    const auto rawVer = nlp._objVer / mult._variedMults.at(4);
+                    const auto rawHor = nlp._objHor / mult._variedMults.at(5);
 #ifdef DEBUG_GR
                     DBG("update mult: raw ovl %f oob %f asym %f cos %f powerWl %f current flow\n", rawOvl, rawOob, rawAsym, rawCos, nlp._objPowerWl, rawCrf);
                     DBG("update mult:  before ovl %f oob %f asym %f current flow %f \n",
@@ -469,6 +504,8 @@ namespace nlp
                     mult._variedMults.at(1) += update.stepSize * (rawOob );
                     mult._variedMults.at(2) += update.stepSize * (rawAsym );
                     mult._variedMults.at(3) += update.stepSize * (rawCrf );
+                    mult._variedMults.at(4) += update.stepSize * (rawVer );
+                    mult._variedMults.at(5) += update.stepSize * (rawHor );
                     mult._constMults.at(1) += update.stepSize * (rawCos);
 #ifdef DEBUG_GR
                     DBG("update mult: afterafter  ovl %f oob %f asym %f cos %f current flow %f \n",
@@ -593,6 +630,7 @@ namespace nlp
                 template<typename nlp_type, typename mult_type, std::enable_if_t<is_mult_type_dependent_diff<mult_type>::value, void>* = nullptr>
                 static void init(nlp_type &nlp, mult_type &mult, update_type &update) 
                 { 
+                    AssertMsg(false, "hor and ver haven't not been implemented in subgradient_normalized_by_init");
                     update.normalizeFactor.resize(3);
                     update.normalizeFactor.at(0) = mult._variedMults.at(0) / nlp._objOvl;
                     update.normalizeFactor.at(1) = 1;// mult._variedMults.at(1) / nlp._objOob;
@@ -655,7 +693,7 @@ namespace nlp
             {
                 mult_type mult;
                 mult._constMults.resize(3, 0.0);
-                mult._variedMults.resize(4, 0.0);
+                mult._variedMults.resize(6, 0.0);
                 mult.update = update::multiplier_update_trait<update_type>::construct(nlp, mult);
                 return mult;
             }
@@ -672,6 +710,8 @@ namespace nlp
                 for (auto &op : nlp._asymOps) { op._getLambdaFunc = [&](){ return mult._variedMults[2]; }; }
                 for (auto &op : nlp._powerWlOps) { op._getLambdaFunc = [&](){ return mult._constMults[2]; }; }
                 for (auto &op : nlp._crfOps) { op._getLambdaFunc = [&](){ return mult._variedMults[3]; }; }
+                for (auto &op : nlp._verOps) { op._getLambdaFunc = [&](){ return mult._variedMults[4]; }; }
+                for (auto &op : nlp._horOps) { op._getLambdaFunc = [&](){ return mult._variedMults[5]; }; }
             }
 
             template<typename nlp_type>
@@ -689,6 +729,8 @@ namespace nlp
                 nlp._objOobRaw = nlp._objOob / mult._variedMults[1];
                 nlp._objAsymRaw = nlp._objAsym / mult._variedMults[2];
                 nlp._objCrfRaw = nlp._objCrf / mult._variedMults[3];
+                nlp._objVerRaw = nlp._objAsym / mult._variedMults[4];
+                nlp._objHorRaw = nlp._objCrf / mult._variedMults[5];
             }
 
         };
@@ -722,7 +764,7 @@ namespace nlp
             static alpha_type construct(nlp_type &)
             {
                 alpha_type alpha;
-                alpha._alpha.resize(4, 1.0);
+                alpha._alpha.resize(6, 1.0);
                 return alpha;
             }
 
@@ -744,6 +786,14 @@ namespace nlp
                 for (auto & op : nlp._crfOps)
                 {
                     op.setGetAlphaFunc([&](){ return alpha._alpha[3]; });
+                }
+                for (auto & op : nlp._verOps)
+                {
+                    op.setGetAlphaFunc([&](){ return alpha._alpha[4]; });
+                }
+                for (auto & op : nlp._horOps)
+                {
+                    op.setGetAlphaFunc([&](){ return alpha._alpha[5]; });
                 }
             }
 
@@ -844,7 +894,10 @@ namespace nlp
                         case 0: return nlp._objHpwlRaw; break;
                         case 1: return nlp._objOvlRaw; break;
                         case 2: return nlp._objOobRaw; break;
-                        default: return nlp._objCrfRaw; break;
+                        case 3: return nlp._objCrfRaw; break;
+                        case 4: return nlp._objVerRaw; break;
+                        case 5: return nlp._objHorRaw; break;
+                        default: assert(false); break;
                     }
                 }
 
