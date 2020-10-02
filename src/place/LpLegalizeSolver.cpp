@@ -92,7 +92,7 @@ void LpLegalizeSolver::addWirelengthObj()
         if (!hasAtLeastOneNet)
         {
             ERR("LP Legalizer:: No valid net \n");
-            Assert(false);
+            //Assert(false);
         }
     }
 }
