@@ -488,10 +488,7 @@ void LpLegalizeSolver::addHpwlConstraints()
             {
                 IndexType pinIdx = net.pinIdx(pinIdxInNet);
                 const auto &pin = _db.pin(pinIdx);
-                const auto &cell = _db.cell(pin.cellIdx());
-                auto midLoc = pin.midLoc();
-                XY<RealType> cellLoLoc = XY<RealType>(cell.cellBBox().xLo(), cell.cellBBox().yLo());
-                midLoc -= cellLoLoc;
+                auto midLoc = _db.pinOffsetToCell(pinIdx);
                 if (_isHor)
                 {
                     RealType loc = static_cast<RealType>(midLoc.x());
@@ -568,15 +565,14 @@ void LpLegalizeSolver::addCurrentFlowConstraints()
             const auto &sPin = _db.pin(sPinIdx);
             IndexType sCellIdx = sPin.cellIdx();
             const auto &mPinA = _db.pin(midPinIdxA);
-            const auto &mPinB = _db.pin(midPinIdxB);
             IndexType mCellIdx = mPinA.cellIdx();
             const auto &tPin = _db.pin(tPinIdx);
             IndexType tCellIdx = tPin.cellIdx();
 
-            const auto &sPinOffset = sPin.midLoc() - _db.cell(sCellIdx).cellBBox().ll();
-            const auto &midPinOffsetA = mPinA.midLoc() - _db.cell(mCellIdx).cellBBox().ll();
-            const auto &midPinOffsetB = mPinB.midLoc() - _db.cell(mCellIdx).cellBBox().ll();
-            const auto &tPinOffset = tPin.midLoc() - _db.cell(tCellIdx).cellBBox().ll();
+            const auto &sPinOffset = _db.pinOffsetToCell(sPinIdx);
+            const auto &midPinOffsetA = _db.pinOffsetToCell(midPinIdxA);
+            const auto &midPinOffsetB = _db.pinOffsetToCell(midPinIdxB);
+            const auto &tPinOffset = _db.pinOffsetToCell(tCellIdx);
 
             lp_trait::addConstr(_solver, _locs.at(mCellIdx) - _locs.at(sCellIdx) <= sPinOffset.y() - midPinOffsetA.y());
             lp_trait::addConstr(_solver, _locs.at(tCellIdx) - _locs.at(mCellIdx) <= midPinOffsetB.y() - tPinOffset.y());

@@ -50,7 +50,11 @@ bool ParserSignalPath::read(const std::string &filename)
                     break;
                 }
             }
-            AssertMsg(pinIdx != INDEX_TYPE_MAX, "Unknown pin! cellname: %s, pinname %s \n", cellName.c_str(), pinName.c_str());
+            if (pinIdx == INDEX_TYPE_MAX) 
+            {
+                ERR("IdeaPlaceEx::ParserSignalPath:: unknown pin! cellname %s, pin name %s \n", cellName.c_str(), pinName.c_str());
+                continue;
+            }
             sig.addPinIdx(pinIdx);
         }
     }

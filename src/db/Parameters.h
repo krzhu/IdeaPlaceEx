@@ -30,6 +30,10 @@ class Parameters
         void openVirtualPinAssignment() { _ifUsePinAssignment = true; }
         /// @brief close the functionality of virtual pin assignment 
         void closeVirtualPinAssignment() { _ifUsePinAssignment = false; }
+        /// @brief open the using real pin location
+        void openRealPinLocation() { _ifUseRealPinLoc = true; }
+        /// @brief close the using real pin location
+        void closeRealPinLocation() { _ifUseRealPinLoc = false; }
         /// @brief set the number of threads
         void setNumThreads(IndexType numThreads) { _numThreads = numThreads; }
         /// @brief set the grid step constraint
@@ -49,6 +53,8 @@ class Parameters
         const Box<LocType> & boundaryConstraint() const { return _boundaryConstraint; }
         /// @brief get whether to use the virtual pin assignment functionality
         bool ifUsePinAssignment() const { return _ifUsePinAssignment; }
+        /// @brief get whether to use the real pin location
+        bool ifUseRealPinLoc() const { return _ifUseRealPinLoc; }
         /// @brief get the number of thread
         IndexType numThreads() const { return _numThreads; }
         /// @brief get the grid step
@@ -74,6 +80,7 @@ class Parameters
     private:
         Box<LocType> _boundaryConstraint = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
         bool _ifUsePinAssignment; ///< If do pin assignment
+        bool _ifUseRealPinLoc; ///< If use real pin location or use the center of the cell
         IndexType _numThreads;
         LocType _gridStep;
         LocType _virtualBoundaryExtension; ///< The extension of current virtual boundary to the bounding box of placement

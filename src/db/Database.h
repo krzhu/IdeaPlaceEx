@@ -175,6 +175,26 @@ class Database
             sig.addPinIdx(pinIdx);
         }
         /*------------------------------*/ 
+        /* Query function wrappers      */
+        /*------------------------------*/ 
+        /// @brief get the pin offset with regarded to the ll corner of cell
+        XY<LocType> pinOffsetToCell(IndexType pinIdx)
+        {
+            const auto &pin = this->pin(pinIdx);
+            IndexType cellIdx = pin.cellIdx();
+            const auto &cell = this->cell(cellIdx);
+            // Get the cell location from the input arguments
+            if (_para.ifUseRealPinLoc())
+            {
+                return pin.midLoc() - cell.cellBBox().ll();
+            }
+            else
+            {
+                // Use the cell mid location
+                return cell.cellBBox().center();
+            }
+        }
+        /*------------------------------*/ 
         /* Technology-dependent         */
         /*------------------------------*/ 
         /// @brief get the spacing requirement between two cells

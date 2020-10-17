@@ -226,13 +226,9 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
 
     auto calculatePinOffset = [&](IndexType pinIdx)
     {
-        const auto &pin = _db.pin(pinIdx);
-        IndexType cellIdx = pin.cellIdx();
-        const auto &cell = _db.cell(cellIdx);
+        auto pinLocOffset = _db.pinOffsetToCell(pinIdx);
         // Get the cell location from the input arguments
-        XY<nlp_coordinate_type> midLoc = XY<nlp_coordinate_type>(pin.midLoc().x(), pin.midLoc().y()) * _scale;
-        XY<nlp_coordinate_type> cellLoLoc = XY<nlp_coordinate_type>(cell.cellBBox().xLo(), cell.cellBBox().yLo()) * _scale;
-        return midLoc - cellLoLoc;
+        return XY<nlp_coordinate_type>(pinLocOffset.x(), pinLocOffset.y()) * _scale;
     };
     // Hpwl
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)

@@ -4,6 +4,7 @@ PROJECT_NAMESPACE_BEGIN
 Parameters::Parameters()
 {
     _ifUsePinAssignment = true;
+    _ifUseRealPinLoc = true;
     _numThreads = 10;
     _gridStep = -1;
     _virtualBoundaryExtension = 200; ///< The extension of current virtual boundary to the bounding box of placement

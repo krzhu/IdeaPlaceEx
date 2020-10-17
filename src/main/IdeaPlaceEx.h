@@ -71,6 +71,10 @@ class IdeaPlaceEx
         void setNumThreads(IndexType numThreads);
         void setIoPinBoundaryExtension(LocType ext) { _db.parameters().setVirtualBoundaryExtension(ext); }
         void setIoPinInterval(LocType interval) { _db.parameters().setVirtualPinInterval(interval); }
+        /// @brief set the parameter to use the real pin location
+        void openRealPinLocation() { _db.parameters().openRealPinLocation(); }
+        /// @brief set the parameter to use the mid of cell as pin location
+        void closeRealPinLocation() { _db.parameters().closeRealPinLocation(); }
         /*------------------------------*/ 
         /* tech input interface         */
         /*------------------------------*/ 
