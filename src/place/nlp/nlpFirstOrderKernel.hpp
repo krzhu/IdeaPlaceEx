@@ -91,6 +91,8 @@ namespace nlp
                 m.resize(numVars); m.setZero();
                 v.resize(numVars); v.setZero();
                 IndexType iter = 0;
+                IndexType targetIter = 1000;
+                if (n._db.parameters().isFastMode()) { targetIter = 100; }
                 do 
                 {
                     ++iter;
@@ -103,7 +105,7 @@ namespace nlp
                     auto mt = m / (1 - pow(o.beta1, iter));
                     auto vt = v / (1 - pow(o.beta2, iter));
                     auto bot = vt.array().sqrt() + o.epsilon;
-                    if (iter > 1000)
+                    if (iter > targetIter)
                     {
                         n._pl = n._pl - o.alpha * ( mt.array() / bot).matrix();
                     }

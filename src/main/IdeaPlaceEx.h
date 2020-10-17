@@ -75,6 +75,10 @@ class IdeaPlaceEx
         void openRealPinLocation() { _db.parameters().openRealPinLocation(); }
         /// @brief set the parameter to use the mid of cell as pin location
         void closeRealPinLocation() { _db.parameters().closeRealPinLocation(); }
+        /// @brief open fast mode. Notice that the constraints might be violated
+        void openFastMode() { _db.parameters().openFastMode(); }
+        /// @brief close fast mode.
+        void closeFastMode() { _db.parameters().closeFastMode(); }
         /*------------------------------*/ 
         /* tech input interface         */
         /*------------------------------*/ 

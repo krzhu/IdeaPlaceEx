@@ -55,7 +55,8 @@ namespace nlp
     {
         typedef outer_stop_condition::stop_condition_list<
             outer_stop_condition::stop_after_violate_small,
-            outer_stop_condition::stop_after_num_outer_iterations<1000>
+            outer_stop_condition::stop_after_num_outer_iterations<1000>,
+            outer_stop_condition::stop_enable_if_fast_mode<outer_stop_condition::stop_after_num_outer_iterations<50>>
             > stop_condition_type;
         typedef init_place::init_random_placement_with_normal_distribution_near_center init_place_type;
 
@@ -70,7 +71,8 @@ namespace nlp
     {
         typedef converge::converge_list<
                     converge::converge_grad_norm_by_init<nlp_default_types::nlp_numerical_type>,
-                    converge::converge_criteria_max_iter<3000>
+                    converge::converge_criteria_max_iter<3000>,
+                    converge::converge_criteria_enable_if_fast_mode<converge::converge_criteria_max_iter<300>>
                         >
                 converge_type;
         //typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;

@@ -40,9 +40,9 @@ namespace nlp
             static stop_after_num_outer_iterations<MaxIter> construct(NlpType &) { return stop_after_num_outer_iterations<MaxIter>(); }
 
             template<typename NlpType>
-            static void init(NlpType &, stop_after_num_outer_iterations<MaxIter> &) {}
+            static void init(NlpType &, stop_after_num_outer_iterations<MaxIter> & stop) { stop.curIter = 0; }
 
-            static void clear(stop_after_num_outer_iterations<MaxIter> &) {}
+            static void clear(stop_after_num_outer_iterations<MaxIter> & stop) { stop.curIter = 0; }
             
             template<typename NlpType>
             static BoolType stopPlaceCondition(NlpType &, stop_after_num_outer_iterations<MaxIter> &stop)
@@ -57,6 +57,53 @@ namespace nlp
             }
         };
 
+
+        /// @brief stop condition that is enable only when the placer is in fast mode
+        /// @tparam the slave stop condition. The slave is checked when in fast mode
+        template<typename stop_slave_type>
+        struct stop_enable_if_fast_mode
+        {
+            bool activate = false;
+            stop_slave_type slave;
+        };
+        
+        template<typename stop_slave_type>
+        struct stop_condition_trait<stop_enable_if_fast_mode<stop_slave_type>>
+        {
+            typedef stop_enable_if_fast_mode<stop_slave_type> stop_type;
+            template<typename NlpType>
+            static stop_type construct(NlpType &nlp) 
+            { 
+                stop_type stop;
+                stop.slave = stop_condition_trait<stop_slave_type>::construct(nlp);
+                stop.activate = nlp._db.parameters().isFastMode();
+                return std::move(stop); 
+            }
+
+            template<typename NlpType>
+            static void init(NlpType &n, stop_type &stop) 
+            {
+                if (stop.activate)
+                {
+                    stop_condition_trait<stop_slave_type>::init(n, stop.slave);
+                }
+            }
+
+            static void clear(stop_type & stop)
+            { 
+                if (stop.activate)
+                {
+                    stop_condition_trait<stop_slave_type>::clear(stop.slave);
+                }
+            }
+            
+            template<typename NlpType>
+            static BoolType stopPlaceCondition(NlpType &n, stop_type &stop)
+            {
+                if (not stop.activate) return 0;
+                return stop_condition_trait<stop_slave_type>::stopPlaceCondition(n, stop.slave);
+            }
+        };
         /// @brief stop after violating is small enough
         struct stop_after_violate_small
         {
