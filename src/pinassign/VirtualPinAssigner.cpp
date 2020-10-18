@@ -254,6 +254,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
 #ifdef DEBUG_PINASSIGN
     DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
 #endif
+    DBG("\n\n start pin assignment \n");
     assignPowerPin();
     // Calculate the current HPWLs without virtual pin
     std::vector<Box<LocType>> curNetBBox;
@@ -434,12 +435,14 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
                 // net -> left. other net -> right
                 directAssignNetToPinFunc(netIdx, leftPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, rightPinIdx);
+                DBG("HEREWEGO LEFT\n");
             }
             else
             {
                 // net -> right. other net -> left
                 directAssignNetToPinFunc(netIdx, rightPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, leftPinIdx);
+                DBG("HEREWEGO RIGHT\n");
             }
         }
         else
