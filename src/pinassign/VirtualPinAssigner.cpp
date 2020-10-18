@@ -254,7 +254,6 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
 #ifdef DEBUG_PINASSIGN
     DBG("Ideaplace: pinassgin: %s\n", __FUNCTION__);
 #endif
-    DBG("\n\n start pin assignment \n");
     assignPowerPin();
     // Calculate the current HPWLs without virtual pin
     std::vector<Box<LocType>> curNetBBox;
@@ -317,10 +316,50 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         return dist;
     };
 
+    auto useLeftPin = [&](IndexType pinIdx)
+    {
+        if (_virtualPins.at(pinIdx).assigned())
+        {
+            return false;
+        }
+        if (_leftToRightMap.find(pinIdx) ==  _leftToRightMap.end())
+        {
+            return false;
+        }
+        return true;
+    };
+
     // Calculate the added HPWL if adding the virtual pin
     auto directNetToPinCostFunc = [&](IndexType netIdx, IndexType virtualPinIdx)
     {
-        return calculateShortestManhattanDistance(netIdx, virtualPinIdx);
+        if (not _db.net(netIdx).isAssignedInFpIoPin())
+        {
+            return calculateShortestManhattanDistance(netIdx, virtualPinIdx);
+        }
+        // It has been assigned
+        bool isPinLeft = _leftToRightMap.find(virtualPinIdx) != _leftToRightMap.end();
+        if (isPinLeft)
+        {
+            if (_db.net(netIdx).isLeftAssignedInFpIoPin())
+            {
+                return calculateShortestManhattanDistance(netIdx, virtualPinIdx);
+            }
+            else
+            {
+                return calculateShortestManhattanDistance(netIdx, virtualPinIdx) * 100;
+            }
+        }
+        else
+        {
+            if (_db.net(netIdx).isLeftAssignedInFpIoPin())
+            {
+                return calculateShortestManhattanDistance(netIdx, virtualPinIdx) * 100;
+            }
+            else
+            {
+                return calculateShortestManhattanDistance(netIdx, virtualPinIdx);
+            }
+        }
     };
 
     auto useASymNet = [&](IndexType netIdx)
@@ -374,6 +413,20 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
             auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
             auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
+            // If already decided in floorplan
+            if (_db.net(netIdx).isAssignedInFpIoPin())
+            {
+                if (_db.net(netIdx).isLeftAssignedInFpIoPin())
+                {
+                    // net -> right. other net -> left
+                    return netCost0;
+                }
+                else
+                {
+                    // net -> right. other net -> left
+                    return netCost1;
+                }
+            }
             return std::min(netCost0, netCost1);
         }
         Assert(false);
@@ -404,19 +457,6 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         return false;
     };
     
-    auto useLeftPin = [&](IndexType pinIdx)
-    {
-        if (_virtualPins.at(pinIdx).assigned())
-        {
-            return false;
-        }
-        if (_leftToRightMap.find(pinIdx) ==  _leftToRightMap.end())
-        {
-            return false;
-        }
-        return true;
-    };
-
     auto symPairAssignNetToPinFunc = [&](IndexType netIdx, IndexType leftPinIdx)
     {
         auto rightPinIdx = _leftToRightMap.at(leftPinIdx);
@@ -430,6 +470,25 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
             auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
             auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
+            // If already decided in floorplan
+            if (_db.net(netIdx).isAssignedInFpIoPin())
+            {
+                if (_db.net(netIdx).isLeftAssignedInFpIoPin())
+                {
+                    // net -> left. other net -> right
+                    directAssignNetToPinFunc(netIdx, leftPinIdx);
+                    directAssignNetToPinFunc(otherNetIdx, rightPinIdx);
+                    DBG("HEREWEGO LEFT\n");
+                }
+                else
+                {
+                    // net -> right. other net -> left
+                    directAssignNetToPinFunc(netIdx, rightPinIdx);
+                    directAssignNetToPinFunc(otherNetIdx, leftPinIdx);
+                    DBG("HEREWEGO RIGHT\n");
+                }
+                return;
+            }
             if (netCost0 <= netCost1)
             {
                 // net -> left. other net -> right

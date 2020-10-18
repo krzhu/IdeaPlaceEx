@@ -44,6 +44,14 @@ class VirtualPin
         IndexType _netIdx = INDEX_TYPE_MAX;
         Direction2DType _dir; ///< The location on the placement boundary
 };
+
+enum class IoPinAssignment
+{
+    UNDEFINED = 0,
+    LEFT = 1,
+    RIGHT = 2
+};
+
 /// @class IDEAPLACE::Net
 /// @brief the net class
 class Net
@@ -116,6 +124,21 @@ class Net
         void markAsVdd() { _isVdd = true; _isVss = false; _isIo = false; }
         /// @brief mark this net as vss
         void markAsVss() { DBG("mark net %s as vss \n", _name.c_str()); _isVss = true; _isVdd = false; _isIo = false; }
+        /// @brief assign to left
+        void fpIoPinAssignLeft() { _fpAssignment = IoPinAssignment::LEFT; }
+        /// @brief assign to right
+        void fpIoPinAssignRight() { _fpAssignment = IoPinAssignment::RIGHT; }
+        /// @brief clear io pin assignment status from floorplan
+        void clearFpIoPinAssign() { _fpAssignment = IoPinAssignment::UNDEFINED; }
+        /// @brief get whether this net is assigned to particular location in the floorplan process
+        /// @return true: this is either assigned to left or right. false: no
+        bool isAssignedInFpIoPin() const { return _fpAssignment != IoPinAssignment::UNDEFINED; }
+        /// @brief get whether this net is assigned to left
+        /// @return true: it is assigned to left. false: no
+        bool isLeftAssignedInFpIoPin() const { return _fpAssignment == IoPinAssignment::LEFT; }
+        /// @brief get whether this net is assigned to right
+        /// @return true: it is assigned to right. false: no
+        bool isRightAssignedInFpIoPin() const { return _fpAssignment == IoPinAssignment::RIGHT; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -142,6 +165,7 @@ class Net
         bool _isSelfSym = false; ///< Whether this net is self-symmetric
         bool _isVdd = false; ///< whether this net is vdd
         bool _isVss = false; ///< Whether this net is vss
+        IoPinAssignment _fpAssignment = IoPinAssignment::UNDEFINED; ///< The assignment from the floorplan
 };
 
 PROJECT_NAMESPACE_END

@@ -157,6 +157,16 @@ class IdeaPlaceEx
         {
             _db.net(netIdx).setWeight(weight);
         }
+
+        /// @brief assign to left
+        /// @param the net index
+        void fpIoPinAssignLeft(IndexType netIdx) { _db.net(netIdx).fpIoPinAssignLeft(); }
+        /// @brief assign to right
+        /// @param the net index
+        void fpIoPinAssignRight(IndexType netIdx) { _db.net(netIdx).fpIoPinAssignRight(); }
+        /// @brief clear io pin assignment status from floorplan
+        /// @param the net index
+        void clearFpIoPinAssign(IndexType netIdx) { _db.net(netIdx).clearFpIoPinAssign(); }
         /// @brief allocate a symmetric group
         /// @return the index of the symmetric group
         IndexType allocateSymGrp()

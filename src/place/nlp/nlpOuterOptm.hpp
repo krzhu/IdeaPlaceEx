@@ -110,6 +110,8 @@ namespace nlp
                 static constexpr RealType overlapRatio = 0.01; ///< with respect to total cell area
                 static constexpr RealType outOfBoundaryRatio = 0.05; ///< with respect to boundary
                 static constexpr RealType asymRatio = 0.05; ///< with respect to sqrt(total cell area)
+                IntType curIter = 0;
+                static constexpr IntType minIter = 10;
             };
 
             template<>
@@ -121,13 +123,18 @@ namespace nlp
                 static stop_type construct(NlpType &) { return stop_type(); }
 
                 template<typename NlpType>
-                static void init(NlpType &, stop_type &) {}
+                static void init(NlpType &, stop_type &s) { s.curIter = 0; }
 
-                static void clear(stop_type &) {}
+                static void clear(stop_type &s) { s.curIter  = 0; }
                 
                 template<typename NlpType>
                 static BoolType stopPlaceCondition(NlpType &n, stop_type &stop)
                 {
+                    ++stop.curIter;
+                    if (stop.curIter < stop.minIter)
+                    {
+                        return false;
+                    }
                     using CoordType = typename NlpType::nlp_coordinate_type;
                     // check whether overlapping is small than threshold
                     CoordType ovlArea = 0;
@@ -533,7 +540,8 @@ namespace nlp
                     static constexpr nlp_numerical_type maxMult = 500;
                     bool _recordedInit = false; ///< Whether the init multipliers have been recorded
                     nlp_numerical_type ratio = 1.0; ///< The ratio of matched part vs constant part
-                    static constexpr nlp_numerical_type ratioDecayRate = 0.8; ///< The decay factor of "ratio"
+                    static constexpr nlp_numerical_type ratioDecayRate = 0.5; ///< The decay factor of "ratio"
+
                 nlp_numerical_type hpwlInitMult = 1.0;
                 nlp_numerical_type cosInitMult = 1.0;
                 nlp_numerical_type powerWlInitMult = 1.0;
