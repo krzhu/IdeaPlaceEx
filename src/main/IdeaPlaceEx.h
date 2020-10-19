@@ -303,10 +303,10 @@ class IdeaPlaceEx
         /// @param cell index
         /// @param the pin index of the cell
         /// @return the pinIdx in database
-        IndexType pinIdx(IndexType cellIdx, IndexType pinCellIdx) 
+        IntType pinIdx(IndexType cellIdx, IndexType pinCellIdx) 
         { 
             if (pinCellIdx >= _db.cell(cellIdx).numPinIdx())
-                return INDEX_TYPE_MAX;
+                return -1;
             return _db.cell(cellIdx).pinIdx(pinCellIdx); 
         }
         /* Run time */
