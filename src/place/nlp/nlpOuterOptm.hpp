@@ -523,7 +523,7 @@ namespace nlp
                         mult._variedMults.at(1) += update.stepSize * (rawOob );
                         mult._variedMults.at(2) += update.stepSize * (rawAsym );
                         mult._variedMults.at(3) += update.stepSize * (rawCrf );
-                        mult._constMults.at(1) += update.stepSize * (rawCos);
+                        //mult._constMults.at(1) += update.stepSize * (rawCos);
 #ifdef DEBUG_GR
                         DBG("update mult: afterafter  ovl %f oob %f asym %f cos %f current flow %f \n",
                                 mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._constMults[1], mult._variedMults[3]);
@@ -540,7 +540,7 @@ namespace nlp
                     static constexpr nlp_numerical_type maxMult = 500;
                     bool _recordedInit = false; ///< Whether the init multipliers have been recorded
                     nlp_numerical_type ratio = 1.0; ///< The ratio of matched part vs constant part
-                    static constexpr nlp_numerical_type ratioDecayRate = 0.5; ///< The decay factor of "ratio"
+                    static constexpr nlp_numerical_type ratioDecayRate = 0.3; ///< The decay factor of "ratio"
 
                 nlp_numerical_type hpwlInitMult = 1.0;
                 nlp_numerical_type cosInitMult = 1.0;
@@ -934,9 +934,15 @@ namespace nlp
                         alpha._alpha[alphaIdx] = update.alphaMin;
                         return;
                     }
+                    if (update.kObjInit < update.k * obj(nlp))
+                    {
+                        init(nlp, alpha, update);
+                        return;
+                    }
                     alpha._alpha[alphaIdx] = - update.a / (obj(nlp) - update.kObjInit) + update.b;
 #ifdef DEBUG_GR
                     DBG("update alpha:: new alpha idx %d %f \n", alphaIdx, alpha._alpha[alphaIdx]);
+                    DBG("update alpha:: a %f obj %f kObjInit %f b %f \n", update.a, obj(nlp), update.kObjInit, update.b);
 #endif
                 }
 

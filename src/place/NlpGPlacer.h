@@ -55,7 +55,7 @@ namespace nlp
     {
         typedef outer_stop_condition::stop_condition_list<
             outer_stop_condition::stop_after_violate_small,
-            outer_stop_condition::stop_after_num_outer_iterations<1000>,
+            outer_stop_condition::stop_after_num_outer_iterations<300>,
             outer_stop_condition::stop_enable_if_fast_mode<outer_stop_condition::stop_after_num_outer_iterations<50>>
             > stop_condition_type;
         typedef init_place::init_random_placement_with_normal_distribution_near_center init_place_type;

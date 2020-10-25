@@ -478,14 +478,14 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
                     // net -> left. other net -> right
                     directAssignNetToPinFunc(netIdx, leftPinIdx);
                     directAssignNetToPinFunc(otherNetIdx, rightPinIdx);
-                    DBG("HEREWEGO LEFT\n");
+                    DBG("PRESET LEFT\n");
                 }
                 else
                 {
                     // net -> right. other net -> left
                     directAssignNetToPinFunc(netIdx, rightPinIdx);
                     directAssignNetToPinFunc(otherNetIdx, leftPinIdx);
-                    DBG("HEREWEGO RIGHT\n");
+                    DBG("PRESET RIGHT\n");
                 }
                 return;
             }
@@ -494,14 +494,14 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
                 // net -> left. other net -> right
                 directAssignNetToPinFunc(netIdx, leftPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, rightPinIdx);
-                DBG("HEREWEGO LEFT\n");
+                DBG("AUTO LEFT\n");
             }
             else
             {
                 // net -> right. other net -> left
                 directAssignNetToPinFunc(netIdx, rightPinIdx);
                 directAssignNetToPinFunc(otherNetIdx, leftPinIdx);
-                DBG("HEREWEGO RIGHT\n");
+                DBG("AUTO RIGHT\n");
             }
         }
         else
@@ -511,7 +511,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
 
     };
 
-    if (_fastMode)
+    if (1)
     {
         if (!_networkSimplexPinAssignment(useSymNet, useLeftPin, symPairNetToPinCostFunc, symPairAssignNetToPinFunc))
         {

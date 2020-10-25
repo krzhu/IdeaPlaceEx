@@ -256,14 +256,14 @@ if (USE_WNLIB)
     set(TO_INCLUDE_PATH ${TO_INCLUDE_PATH} ${WNLIB_ROOT_DIR}/acc/h)
 endif()
 
-add_executable(${PROJECT_NAME} ${SOURCES} ${EXE_SOURCES})
+#add_executable(${PROJECT_NAME} ${SOURCES} ${EXE_SOURCES})
 
 include_directories(${TO_INCLUDE_PATH})
 
 
-target_link_libraries(${PROJECT_NAME} 
-    ${TO_LINK_LIBS}
-    )
+#target_link_libraries(${PROJECT_NAME} 
+#    ${TO_LINK_LIBS}
+#    )
 
 ## Add modules to pybind
 pybind11_add_module("IdeaPlaceExPy" ${PY_API_SOURCES} ${SOURCES})

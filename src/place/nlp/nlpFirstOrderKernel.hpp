@@ -34,7 +34,7 @@ namespace nlp
             {
                 typedef converge_criteria_type converge_type;
                 converge_criteria_type _converge;
-                static constexpr nlp_numerical_type alpha = 0.005;
+                static constexpr nlp_numerical_type alpha = 0.003;
                 static constexpr nlp_numerical_type beta1 = 0.9;
                 static constexpr nlp_numerical_type beta2 = 0.999;
                 static constexpr nlp_numerical_type epsilon = 1e-8;
@@ -91,8 +91,8 @@ namespace nlp
                 m.resize(numVars); m.setZero();
                 v.resize(numVars); v.setZero();
                 IndexType iter = 0;
-                IndexType targetIter = 1000;
-                if (n._db.parameters().isFastMode()) { targetIter = 100; }
+                IndexType targetIter = 100;
+                if (n._db.parameters().isFastMode()) { targetIter = 30; }
                 do 
                 {
                     ++iter;
