@@ -176,7 +176,7 @@ class Net
         bool _isVdd = false; ///< whether this net is vdd
         bool _isVss = false; ///< Whether this net is vss
         IoPinAssignment _fpAssignment = IoPinAssignment::UNDEFINED; ///< The assignment from the floorplan
-        Box<LocType> _externalBBox; ///< The bounding box for the external nets
+        Box<LocType> _externalBBox = Box<LocType>(1,1, -1, -1); ///< The bounding box for the external nets
 };
 
 PROJECT_NAMESPACE_END

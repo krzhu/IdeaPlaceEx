@@ -395,7 +395,6 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
                     ver1 << x << " "<< y << " " << obj << "\n";
                 }
             }
-            auto getLambda = [&](){ return 1.0; };
             for (auto &op : this->_hpwlOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
             for (auto &op : this->_cosOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
             for (auto &op : this->_ovlOps) { op._getLambdaFunc = [&](){ return 1.0; }; }
