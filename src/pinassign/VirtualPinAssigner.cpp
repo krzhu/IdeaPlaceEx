@@ -316,6 +316,29 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         return dist;
     };
 
+    // Used in correcting offsets in external net bounding box
+    XY<LocType> boundaryCenterOffset = _boundary.center();
+    boundaryCenterOffset.setX(-boundaryCenterOffset.x());
+    boundaryCenterOffset.setY(-boundaryCenterOffset.y());
+
+    auto calculateShortestManhattanDistancePlusExternalIncreasedHpwl = [&](IndexType netIdx, IndexType ioPinIdx)
+    {
+        auto dist = calculateShortestManhattanDistance(netIdx, ioPinIdx);
+        if ( not _db.net(netIdx).isExternalBBoxSet())
+        {
+            return dist;
+        }
+        const XY<LocType> &virtualPinLoc = _virtualPins.at(ioPinIdx).loc();
+        // calculate the external parts
+        Box<LocType> externalBBox = _db.net(netIdx).externalBBox();
+        externalBBox.offsetBy(boundaryCenterOffset);
+        auto difX = std::max(virtualPinLoc.x() - externalBBox.xHi(), externalBBox.xLo() - virtualPinLoc.x());
+        difX = std::max(difX, 0);
+        auto difY = std::max(virtualPinLoc.y() - externalBBox.yHi(), externalBBox.yLo() - virtualPinLoc.y());
+        difY = std::max(difY, 0);
+        return difX + difY + dist;
+    };
+
     auto useLeftPin = [&](IndexType pinIdx)
     {
         if (_virtualPins.at(pinIdx).assigned())
@@ -334,7 +357,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     {
         if (not _db.net(netIdx).isAssignedInFpIoPin())
         {
-            return calculateShortestManhattanDistance(netIdx, virtualPinIdx);
+            return calculateShortestManhattanDistancePlusExternalIncreasedHpwl(netIdx, virtualPinIdx);
         }
         // It has been assigned
         bool isPinLeft = _leftToRightMap.find(virtualPinIdx) != _leftToRightMap.end();
@@ -342,22 +365,22 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         {
             if (_db.net(netIdx).isLeftAssignedInFpIoPin())
             {
-                return calculateShortestManhattanDistance(netIdx, virtualPinIdx);
+                return calculateShortestManhattanDistancePlusExternalIncreasedHpwl(netIdx, virtualPinIdx);
             }
             else
             {
-                return calculateShortestManhattanDistance(netIdx, virtualPinIdx) * 100;
+                return calculateShortestManhattanDistancePlusExternalIncreasedHpwl(netIdx, virtualPinIdx) * 100;
             }
         }
         else
         {
             if (_db.net(netIdx).isLeftAssignedInFpIoPin())
             {
-                return calculateShortestManhattanDistance(netIdx, virtualPinIdx) * 100;
+                return calculateShortestManhattanDistancePlusExternalIncreasedHpwl(netIdx, virtualPinIdx) * 100;
             }
             else
             {
-                return calculateShortestManhattanDistance(netIdx, virtualPinIdx);
+                return calculateShortestManhattanDistancePlusExternalIncreasedHpwl(netIdx, virtualPinIdx);
             }
         }
     };
@@ -411,8 +434,10 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         if (_db.net(netIdx).hasSymNet())
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
-            auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
-            auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
+            auto netCost0 = calculateShortestManhattanDistancePlusExternalIncreasedHpwl(netIdx, leftPinIdx) 
+                + calculateShortestManhattanDistancePlusExternalIncreasedHpwl(otherNetIdx, rightPinIdx);
+            auto netCost1 = calculateShortestManhattanDistancePlusExternalIncreasedHpwl(otherNetIdx, leftPinIdx) 
+                + calculateShortestManhattanDistancePlusExternalIncreasedHpwl(netIdx, rightPinIdx);
             // If already decided in floorplan
             if (_db.net(netIdx).isAssignedInFpIoPin())
             {
@@ -468,8 +493,10 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         if (_db.net(netIdx).hasSymNet())
         {
             auto otherNetIdx = _db.net(netIdx).symNetIdx();
-            auto netCost0 = calculateShortestManhattanDistance(netIdx, leftPinIdx) + calculateShortestManhattanDistance(otherNetIdx, rightPinIdx);
-            auto netCost1 = calculateShortestManhattanDistance(otherNetIdx, leftPinIdx) + calculateShortestManhattanDistance(netIdx, rightPinIdx);
+            auto netCost0 = calculateShortestManhattanDistancePlusExternalIncreasedHpwl(netIdx, leftPinIdx) 
+                + calculateShortestManhattanDistancePlusExternalIncreasedHpwl(otherNetIdx, rightPinIdx);
+            auto netCost1 = calculateShortestManhattanDistancePlusExternalIncreasedHpwl(otherNetIdx, leftPinIdx) 
+                + calculateShortestManhattanDistancePlusExternalIncreasedHpwl(netIdx, rightPinIdx);
             // If already decided in floorplan
             if (_db.net(netIdx).isAssignedInFpIoPin())
             {

@@ -16,10 +16,10 @@ bool CGLegalizer::legalize()
     auto legalizationStopWath = WATCH_CREATE_NEW("legalization");
     legalizationStopWath->start();
 
-    this->generateHorConstraints();
-    _wStar = lpLegalization(true);
     this->generateVerConstraints();
     _hStar = lpLegalization(false);
+    this->generateHorConstraints();
+    _wStar = lpLegalization(true);
     legalizationStopWath->stop();
 
     LocType xMin = LOC_TYPE_MAX;
@@ -163,6 +163,7 @@ void CGLegalizer::generateHorConstraints()
     
     auto exemptSelfSymsFunc = [&](IndexType cellIdx1, IndexType cellIdx2)
     {
+        return false;
         if (cellIdx1 >= _db.numCells()) { return false; }
         if (cellIdx2 >= _db.numCells()) { return false; }
         if (_db.cell(cellIdx1).isSelfSym() and _db.cell(cellIdx2).isSelfSym())

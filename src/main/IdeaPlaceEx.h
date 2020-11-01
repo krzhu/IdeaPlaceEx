@@ -79,6 +79,11 @@ class IdeaPlaceEx
         void openFastMode() { _db.parameters().openFastMode(); }
         /// @brief close fast mode.
         void closeFastMode() { _db.parameters().closeFastMode(); }
+        /// @brief set the boundary constraint.
+        void setBoundaryConstraint(LocType xLo, LocType yLo, LocType xHi, LocType yHi)
+        {
+            _db.parameters().setBoundaryConstraint(xLo, yLo, xHi, yHi);
+        }
         /*------------------------------*/ 
         /* tech input interface         */
         /*------------------------------*/ 
@@ -149,6 +154,16 @@ class IdeaPlaceEx
         {
             _db.net(netIdx).addPin(pinIdx);
             _db.pin(pinIdx).addNetIdx(netIdx);
+        }
+        /// @brief set the external net bounding box
+        /// @param first: index of net
+        /// @param second: xLo
+        /// @param third: yLo
+        /// @param fourth: xHi
+        /// @param fifth: yHi
+        void setNetExternalBBox(IndexType netIdx, LocType xLo, LocType yLo, LocType xHi, LocType yHi)
+        {
+            _db.net(netIdx).setExternalBBox(Box<LocType>(xLo, yLo, xHi, yHi));
         }
         /// @brief set the net weight
         /// @param the index of the net

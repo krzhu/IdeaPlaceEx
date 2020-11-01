@@ -523,7 +523,7 @@ namespace nlp
                         mult._variedMults.at(1) += update.stepSize * (rawOob );
                         mult._variedMults.at(2) += update.stepSize * (rawAsym );
                         mult._variedMults.at(3) += update.stepSize * (rawCrf );
-                        //mult._constMults.at(1) += update.stepSize * (rawCos);
+                        mult._constMults.at(1) += update.stepSize * (rawCos);
 #ifdef DEBUG_GR
                         DBG("update mult: afterafter  ovl %f oob %f asym %f cos %f current flow %f \n",
                                 mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._constMults[1], mult._variedMults[3]);

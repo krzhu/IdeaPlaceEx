@@ -9,6 +9,7 @@
 #define IDEAPLACE_NET_H_
 
 #include "global/global.h"
+#include "util/Box.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -123,7 +124,7 @@ class Net
         /// @brief mark this net as vdd
         void markAsVdd() { _isVdd = true; _isVss = false; _isIo = false; }
         /// @brief mark this net as vss
-        void markAsVss() { DBG("mark net %s as vss \n", _name.c_str()); _isVss = true; _isVdd = false; _isIo = false; }
+        void markAsVss() { _isVss = true; _isVdd = false; _isIo = false; }
         /// @brief assign to left
         void fpIoPinAssignLeft() { _fpAssignment = IoPinAssignment::LEFT; }
         /// @brief assign to right
@@ -139,6 +140,15 @@ class Net
         /// @brief get whether this net is assigned to right
         /// @return true: it is assigned to right. false: no
         bool isRightAssignedInFpIoPin() const { return _fpAssignment == IoPinAssignment::RIGHT; }
+        /// @brief get whether this net has external bounding box set
+        /// @return true: is set. false: not
+        bool isExternalBBoxSet() const { return _externalBBox.valid(); }
+        /// @brief get the external net bounding box
+        /// @return the external net bounding box
+        const Box<LocType> & externalBBox() const { return _externalBBox; }
+        /// @brief set the external bounding box
+        /// @param a box
+        void setExternalBBox(const Box<LocType> &bbox) { _externalBBox = bbox; }
         /*------------------------------*/ 
         /* Vector operations            */
         /*------------------------------*/ 
@@ -166,6 +176,7 @@ class Net
         bool _isVdd = false; ///< whether this net is vdd
         bool _isVss = false; ///< Whether this net is vss
         IoPinAssignment _fpAssignment = IoPinAssignment::UNDEFINED; ///< The assignment from the floorplan
+        Box<LocType> _externalBBox; ///< The bounding box for the external nets
 };
 
 PROJECT_NAMESPACE_END

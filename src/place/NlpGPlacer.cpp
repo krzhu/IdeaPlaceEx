@@ -240,7 +240,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         }
         _hpwlOps.emplace_back(nlp_hpwl_type(getAlphaFunc, getLambdaFuncHpwl));
         auto &op = _hpwlOps.back();
-        op.setWeight(net.weight() * 5);
+        op.setWeight(net.weight()  );
         for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
         {
             // Get the pin location referenced to the cell

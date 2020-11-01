@@ -55,6 +55,11 @@ class Parameters
         /// @brief get the boundry constraint
         /// @return the boundry constraint
         const Box<LocType> & boundaryConstraint() const { return _boundaryConstraint; }
+        /// @brief set the boundary constraint
+        void setBoundaryConstraint(LocType xLo, LocType yLo, LocType xHi, LocType yHi)
+        {
+            _boundaryConstraint.set(xLo, yLo, xHi, yHi);
+        }
         /// @brief get whether to use the virtual pin assignment functionality
         bool ifUsePinAssignment() const { return _ifUsePinAssignment; }
         /// @brief get whether to use the real pin location
