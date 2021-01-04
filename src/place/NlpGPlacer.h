@@ -22,6 +22,7 @@
 #include "place/nlp/nlpOptmKernels.hpp"
 #include "place/nlp/nlpFirstOrderKernel.hpp"
 #include "place/nlp/nlpSecondOrderKernels.hpp"
+#include "place/nlp/conjugateGradientWnlib.hpp" // TODO: remove after no need
 #include "pinassign/VirtualPinAssigner.h"
 PROJECT_NAMESPACE_BEGIN
 
@@ -75,6 +76,7 @@ namespace nlp
         //typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
         typedef optm::first_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
         //typedef optm::first_order::nesterov<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
+        //typedef optm::first_order::conjugate_gradient_wnlib optm_type;
         
         /* multipliers */
         typedef outer_multiplier::init::init_by_matching_gradient_norm mult_init_type;
@@ -115,6 +117,7 @@ namespace nlp
         //typedef optm::second_order::naive_gradient_descent<converge_type> optm_type;
         typedef optm::second_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
         //typedef optm::second_order::nesterov<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
+        //typedef optm::first_order::conjugate_gradient_wnlib optm_type;
         
         /* multipliers */
         typedef outer_multiplier::init::init_by_matching_gradient_norm mult_init_type;
