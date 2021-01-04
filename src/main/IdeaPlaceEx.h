@@ -380,6 +380,17 @@ class IdeaPlaceEx
             return WATCH_LOOK_RECORD_TIME("detailedPlacement");
         }
 
+        /*------------------------------*/ 
+        /* Log option                   */
+        /*------------------------------*/ 
+        void logScreenOn()
+        {
+            MsgPrinter::screenOn();
+        }
+        void logScreenOff()
+        {
+            MsgPrinter::screenOff();
+        }
 
     protected:
         Database _db; ///< The placement engine database 

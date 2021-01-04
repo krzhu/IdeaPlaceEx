@@ -81,5 +81,7 @@ void initIdeaPlaceExAPI(py::module &m)
         .def("runtimeGlobalPlaceUpdateProblem", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeGlobalPlaceUpdateProblem, "Get the time used for updating the problem in gloobal placement")
         .def("runtimeLegalization", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeLegalization, "Get the time used for legalization")
         .def("runtimeDetailedPlacement", &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeDetailedPlacement, "Get the time used for detailed placement")
+        .def("logScreenOn", &PROJECT_NAMESPACE::IdeaPlaceEx::logScreenOn)
+        .def("logScreenOff", &PROJECT_NAMESPACE::IdeaPlaceEx::logScreenOff)
         ;
 }

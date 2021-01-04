@@ -72,7 +72,7 @@ namespace nlp
         typedef converge::converge_list<
                     converge::converge_grad_norm_by_init<nlp_default_types::nlp_numerical_type>,
                     converge::converge_criteria_max_iter<3000>,
-                    converge::converge_criteria_enable_if_fast_mode<converge::converge_criteria_max_iter<300>>
+                    converge::converge_criteria_enable_if_fast_mode<converge::converge_criteria_max_iter<200>>
                         >
                 converge_type;
         //typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
