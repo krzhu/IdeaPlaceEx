@@ -9,7 +9,7 @@
 #define IDEAPLACE_PIN_H_
 
 #include "global/global.h"
-#include "util/Box.h"
+#include "util/box.hpp"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -66,7 +66,7 @@ class Pin
         /*------------------------------*/ 
         /// @brief get the relative middle point location of the pin with respect to the cell
         /// @return the middle point location of the pin
-        XY<LocType> midLoc() const { return _shape.center(); }
+        Point<LocType> midLoc() const { return _shape.center(); }
     private:
         std::string _name = ""; ///< The name for the pin
         std::vector<IndexType> _netIdxArray; ///< The indices of nets connected to this pin

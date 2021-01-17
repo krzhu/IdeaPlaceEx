@@ -9,7 +9,7 @@
 #define IDEAPLACE_NET_H_
 
 #include "global/global.h"
-#include "util/Box.h"
+#include "util/box.hpp"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -18,9 +18,9 @@ class VirtualPin
 {
     public:
         VirtualPin() = default;
-        VirtualPin(const XY<LocType> &loc) : _loc(loc) {}
-        const XY<LocType> & loc() const { return _loc; }
-        XY<LocType> & loc() { return _loc; }
+        VirtualPin(const Point<LocType> &loc) : _loc(loc) {}
+        const Point<LocType> & loc() const { return _loc; }
+        Point<LocType> & loc() { return _loc; }
         LocType x() const { return _loc.x(); }
         LocType y() const { return _loc.y(); }
         IndexType netIdx() const { return _netIdx; }
@@ -41,7 +41,7 @@ class VirtualPin
             return ss.str();
         }
     private:
-        XY<LocType> _loc;
+        Point<LocType> _loc;
         IndexType _netIdx = INDEX_TYPE_MAX;
         Direction2DType _dir; ///< The location on the placement boundary
 };
@@ -73,7 +73,7 @@ class Net
         bool isIo() const { return _isIo; }
         /// @brief get the virtual pin location
         /// @return the location for the virtual pin
-        const XY<LocType> &virtualPinLoc() const { return _virtualPin.loc(); }
+        const Point<LocType> &virtualPinLoc() const { return _virtualPin.loc(); }
         /// @brief get whether need to consider the virtual pin: If not IO net, or if no vitual pin assigned
         bool isValidVirtualPin() const { return (_isIo or _isVdd or _isVss) && _virtualPin.assigned(); }
         /// @brief get whether this net is a dummy net

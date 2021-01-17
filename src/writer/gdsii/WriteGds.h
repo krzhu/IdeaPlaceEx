@@ -7,7 +7,7 @@
 
 #include <limbo/parsers/gdsii/stream/GdsWriter.h>
 #include "global/global.h"
-#include "util/Box.h"
+#include "util/box.hpp"
 
 // ================================================================================ 
 // WriteGds.h
@@ -100,7 +100,7 @@ class WriteGds
         /// Write shapes, cells etc.
         ////////////////////////////////
         /// Write a cell/structure
-        bool writeCellRef(std::string cellName, XY<IntType> loc, RealType mag = 1.0, RealType angle = 0.0);
+        bool writeCellRef(std::string cellName, Point<IntType> loc, RealType mag = 1.0, RealType angle = 0.0);
 
         /// Write an rectangle
         bool writeRectangle(const Box<IntType> &box, IntType layer = 1, IntType dataType = 0);

@@ -178,7 +178,7 @@ class Database
         /* Query function wrappers      */
         /*------------------------------*/ 
         /// @brief get the pin offset with regarded to the ll corner of cell
-        XY<LocType> pinOffsetToCell(IndexType pinIdx)
+        Point<LocType> pinOffsetToCell(IndexType pinIdx)
         {
             const auto &pin = this->pin(pinIdx);
             IndexType cellIdx = pin.cellIdx();

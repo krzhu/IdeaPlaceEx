@@ -49,7 +49,7 @@ bool WriteGds::writeCellEnd()
     return true;
 }
 
-bool WriteGds::writeCellRef(std::string cellName, XY<IntType> loc, RealType mag, RealType angle)
+bool WriteGds::writeCellRef(std::string cellName, Point<IntType> loc, RealType mag, RealType angle)
 {
     checkActive();
     _gw.gds_write_sref();                      /// Contain an instance of ...

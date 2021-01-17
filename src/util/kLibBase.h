@@ -18,7 +18,7 @@
 #include <iostream>
 #include "MsgPrinter.h"
 #include "Assert.h"
-#include "XYZ.h"
+#include "util/point.hpp"
 #include "util/thirdparty/AlmostEquals.h"
 #include "global/namespace.h"
 #include "global/type.h"
@@ -156,30 +156,9 @@ namespace klib
 
 
     template<typename T>
-    inline T manhattanDistance(const PROJECT_NAMESPACE::XY<T> &t1, const PROJECT_NAMESPACE::XY<T> &t2)
+    inline T manhattanDistance(const PROJECT_NAMESPACE::Point<T> &t1, const PROJECT_NAMESPACE::Point<T> &t2)
     {
         return absDif(t1.x(), t2.x()) + absDif(t1.y(), t2.y());
-    }
-
-    template<typename T>
-    inline T manhattanDistance(const PROJECT_NAMESPACE::XYZ<T> &t1, PROJECT_NAMESPACE::XYZ<T> &t2)
-    {
-        return absDif(t1.z(), t2.z()) + manhattanDistance(t1.xy(), t2.xy());
-    }
-
-    template<typename T>
-    inline T manhattanDistance(const PROJECT_NAMESPACE::XYZ<T> t1, PROJECT_NAMESPACE::XYZ<T> t2)
-    {
-        return absDif(t1.z(), t2.z()) + manhattanDistance(t1.xy(), t2.xy());
-    }
-
-    /// @brief determine whether another XYZ is adjacent to this
-    /// @param another XYZ
-    /// @return true if two are adjacent to each other, false if not
-    template<typename T>
-    bool    xyzAdjacent(const PROJECT_NAMESPACE::XYZ<T> &lhs, const PROJECT_NAMESPACE::XYZ<T> &rhs) 
-    {
-        return (klib::absDif<T>(lhs.x(), rhs.x()) + klib::absDif<T>(lhs.y(), rhs.y()) + klib::absDif<T>(lhs.z(), rhs.z())) == 1;
     }
     // ================================================================================ 
     // Parser string

@@ -9,7 +9,7 @@
 #define IDEAPLACE_CELL_H_
 
 #include "global/global.h"
-#include "util/Box.h"
+#include "util/box.hpp"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -45,8 +45,8 @@ class Cell
         /// @return the name of the cell
         const std::string & name() const { return _name; }
         /// @brief get the location of the cell
-        /// @return the XY location of the cell
-        const XY<LocType> & loc() const { return _loc; }
+        /// @return the point location of the cell
+        const Point<LocType> & loc() const { return _loc; }
         LocType xCenter() const { return _loc.x() + (_cellBBox.xLo() + _cellBBox.xHi()) / 2; }
         LocType yCenter() const { return _loc.y() + (_cellBBox.yLo() + _cellBBox.yHi()) / 2; }
         bool flip() { return _flip; }
@@ -113,10 +113,10 @@ class Cell
         void forceExtendToGrid(LocType gridStep)
         {
             // Enlarge for temporary spacing rule fixing
-            _cellBBox.setXLo(_cellBBox.xLo() - gridStep);
-            _cellBBox.setXHi(_cellBBox.xHi() + gridStep);
-            _cellBBox.setYLo(_cellBBox.yLo() - gridStep);
-            _cellBBox.setYHi(_cellBBox.yHi() + gridStep);
+            _cellBBox.setXL(_cellBBox.xl() - gridStep);
+            _cellBBox.setXH(_cellBBox.xh() + gridStep);
+            _cellBBox.setYL(_cellBBox.yl() - gridStep);
+            _cellBBox.setYH(_cellBBox.yh() + gridStep);
             if (_cellBBox.xLen() % gridStep != 0)
             {
                 WRN("IdeaPlaceEx: cell %s %s is not of multiples of grid step %d\n", this->name().c_str(),
@@ -176,7 +176,7 @@ class Cell
 
     private:
         std::string _name; ///< The cell name
-        XY<LocType> _loc; ///< The location of the cell
+        Point<LocType> _loc; ///< The location of the cell
         std::vector<IndexType> _pinIdxArray; ///< The index to the pins belonging to the cell
         std::vector<Box<LocType>> _bboxArray; ///< _shapeArray[layer] = the bounding box of the shapes in the layer
         Box<LocType> _cellBBox = Box<LocType>(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN); ///< The bounding box of the entire cell
