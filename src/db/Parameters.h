@@ -9,7 +9,7 @@
 #define IDEAPLACE_PARAMETERS_H_
 
 #include "global/global.h"
-#include "util/Box.h"
+#include "util/box.hpp"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -58,7 +58,7 @@ class Parameters
         /// @brief set the boundary constraint
         void setBoundaryConstraint(LocType xLo, LocType yLo, LocType xHi, LocType yHi)
         {
-            _boundaryConstraint.set(xLo, yLo, xHi, yHi);
+            _boundaryConstraint.setBounds(xLo, yLo, xHi, yHi);
         }
         /// @brief get whether to use the virtual pin assignment functionality
         bool ifUsePinAssignment() const { return _ifUsePinAssignment; }

@@ -26,13 +26,13 @@ class GridAligner
     private:
         void naiveAlign();
         void bettherThanNaiveAlign();
-        void adjustOffset(const XY<LocType> &offset);
+        void adjustOffset(const Point<LocType> &offset);
         void adjustSymPair(const SymPair &symPair, LocType symAxis);
         void adjustSelfSym(IndexType cellIdx, LocType symAxis);
     private:
         Database &_db; ///< The placement database
         LocType _stepSize = 1;  ///< The grid step size
-        XY<LocType> _offset; ///< The grid offset
+        Point<LocType> _offset; ///< The grid offset
 };
 
 PROJECT_NAMESPACE_END

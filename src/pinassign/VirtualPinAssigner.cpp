@@ -94,8 +94,8 @@ void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cell
     }
     // generate the virtual pin locations
     _virtualPins.clear();
-    _topPin = VirtualPin(XY<LocType>(_boundary.center().x(), _boundary.xHi()));
-    _botPin = VirtualPin(XY<LocType>(_boundary.center().x(), _boundary.xLo()));
+    _topPin = VirtualPin(Point<LocType>(_boundary.center().x(), _boundary.xHi()));
+    _botPin = VirtualPin(Point<LocType>(_boundary.center().x(), _boundary.xLo()));
     for (LocType x = _boundary.xLo() + pinInterval;  x < _boundary.center().x() - pinInterval / 2 ; x += pinInterval)
     {
         continue;
@@ -106,22 +106,22 @@ void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cell
             continue;
         }
         // left bottom
-        _virtualPins.emplace_back(XY<LocType>(x, _boundary.yLo()));
+        _virtualPins.emplace_back(Point<LocType>(x, _boundary.yLo()));
         _virtualPins.back().setDirection(Direction2DType::SOUTH);
 
         // right bottom
-        _virtualPins.emplace_back(XY<LocType>(rightX, _boundary.yLo()));
+        _virtualPins.emplace_back(Point<LocType>(rightX, _boundary.yLo()));
         _virtualPins.back().setDirection(Direction2DType::SOUTH);
 
         // Add to map
         _leftToRightMap[_virtualPins.size() - 2] = _virtualPins.size() - 1;
 
         // left top
-        _virtualPins.emplace_back(XY<LocType>(x, _boundary.yHi()));
+        _virtualPins.emplace_back(Point<LocType>(x, _boundary.yHi()));
         _virtualPins.back().setDirection(Direction2DType::NORTH);
 
         // right top
-        _virtualPins.emplace_back(XY<LocType>(rightX, _boundary.yHi()));
+        _virtualPins.emplace_back(Point<LocType>(rightX, _boundary.yHi()));
         _virtualPins.back().setDirection(Direction2DType::NORTH);
 
         // Add to map
@@ -129,9 +129,9 @@ void VirtualPinAssigner::reconfigureVirtualPinLocations(const Box<LocType> &cell
     }
     for (LocType y = _boundary.yLo() + pinInterval;  y < _boundary.yHi() - pinInterval; y += pinInterval)
     {
-        _virtualPins.emplace_back(XY<LocType>(_boundary.xLo(), y));
+        _virtualPins.emplace_back(Point<LocType>(_boundary.xLo(), y));
         _virtualPins.back().setDirection(Direction2DType::WEST);
-        _virtualPins.emplace_back(XY<LocType>(_boundary.xHi(), y));
+        _virtualPins.emplace_back(Point<LocType>(_boundary.xHi(), y));
         _virtualPins.back().setDirection(Direction2DType::EAST);
 
         // Add to map
@@ -248,7 +248,7 @@ bool VirtualPinAssigner::_networkSimplexPinAssignment(std::function<bool(IndexTy
     return true;
 }
 
-bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc)
+bool VirtualPinAssigner::pinAssignment(std::function<Point<LocType>(IndexType)> cellLocQueryFunc)
 {
 
 #ifdef DEBUG_PINASSIGN
@@ -262,8 +262,8 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     nopinNets.resize(_db.numNets(), false);
     auto findRealPinLoc = [&](IndexType pinIdx)
     {
-        XY<LocType> pinOff = _db.pin(pinIdx).midLoc();
-        XY<LocType> cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
+        Point<LocType> pinOff = _db.pin(pinIdx).midLoc();
+        Point<LocType> cellLoc = cellLocQueryFunc(_db.pin(pinIdx).cellIdx());
         return cellLoc + pinOff;
     };
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)
@@ -317,7 +317,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
     };
 
     // Used in correcting offsets in external net bounding box
-    XY<LocType> boundaryCenterOffset = _boundary.center();
+    Point<LocType> boundaryCenterOffset = _boundary.center();
     boundaryCenterOffset.setX(-boundaryCenterOffset.x());
     boundaryCenterOffset.setY(-boundaryCenterOffset.y());
 
@@ -328,7 +328,7 @@ bool VirtualPinAssigner::pinAssignment(std::function<XY<LocType>(IndexType)> cel
         {
             return dist;
         }
-        const XY<LocType> &virtualPinLoc = _virtualPins.at(ioPinIdx).loc();
+        const Point<LocType> &virtualPinLoc = _virtualPins.at(ioPinIdx).loc();
         // calculate the external parts
         Box<LocType> externalBBox = _db.net(netIdx).externalBBox();
         externalBBox.offsetBy(boundaryCenterOffset);

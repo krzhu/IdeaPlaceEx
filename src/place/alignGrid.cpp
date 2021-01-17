@@ -380,7 +380,7 @@ void GridAligner::naiveAlign()
     }
 }
 
-void GridAligner::adjustOffset(const XY<LocType> &offset)
+void GridAligner::adjustOffset(const Point<LocType> &offset)
 {
     LocType xLo = LOC_TYPE_MAX;
     LocType yLo = LOC_TYPE_MAX;

@@ -10,7 +10,7 @@
 #include "global/namespace.h"
 #include "global/type.h"
 #include "global/define.h"
-#include "XY.h"
+#include "point.hpp"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -35,7 +35,7 @@ template <typename T>
 class Vector2D 
 {
     public:
-        /// Class for initializer_list type
+        /// Point for initializer_list type
         enum class InitListType : Byte 
         {
             XMajor,
@@ -60,8 +60,8 @@ class Vector2D
 
         const T &                                 at(IndexType x, IndexType y) const                     { return this->atIdx(xyToIndex(x, y)); }
         T &                                       at(IndexType x, IndexType y)                           { return this->atIdx(xyToIndex(x, y)); }
-        const T &                                 at(XY<IndexType> xy) const                             { return this->at(xyToIndex(xy)); }
-        T &                                       at(XY<IndexType> xy)                                   { return this->at(xyToIndex(xy)); }
+        const T &                                 at(Point<IndexType> xy) const                             { return this->at(xyToIndex(xy)); }
+        T &                                       at(Point<IndexType> xy)                                   { return this->at(xyToIndex(xy)); }
         const T &                                 atIdx(IndexType idx) const                             { return _vec.at(idx); }
         T &                                       atIdx(IndexType idx)                                   { return _vec.at(idx); }
 
@@ -73,10 +73,10 @@ class Vector2D
 
         /// Conversion
         IndexType                                 xyToIndex(IndexType x, IndexType y) const;
-        IndexType                                 xyToIndex(XY<IndexType> xy) const                      { return xyToIndex(xy.x(), xy.y()); }
+        IndexType                                 xyToIndex(Point<IndexType> xy) const                      { return xyToIndex(xy.x(), xy.y()); }
         IndexType                                 idxToX(IndexType idx) const;
         IndexType                                 idxToY(IndexType idx) const;
-        XY<IndexType>                             idxToXY(IndexType idx) const                           { return XY<IndexType>(idxToX(idx), idxToY(idx)); }
+        Point<IndexType>                             idxToXY(IndexType idx) const                           { return Point<IndexType>(idxToX(idx), idxToY(idx)); }
 
     private:
         std::vector<T> _vec;

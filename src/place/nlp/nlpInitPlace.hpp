@@ -42,7 +42,7 @@ namespace nlp {
                 using coord_type = typename NlpType::nlp_coordinate_type;
                 const auto xCenter = (nlp._boundary.xLo() + nlp._boundary.xHi()) / 2;
                 const auto yCenter = (nlp._boundary.yLo() + nlp._boundary.yHi()) / 2;
-                XY<coord_type> initLoc(xCenter, yCenter);
+                Point<coord_type> initLoc(xCenter, yCenter);
                 const IndexType numCells = nlp._db.numCells();
                 for (IndexType cellIdx = 0; cellIdx < numCells; ++cellIdx)
                 {
@@ -80,7 +80,7 @@ namespace nlp {
                 using coord_type = typename NlpType::nlp_coordinate_type;
                 const auto xCenter = (nlp._boundary.xLo() + nlp._boundary.xHi()) / 2;
                 const auto yCenter = (nlp._boundary.yLo() + nlp._boundary.yHi()) / 2;
-                XY<coord_type> initLoc(xCenter, yCenter);
+                Point<coord_type> initLoc(xCenter, yCenter);
                 const IndexType numCells = nlp._db.numCells();
                 std::default_random_engine gen(0);
                 RealType stddev = init_random_placement_with_normal_distribution_near_center::randomInitPlaceStddev * std::min(nlp._boundary.xLen(), nlp._boundary.yLen());

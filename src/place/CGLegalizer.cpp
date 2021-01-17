@@ -226,7 +226,7 @@ void CGLegalizer::generateConstraints()
             const auto &cell2 = _db.cell(idx2);
             auto cellBox2 = _db.cell(idx2).cellBBoxOff();
             // overlapAny part
-            if (cellBox1.overlap(cellBox2))
+            if (Box<LocType>::bOverlap(cellBox1, cellBox2))
             {
                 overlapAny.at(idx1) = true;
                 overlapAny.at(idx2) = true;

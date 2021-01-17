@@ -33,7 +33,7 @@ class VirtualPinAssigner
         bool solveFromDB();
         /// @brief solve the pin assignment problem. Export the solution to the database
         /// @param a function for query cell location
-        bool pinAssignment(std::function<XY<LocType>(IndexType)> cellLocQueryFunc);
+        bool pinAssignment(std::function<Point<LocType>(IndexType)> cellLocQueryFunc);
 
         /* Parameter settings */
         /// @brief set the extension distance of placement boundary to cell boundary

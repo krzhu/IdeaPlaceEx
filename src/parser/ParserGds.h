@@ -50,7 +50,7 @@ class ParserCellGds
             }
 
             ///Members
-            std::vector<XY<LocType>> pts; ///< The points of the polygon
+            std::vector<Point<LocType>> pts; ///< The points of the polygon
             IndexType layer = INDEX_TYPE_MAX; ///< The layer of the polygon
     };
 
@@ -140,7 +140,7 @@ namespace ExtractShapeLayerActionDetails
             /// Add points
             for (auto pt : *object)
             {
-                polygons.back().pts.emplace_back(XY<LocType>(pt.x(), pt.y()));
+                polygons.back().pts.emplace_back(Point<LocType>(pt.x(), pt.y()));
             }
         }
     }

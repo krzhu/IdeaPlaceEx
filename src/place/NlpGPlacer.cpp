@@ -45,7 +45,7 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
         RealType y = _pl(plIdx(cellIdx, Orient2DType::VERTICAL));
         LocType xLoc = ::klib::autoRound<LocType>(x / _scale);
         LocType yLoc = ::klib::autoRound<LocType>(y / _scale);
-        return XY<LocType>(xLoc, yLoc);
+        return Point<LocType>(xLoc, yLoc);
     };
     LocType xLo = _boundary.xLo(); LocType yLo = _boundary.yLo();
     LocType xHi = _boundary.xHi(); LocType yHi = _boundary.yHi();
@@ -66,7 +66,7 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
     IndexType hpwlIdx = 0;
     IndexType pwlIdx = 0;
     IndexType vssNetIdx = INDEX_TYPE_MAX;
-    XY<nlp_coordinate_type> vssPinLoc;
+    Point<nlp_coordinate_type> vssPinLoc;
     if (assigner.pinAssignment(cellLocQueryFunc))
     {
         // update the hpwl operator
@@ -77,7 +77,7 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
             {
                 if (net.isVdd() or net.isVss())
                 {
-                    XY<nlp_coordinate_type> pinLoc =  XY<nlp_coordinate_type>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                    Point<nlp_coordinate_type> pinLoc =  Point<nlp_coordinate_type>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
                     pinLoc *= _scale;
                     _powerWlOps[pwlIdx].setVirtualPin(pinLoc.x(), pinLoc.y());
                     ++pwlIdx;
@@ -89,7 +89,7 @@ void NlpGPlacerBase<nlp_settings>::assignIoPins()
                 }
                 else
                 {
-                    XY<nlp_coordinate_type> pinLoc =  XY<nlp_coordinate_type>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
+                    Point<nlp_coordinate_type> pinLoc =  Point<nlp_coordinate_type>(net.virtualPinLoc().x(), net.virtualPinLoc().y());
                     pinLoc *= _scale;
                     _hpwlOps[hpwlIdx].setVirtualPin(pinLoc.x(), pinLoc.y());
                     ++hpwlIdx;
@@ -149,7 +149,7 @@ void NlpGPlacerBase<nlp_settings>::initBoundaryParams()
         const RealType tolerentArea = _totalCellArea * (1 + maxWhiteSpace);
         const RealType xLen = std::sqrt(tolerentArea * aspectRatio);
         const RealType yLen= tolerentArea / xLen;
-        _boundary.set(-xLen  / 2 , - yLen / 2 , xLen / 2 , yLen / 2 );
+        _boundary.setBounds(-xLen  / 2 , - yLen / 2 , xLen / 2 , yLen / 2 );
         INF("NlpWnconj::%s: automatical set boundary to be %s \n", __FUNCTION__, _boundary.toStr().c_str());
     }
 
@@ -228,7 +228,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
     {
         auto pinLocOffset = _db.pinOffsetToCell(pinIdx);
         // Get the cell location from the input arguments
-        return XY<nlp_coordinate_type>(pinLocOffset.x(), pinLocOffset.y()) * _scale;
+        return Point<nlp_coordinate_type>(pinLocOffset.x() * _scale, pinLocOffset.y() * _scale);
     };
     // Hpwl
     for (IndexType netIdx = 0; netIdx < _db.numNets(); ++netIdx)

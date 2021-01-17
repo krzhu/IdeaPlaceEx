@@ -682,9 +682,9 @@ struct CosineDatapathDifferentiable
     typedef CoordType coordinate_type;
 
     CosineDatapathDifferentiable(
-            IndexType sCellIdx, const XY<CoordType> &sOffset,
-            IndexType midCellIdx, const XY<CoordType> &midOffsetA, const XY<CoordType> &midOffsetB,
-            IndexType tCellIdx, const XY<CoordType> &tOffset,
+            IndexType sCellIdx, const Point<CoordType> &sOffset,
+            IndexType midCellIdx, const Point<CoordType> &midOffsetA, const Point<CoordType> &midOffsetB,
+            IndexType tCellIdx, const Point<CoordType> &tOffset,
             const std::function<NumType(void)> &getLambdaFunc)
         : _sCellIdx(sCellIdx),
           _midCellIdx(midCellIdx),
@@ -702,8 +702,8 @@ struct CosineDatapathDifferentiable
         }
     
     CosineDatapathDifferentiable(
-            IndexType sCellIdx, const XY<CoordType> &sOffset,
-            IndexType midCellIdx, const XY<CoordType> &midOffsetA, const XY<CoordType> &midOffsetB,
+            IndexType sCellIdx, const Point<CoordType> &sOffset,
+            IndexType midCellIdx, const Point<CoordType> &midOffsetA, const Point<CoordType> &midOffsetB,
             const std::function<NumType(void)> &getLambdaFunc)
         : _sCellIdx(sCellIdx),
           _midCellIdx(midCellIdx),
@@ -726,7 +726,7 @@ struct CosineDatapathDifferentiable
 
     BoolType isTwoPin() const { return _tCellIdx == INDEX_TYPE_MAX; }
     void markTwoPin() { _tCellIdx = INDEX_TYPE_MAX; }
-    void setTwoPinEndingOffset(const XY<CoordType> &tOffset)
+    void setTwoPinEndingOffset(const Point<CoordType> &tOffset)
     {
         Assert(isTwoPin());
         _enable = true;
@@ -740,12 +740,12 @@ struct CosineDatapathDifferentiable
     void setWeight(NumType weight) { _weight = weight; }
 
     IndexType _sCellIdx = INDEX_TYPE_MAX; ///< Source
-    XY<NumType> _sOffset; ///< The offset for x0
+    Point<NumType> _sOffset; ///< The offset for x0
     IndexType _midCellIdx = INDEX_TYPE_MAX; ///< Middle
-    XY<NumType> _midOffsetA;
-    XY<NumType> _midOffsetB;
+    Point<NumType> _midOffsetA;
+    Point<NumType> _midOffsetB;
     IndexType _tCellIdx = INDEX_TYPE_MAX; ///< Target
-    XY<NumType> _tOffset;
+    Point<NumType> _tOffset;
     std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
     std::function<CoordType(IndexType cellIdx, Orient2DType orient)> _getVarFunc; ///< A function to get current variable value
     std::function<void(NumType, IndexType, Orient2DType)> _accumulateGradFunc; ///< A function to update partial
