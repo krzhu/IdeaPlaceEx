@@ -391,6 +391,25 @@ class IdeaPlaceEx
         {
             MsgPrinter::screenOff();
         }
+        
+        /*------------------------------*/ 
+        /* Well                         */
+        /*------------------------------*/ 
+        IndexType allocateWell() {
+          IndexType wellIdx = _db.allocateWell();
+          return wellIdx;
+        }
+        void setWellName(const IndexType wellIdx, const std::string name) {
+          _db.well(wellIdx).setName(name);
+        }
+        void setWellShape(const IndexType wellIdx, const std::vector<Point<LocType>>& vPts) {
+          Polygon<LocType>::RingType ring(vPts.begin(), vPts.end());
+          _db.well(wellIdx).setShape(ring);         
+        }
+        void printWellInfo(const IndexType wellIdx) const {
+          _db.well(wellIdx).printInfo();
+        }
+        
 
     protected:
         Database _db; ///< The placement engine database 

@@ -37,34 +37,32 @@ public:
   void  setXH(T r)                      { _tr.setX(r); }
   void  setYL(T b)                      { _bl.setY(b); }
   void  setYH(T t)                      { _tr.setY(t); }
-  void  setXLo(T l)                      { _bl.setX(l); }
-  void  setXHi(T r)                      { _tr.setX(r); }
-  void  setYLo(T b)                      { _bl.setY(b); }
-  void  setYHi(T t)                      { _tr.setY(t); }
+  void  setXLo(T l)                     { _bl.setX(l); }
+  void  setXHi(T r)                     { _tr.setX(r); }
+  void  setYLo(T b)                     { _bl.setY(b); }
+  void  setYHi(T t)                     { _tr.setY(t); }
   void  setBounds(T l, T b, T r, T t)   { setXL(l); setYL(b); setXH(r); setYH(t); }
   // Basic access functions
   T          xl()               const { return _bl.x(); }
   T          yl()               const { return _bl.y(); }
   T          xh()               const { return _tr.x(); }
   T          yh()               const { return _tr.y(); }
-  T          xLo()               const { return _bl.x(); }
-  T          yLo()               const { return _bl.y(); }
-  T          xHi()               const { return _tr.x(); }
-  T          yHi()               const { return _tr.y(); }
+  T          xLo()              const { return _bl.x(); }
+  T          yLo()              const { return _bl.y(); }
+  T          xHi()              const { return _tr.x(); }
+  T          yHi()              const { return _tr.y(); }
   T          width()            const { return xh() - xl(); }
   T          height()           const { return yh() - yl(); }
   T          centerX()          const { return (xl() + xh()) / 2; }
   T          centerY()          const { return (yl() + yh()) / 2; }
-    const Point<T>      center() const                  { return Point<T>(centerX() , centerY()); }
+  Point<T>   center()           const { return Point<T>(centerX() , centerY()); }
 
-    const Point<T> &    ll() const                      { return _bl; }
-    const Point<T> &    ur() const                      { return _tr; }
   T          hpwl()             const { return width() + height(); }
   T          perimeter()        const { return 2 * hpwl(); }
   T          area()             const { return width() * height(); }
-  bool             valid() const                   { return xl() <= xh() && yl() <= yh(); }
-    T                xLen() const                    { return xh() - xl(); }
-    T                yLen() const                    { return yh() - yl(); }
+  T          xLen()             const { return xh() - xl(); }
+  T          yLen()             const { return yh() - yl(); }
+  bool       valid()            const { return xl() <= xh() && yl() <= yh(); }
   
   // Points
   Point<T>&         bl()               { return _bl; }
@@ -75,6 +73,11 @@ public:
   const Point<T>&   min_corner() const { return _bl; }
   Point<T>&         max_corner()       { return _tr; }
   const Point<T>&   max_corner() const { return _tr; }
+  
+  Point<T>&         ll()               { return _bl; }
+  const Point<T>&   ll()         const { return _bl; }
+  Point<T>&         ur()               { return _tr; }
+  const Point<T>&   ur()         const { return _tr; }
 
   // utils
   void shiftX(const T x);
@@ -95,23 +98,23 @@ public:
   void multi_diff(const std::vector<Box>& vBox, std::vector<Box>& result) const;
   void multi_diff(const std::list<const Box*>& vBox, std::vector<Box>& result) const;
   void multi_diff(const std::list<std::uint32_t>& ord, const std::vector<Box>& vBox, std::vector<Box>& result) const;
-  void coverPoint(const Point<T> &pt) 
+  void coverPoint(const Point<T>& pt) 
   {
     _bl.setX(std::min(pt.x(), _bl.x()));
     _bl.setY(std::min(pt.y(), _bl.y()));
     _tr.setX(std::max(pt.x(), _tr.x()));
     _tr.setY(std::max(pt.y(), _tr.y()));
   }
-    /// @brief Enlarge the boundary of the box by a number
-    /// @param The distance for enlarging
-    void        enlargeBy(T dis) { setXLo(xLo() - dis); setYLo(yLo() - dis); setXHi(xHi() + dis); setYHi(yHi() + dis); }
-    void            join(const Point<T> &pt)
-    {
-        setXLo(std::min(pt.x(), xLo()));
-        setYLo(std::min(pt.y(), yLo()));
-        setXHi(std::max(pt.x(), xHi()));
-        setYHi(std::max(pt.y(), yHi()));
-    }
+  /// @brief Enlarge the boundary of the box by a number
+  /// @param The distance for enlarging
+  void enlargeBy(T dis) { setXLo(xLo() - dis); setYLo(yLo() - dis); setXHi(xHi() + dis); setYHi(yHi() + dis); }
+  void join(const Point<T>& pt)
+  {
+    setXLo(std::min(pt.x(), xLo()));
+    setYLo(std::min(pt.y(), yLo()));
+    setXHi(std::max(pt.x(), xHi()));
+    setYHi(std::max(pt.y(), yHi()));
+  }
 
 
   //static functions
@@ -135,8 +138,8 @@ public:
   static void  intersection2(const Box& box1, const Box& box2, std::vector<Box>& result);
   static void  difference2(const Box& box1, const Box& box2, std::vector<Box>& result);
 
-    /// @brief Make this Box become the union of the original and another box
-    void          unionBox(const Box<T> &other); 
+  /// @brief Make this Box become the union of the original and another box
+  void         unionBox(const Box<T> &other); 
 
   //operator
   bool operator < (const Box<T>& box) const {

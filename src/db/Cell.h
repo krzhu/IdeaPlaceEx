@@ -10,8 +10,53 @@
 
 #include "global/global.h"
 #include "util/box.hpp"
+#include "util/polygon.hpp"
 
 PROJECT_NAMESPACE_BEGIN
+
+class Well {
+ public:
+  Well(const IndexType i = INDEX_TYPE_MAX)
+    : _name(""), _idx(i) {}
+  ~Well() {}
+
+  // get
+  const std::string&            name()                      const { return _name; }
+  IndexType                     idx()                       const { return _idx; }
+  const Polygon<LocType>&       shape()                     const { return _shape; }
+  bool                          hasCell(const IndexType i)  const { return _sCellIds.find(i) != _sCellIds.end(); }
+
+  const std::set<IndexType>&    sCellIds()                  const { return _sCellIds; }
+
+  // set
+  void setName(const std::string& n) { _name = n; }
+  bool addCellIdx(const IndexType i) { return _sCellIds.emplace(i).second; }
+  bool removeCellIdx(const IndexType i) { return _sCellIds.erase(i); }
+  void setShape(const Polygon<LocType>::RingType& outer) {
+    _shape.setOuter(outer);
+  }
+
+  // operator
+  bool operator == (const Well& w) const {
+    return _shape == w._shape and _sCellIds == w._sCellIds;
+  }
+
+  // debug
+  void printInfo() const {
+    std::cout << "WELL " << _idx << " " << _name << " ";
+    for (const Point<LocType>& p : _shape.outer()) {
+      std::cout << p;
+    }
+    std::cout << std::endl;
+  }
+
+ private:
+  std::string _name;
+  IndexType _idx;
+  Polygon<LocType> _shape; // Polygon90
+  std::set<IndexType> _sCellIds;
+};
+
 
 /// @class IDEAPLACE::Cell
 /// @brief the cell/device/macro of the placement engine
@@ -174,6 +219,11 @@ class Cell
         void setSymNetIdx(IndexType symNetIdx) { _symNetIdx = symNetIdx; }
         IndexType symNetIdx() const {return _symNetIdx; }
 
+        /*------------------------------*/ 
+        /* Well`              `         */
+        /*------------------------------*/ 
+        void setWellIdx(IndexType i) { _wellIdx = i; }
+
     private:
         std::string _name; ///< The cell name
         Point<LocType> _loc; ///< The location of the cell
@@ -183,6 +233,8 @@ class Cell
         IndexType _symNetIdx =INDEX_TYPE_MAX; 
         bool _bSelfSym = false;
         bool _flip = false;
+        
+        IndexType _wellIdx = INDEX_TYPE_MAX; 
 };
 
 PROJECT_NAMESPACE_END

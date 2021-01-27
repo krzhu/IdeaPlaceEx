@@ -174,6 +174,22 @@ class Database
             }
             sig.addPinIdx(pinIdx);
         }
+        
+        // Well
+        const std::vector<Well>&  vWells()                const { return _wellArray; }
+        Well&                     well(const IndexType i)       { return _wellArray.at(i); }
+        const Well&               well(const IndexType i) const { return _wellArray.at(i); }
+        
+        IndexType allocateWell() {
+          Well w(_wellArray.size());
+          _wellArray.emplace_back(w);
+          return w.idx();
+        }
+        bool removeWell(const Well& w) {
+          return _wellArray.erase(std::remove(_wellArray.begin(), _wellArray.end(), w), _wellArray.end()) != _wellArray.end();
+        }
+
+
         /*------------------------------*/ 
         /* Query function wrappers      */
         /*------------------------------*/ 
@@ -236,6 +252,8 @@ class Database
         std::vector<SymGroup> _symGroups; ///< The symmetric groups
         std::vector<ProximityGroup> _proximityGrps; ///< The proximity group constraints
         std::vector<SignalPath> _signalPaths; ///< The signal/current paths
+        std::vector<Well> _wellArray; ///< The wells for PMOS
+        
         Tech _tech; ///< The tech information
         Parameters _para; ///< The parameters for the placement engine
 };
