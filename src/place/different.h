@@ -16,7 +16,7 @@ namespace diff {
 
 enum class OpEnumType
 {
-    hpwl, ovl, oob, asym, cosine
+    hpwl, ovl, oob, asym, cosine, fence
 };
 struct placement_differentiable_concept {};
 
@@ -1004,6 +1004,50 @@ inline void CurrentFlowDifferentiable<NumType, CoordType>::accumlateGradient() c
     _accumulateGradFunc(dy1 * _weight, _sCellIdx, Orient2DType::VERTICAL);
     _accumulateGradFunc(dy2 * _weight, _tCellIdx, Orient2DType::VERTICAL);
 }
+
+
+/* Fence region */
+
+/// @brief Model fence region penalty as recirocral of the overlapping area
+template<typename NumType, typename CoordType>
+struct FenceReciprocalOverlapDifferentiable
+{
+    typedef NumType numerical_type;
+    typedef CoordType coordinate_type;
+
+    FenceReciprocalOverlapDifferentiable(
+            IndexType sCellIdx, const CoordType sOffset,
+            IndexType tCellIdx, const CoordType tOffset,
+            const std::function<NumType(void)> &getLambdaFunc)
+        : _sCellIdx(sCellIdx),
+          _tCellIdx(tCellIdx), 
+          _getLambdaFunc(getLambdaFunc)
+        {
+            _sOffset =  op::conv<NumType>(sOffset);
+            _tOffset =  op::conv<NumType>(tOffset);
+        }
+    
+
+
+    void setGetVarFunc(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) { _getVarFunc = getVarFunc; }
+    void setAccumulateGradFunc(const std::function<void(NumType, IndexType, Orient2DType)> &func) { _accumulateGradFunc = func; }
+    void setGetAlphaFunc(const std::function<NumType(void)> &getAlphaFunc) { _getAlphaFunc = getAlphaFunc; }
+
+    NumType evaluate() const;
+    void accumlateGradient() const;
+
+    void setWeight(NumType weight) { _weight = weight; }
+
+    IndexType _sCellIdx = INDEX_TYPE_MAX; ///< Source
+    NumType _sOffset; ///< The offset for source y
+    IndexType _tCellIdx = INDEX_TYPE_MAX; ///< Target
+    NumType _tOffset; ///< The offset for target y
+    std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
+    std::function<CoordType(IndexType cellIdx, Orient2DType orient)> _getVarFunc; ///< A function to get current variable value
+    std::function<void(NumType, IndexType, Orient2DType)> _accumulateGradFunc; ///< A function to update partial
+    NumType _weight = 1.0;
+    std::function<NumType(void)> _getAlphaFunc;
+};
 
 } //namespace diff
 
