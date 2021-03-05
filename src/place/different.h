@@ -1008,46 +1008,109 @@ inline void CurrentFlowDifferentiable<NumType, CoordType>::accumlateGradient() c
 
 /* Fence region */
 
-/// @brief Model fence region penalty as recirocral of the overlapping area
+/// @brief Model fence region penalty as recirocral of the overlapping area.
+/// it first slices the polygon into rectangles, and 
+/// the cost is overlapping the sum of overlapping area of the cell and each rectangle
 template<typename NumType, typename CoordType>
-struct FenceReciprocalOverlapDifferentiable
+struct FenceReciprocalOverlapSumBoxDifferentiable
 {
     typedef NumType numerical_type;
     typedef CoordType coordinate_type;
 
-    FenceReciprocalOverlapDifferentiable(
-            IndexType sCellIdx, const CoordType sOffset,
-            IndexType tCellIdx, const CoordType tOffset,
-            const std::function<NumType(void)> &getLambdaFunc)
-        : _sCellIdx(sCellIdx),
-          _tCellIdx(tCellIdx), 
-          _getLambdaFunc(getLambdaFunc)
-        {
-            _sOffset =  op::conv<NumType>(sOffset);
-            _tOffset =  op::conv<NumType>(tOffset);
-        }
-    
-
+    FenceReciprocalOverlapSumBoxDifferentiable(
+            IndexType cellIdx,
+            const CoordType cellWidth, const CoordType cellHeight,
+            const std::vector<Box<CoordType>> &boxes,
+            const std::function<NumType(void)> &getAlphaFunc, const std::function<NumType(void)> &getLambdaFunc)
+    {
+        _cellIdx = cellIdx;
+        _cellWidth = cellWidth;
+        _cellHeight = cellHeight;
+        _boxes = boxes;
+        _getAlphaFunc = getAlphaFunc;
+        _getLambdaFunc = getLambdaFunc;
+    }
 
     void setGetVarFunc(const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) { _getVarFunc = getVarFunc; }
     void setAccumulateGradFunc(const std::function<void(NumType, IndexType, Orient2DType)> &func) { _accumulateGradFunc = func; }
     void setGetAlphaFunc(const std::function<NumType(void)> &getAlphaFunc) { _getAlphaFunc = getAlphaFunc; }
+
 
     NumType evaluate() const;
     void accumlateGradient() const;
 
     void setWeight(NumType weight) { _weight = weight; }
 
-    IndexType _sCellIdx = INDEX_TYPE_MAX; ///< Source
-    NumType _sOffset; ///< The offset for source y
-    IndexType _tCellIdx = INDEX_TYPE_MAX; ///< Target
-    NumType _tOffset; ///< The offset for target y
+    IndexType _cellIdx; ///< The index of the cell
+    CoordType _cellWidth;  ///< The width of the cell
+    CoordType _cellHeight; ///< The height of the cell
+    std::vector<Box<CoordType>> _boxes; ///< The sliced polygon
+
     std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
     std::function<CoordType(IndexType cellIdx, Orient2DType orient)> _getVarFunc; ///< A function to get current variable value
     std::function<void(NumType, IndexType, Orient2DType)> _accumulateGradFunc; ///< A function to update partial
     NumType _weight = 1.0;
     std::function<NumType(void)> _getAlphaFunc;
 };
+
+template<typename NumType, typename CoordType>
+inline NumType FenceReciprocalOverlapSumBoxDifferentiable<NumType, CoordType>::evaluate() const
+{
+    const NumType lambda = _getLambdaFunc();
+    const NumType alpha = _getAlphaFunc();
+    const NumType xCell = op::conv<NumType>(_getVarFunc(_cellIdx, Orient2DType::HORIZONTAL));
+    const NumType wCell = op::conv<NumType>(_cellWidth);
+    const NumType yCell = op::conv<NumType>(_getVarFunc(_cellIdx, Orient2DType::VERTICAL));
+    const NumType hCell = op::conv<NumType>(_cellHeight);
+
+    NumType ovlArea = 0.0;
+
+    for (const auto &fence : _boxes)
+    {
+      const NumType xFence = op::conv<NumType>(fence.xLo());
+      const NumType wFence = op::conv<NumType>(fence.xLen());
+      const NumType yFence = op::conv<NumType>(fence.yLo());
+      const NumType hFence = op::conv<NumType>(fence.yLen());
+      ovlArea += std::pow(alpha, 2.0) * std::log(1.0/(std::exp(-(hCell + yCell - yFence)/alpha) + std::exp(-(hFence - yCell + yFence)/alpha)) + 1.0)*std::log(1/(std::exp(-(wCell + xCell - xFence)/alpha) + std::exp(-(wFence - xCell + xFence)/alpha)) + 1.0);
+    }
+    return (1.0 / ovlArea) * _weight * lambda;;
+}
+
+
+template<typename NumType, typename CoordType>
+inline void FenceReciprocalOverlapSumBoxDifferentiable<NumType, CoordType>::accumlateGradient() const
+{
+    const NumType lambda = _getLambdaFunc();
+    const NumType alpha = _getAlphaFunc();
+    const NumType xCell = op::conv<NumType>(_getVarFunc(_cellIdx, Orient2DType::HORIZONTAL));
+    const NumType wCell = op::conv<NumType>(_cellWidth);
+    const NumType yCell = op::conv<NumType>(_getVarFunc(_cellIdx, Orient2DType::VERTICAL));
+    const NumType hCell = op::conv<NumType>(_cellHeight);
+
+
+    NumType ovlArea = 0.0;
+    NumType dOvlDX = 0.0;
+    NumType dOvlDY = 0.0;
+
+    for (const auto &fence : _boxes)
+    {
+      const NumType xFence = op::conv<NumType>(fence.xLo());
+      const NumType wFence = op::conv<NumType>(fence.xLen());
+      const NumType yFence = op::conv<NumType>(fence.yLo());
+      const NumType hFence = op::conv<NumType>(fence.yLen());
+      ovlArea += std::pow(alpha, 2.0) * std::log(1.0/(std::exp(-(hCell + yCell - yFence)/alpha) + std::exp(-(hFence - yCell + yFence)/alpha)) + 1.0)*std::log(1/(std::exp(-(wCell + xCell - xFence)/alpha) + std::exp(-(wFence - xCell + xFence)/alpha)) + 1.0);
+      dOvlDX += (alpha * alpha *std::log(1.0/(std::exp(-(hCell + yCell - yFence)/alpha) + std::exp(-(hFence - yCell + yFence)/alpha)) + 1.0)*(std::exp(-(wCell + xCell - xFence)/alpha)/alpha - std::exp(-(wFence - xCell + xFence)/alpha)/alpha))/((1.0/(std::exp(-(wCell + xCell - xFence)/alpha) + std::exp(-(wFence - xCell + xFence)/alpha)) + 1.0)*std::pow(std::exp(-(wCell + xCell - xFence)/alpha) + std::exp(-(wFence - xCell + xFence)/alpha), 2.0));
+
+      dOvlDY = (alpha * alpha *std::log(1.0/(std::exp(-(wCell + xCell - xFence)/alpha) + std::exp(-(wFence - xCell + xFence)/alpha)) + 1.0)*(std::exp(-(hCell + yCell - yFence)/alpha)/alpha - std::exp(-(hFence - yCell + yFence)/alpha)/alpha))/((1.0/(std::exp(-(hCell + yCell - yFence)/alpha) + std::exp(-(hFence - yCell + yFence)/alpha)) + 1.0)*(std::pow(std::exp(-(hCell + yCell - yFence)/alpha) + std::exp(-(hFence - yCell + yFence)/alpha), 2.0)));
+    }
+
+    const NumType dx = - (1.0 / std::pow(ovlArea, 2.0)) * 2 * ovlArea * dOvlDX;
+    const NumType dy = - (1.0 / std::pow(ovlArea, 2.0)) * 2 * ovlArea * dOvlDY;
+
+    _accumulateGradFunc(dx * _weight * lambda, _cellIdx, Orient2DType::HORIZONTAL);
+    _accumulateGradFunc(dy * _weight * lambda, _cellIdx, Orient2DType::VERTICAL);
+
+}
 
 } //namespace diff
 
