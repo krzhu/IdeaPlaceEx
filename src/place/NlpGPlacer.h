@@ -48,6 +48,7 @@ namespace nlp
         typedef diff::CosineDatapathDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_cos_type;
         typedef diff::PowerVerQuadraticWireLengthDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_power_wl_type;
         typedef diff::CurrentFlowDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_crf_type;
+        typedef diff::FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_fence_type;
     };
     
     struct nlp_default_zero_order_algorithms
@@ -167,6 +168,7 @@ class NlpGPlacerBase
         typedef typename nlp_types::nlp_cos_type nlp_cos_type;
         typedef typename nlp_types::nlp_power_wl_type nlp_power_wl_type;
         typedef typename nlp_types::nlp_crf_type nlp_crf_type;
+        typedef typename nlp_types::nlp_fence_type nlp_fence_type;
 
 
         /* algorithms */
@@ -247,6 +249,7 @@ class NlpGPlacerBase
         nlp_numerical_type _objCos = 0.0; ///< The current value for the cosine signal path penalty
         nlp_numerical_type _objPowerWl = 0.0; ///< power wire length
         nlp_numerical_type _objCrf = 0.0; ///< Current flow
+        nlp_numerical_type _objFence = 0.0; ///< Fence region
         nlp_numerical_type _obj = 0.0; ///< The current value for the total objective penalty
         nlp_numerical_type _objHpwlRaw = 0.0; ///< The current value for hpwl
         nlp_numerical_type _objOvlRaw = 0.0; ///< The current value for overlapping penalty
@@ -255,6 +258,7 @@ class NlpGPlacerBase
         nlp_numerical_type _objCosRaw = 0.0; ///< The current value for the cosine signal path penalty
         nlp_numerical_type _objPowrWlRaw = 0.0; ///< Power wire length
         nlp_numerical_type _objCrfRaw = 0.0; ///< Current flow
+        nlp_numerical_type _objFenceRaw = 0.0; ///< Fence region
         /* NLP optimization kernel memebers */
         stop_condition_type _stopCondition;
         /* Optimization data */
@@ -266,8 +270,9 @@ class NlpGPlacerBase
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaAsymTasks;  ///< The tasks for evaluating asymmetry objectives
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCosTasks;  ///< The tasks for evaluating signal path objectives
-        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaPowerWlTasks;  
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaPowerWlTasks; ///< The tasks for evaluating power wirelength objectives
         std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCrfTasks; ///< The tasks for evaluating current flow objectives
+        std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaFenceTasks; ///< The tasks for evaluating fence region objectives
         // Sum the objectives
         nt::Task<nt::FuncTask> _sumObjHpwlTask; ///< The task for summing hpwl objective
         nt::Task<nt::FuncTask> _sumObjOvlTask; ///< The task for summing the overlapping objective
@@ -276,15 +281,17 @@ class NlpGPlacerBase
         nt::Task<nt::FuncTask> _sumObjCosTask; ///< The task for summing the cosine signal path objective
         nt::Task<nt::FuncTask> _sumObjPowerWlTask; ///< The task for summing the cosine signal path objective
         nt::Task<nt::FuncTask> _sumObjCrfTask; ///< The task for summing the current flow objective
+        nt::Task<nt::FuncTask> _sumObjFenceTask; ///< The task for summing the fence region objecitve
         nt::Task<nt::FuncTask> _sumObjAllTask; ///< The task for summing the different objectives together
         // Wrapper tasks for debugging
-        nt::Task<nt::FuncTask> _wrapObjHpwlTask; ///< The task for wrap the objective 
+        nt::Task<nt::FuncTask> _wrapObjHpwlTask; ///< The task for wrap the objective for wirelength
         nt::Task<nt::FuncTask> _wrapObjOvlTask;
         nt::Task<nt::FuncTask> _wrapObjOobTask;
         nt::Task<nt::FuncTask> _wrapObjAsymTask;
         nt::Task<nt::FuncTask> _wrapObjCosTask;
         nt::Task<nt::FuncTask> _wrapObjPowerWlTask;
         nt::Task<nt::FuncTask> _wrapObjCrfTask; ///< The wrapper for caculating the current flow objective
+        nt::Task<nt::FuncTask> _wrapObjFenceTask; ///< The wrapper for calculating the fence region objective
         nt::Task<nt::FuncTask> _wrapObjAllTask;
         /* Operators */
         std::vector<nlp_hpwl_type> _hpwlOps; ///< The HPWL cost 
@@ -294,6 +301,7 @@ class NlpGPlacerBase
         std::vector<nlp_cos_type> _cosOps; ///< The signal flow operators
         std::vector<nlp_power_wl_type> _powerWlOps;
         std::vector<nlp_crf_type> _crfOps; ///< The current flow operators
+        std::vector<nlp_fence_type> _fenceOps; ///< The fence region operators
         /* run time */
         std::unique_ptr<::klib::StopWatch> _calcObjStopWatch;
 };
