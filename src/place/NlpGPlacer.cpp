@@ -9,6 +9,19 @@ using namespace nt;
 template<typename nlp_settings>
 IntType NlpGPlacerBase<nlp_settings>::solve()
 {
+    _db.allocateWell();
+    auto &testWell = _db.well(0);
+    Polygon<LocType> polygon;
+    polygon.outer().emplace_back(Point<LocType> ( 0, 0));
+    polygon.outer().emplace_back(Point<LocType> ( 0, 100));
+    polygon.outer().emplace_back(Point<LocType> ( 100, 100));
+    polygon.outer().emplace_back(Point<LocType> ( 100, 0));
+    testWell.setShape(polygon.outer());
+    testWell.addCellIdx(0);
+    testWell.addCellIdx(1);
+
+    WRN("\n\n\nIN DEBUG MODE! MANUAL CREATING WELLS \n\n\n");
+
     auto stopWatch = WATCH_CREATE_NEW("NlpGPlacer");
     stopWatch->start();
     _calcObjStopWatch = WATCH_CREATE_NEW("GP_calculate_obj");
@@ -187,6 +200,7 @@ void NlpGPlacerBase<nlp_settings>::initPlace()
     init_place_trait::initPlace(initPlace, *this);
 }
 
+
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::initOperators()
 {
@@ -194,23 +208,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
     {
         return _alpha ;
     };
-    auto getLambdaFuncOvr = [&]()
-    {
-        return 1.0;
-    };
-    auto getLambdaFuncBoundary = [&]()
-    {
-        return 1.0;
-    };
-    auto getLambdaFuncHpwl = [&]()
-    {
-        return 1.0;
-    };
-    auto getLambdaFuncAsym = [&]()
-    {
-        return 1.0;
-    };
-    auto getLambdaFuncCosine = [&]()
+    auto getLambdaFunc = [&]()
     {
         return 1.0;
     };
@@ -238,7 +236,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         {
             continue;
         }
-        _hpwlOps.emplace_back(nlp_hpwl_type(getAlphaFunc, getLambdaFuncHpwl));
+        _hpwlOps.emplace_back(nlp_hpwl_type(getAlphaFunc, getLambdaFunc));
         auto &op = _hpwlOps.back();
         op.setWeight(net.weight() );
         for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
@@ -265,7 +263,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                         cellBBoxJ.xLen() * _scale,
                         cellBBoxJ.yLen() * _scale,
                         getAlphaFunc,
-                        getLambdaFuncOvr
+                        getLambdaFunc
                         ));
             _ovlOps.back().setGetVarFunc(getVarFunc);
         }
@@ -284,7 +282,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                     cellBBox.yLen() * _scale,
                     &_boundary,
                     getAlphaFunc,
-                    getLambdaFuncBoundary
+                    getLambdaFunc
                     ));
         _oobOps.back().setGetVarFunc(getVarFunc);
     }
@@ -292,7 +290,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
     for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx)
     {
         const auto &symGrp = _db.symGroup(symGrpIdx);
-        _asymOps.emplace_back(nlp_asym_type(symGrpIdx, getLambdaFuncAsym));
+        _asymOps.emplace_back(nlp_asym_type(symGrpIdx, getLambdaFunc));
         for (const auto &symPair : symGrp.vSymPairs())
         {
             IndexType cellIdxI = symPair.firstCell();
@@ -343,7 +341,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                 _cosOps.emplace_back(sCellIdx, sOffset,
                         mCellIdx, midOffsetA, midOffsetB,
                         tCellIdx, tOffset,
-                        getLambdaFuncCosine);
+                        getLambdaFunc);
                 _cosOps.back().setGetVarFunc(getVarFunc);
                 _cosOps.back().setWeight(_db.parameters().defaultSignalFlowWeight());
             }
@@ -379,7 +377,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
 #endif
             _crfOps.emplace_back(sCellIdx, sOffset.y(),
                     mCellIdx, midOffsetA.y(),
-                    getLambdaFuncCosine);
+                    getLambdaFunc);
             _crfOps.back().setGetVarFunc(getVarFunc);
             _crfOps.back().setGetAlphaFunc(getAlphaFunc);
             _crfOps.back().setWeight(_db.parameters().defaultCurrentFlowWeight());
@@ -390,7 +388,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
 #endif
             _crfOps.emplace_back(mCellIdx, midOffsetB.y(),
                     tCellIdx, tOffset.y(),
-                    getLambdaFuncCosine);
+                    getLambdaFunc);
             _crfOps.back().setGetVarFunc(getVarFunc);
             _crfOps.back().setGetAlphaFunc(getAlphaFunc);
             _crfOps.back().setWeight(_db.parameters().defaultCurrentFlowWeight());
@@ -415,7 +413,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
 #endif
             _crfOps.emplace_back(sCellIdx, sOffset.y(),
                     tCellIdx, tOffset.y(),
-                    getLambdaFuncCosine);
+                    getLambdaFunc);
             _crfOps.back().setGetVarFunc(getVarFunc);
             _crfOps.back().setGetAlphaFunc(getAlphaFunc);
             _crfOps.back().setWeight(_db.parameters().defaultCurrentFlowWeight());
@@ -429,7 +427,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         {
             continue;
         }
-        _powerWlOps.emplace_back(nlp_power_wl_type(getLambdaFuncHpwl));
+        _powerWlOps.emplace_back(nlp_power_wl_type(getLambdaFunc));
         auto &op = _powerWlOps.back();
         op.setWeight(net.weight() * _db.parameters().defaultRelativeRatioOfPowerNet());
         for (IndexType idx = 0; idx < net.numPinIdx(); ++idx)
@@ -441,9 +439,18 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
         }
         op.setGetVarFunc(getVarFunc);
     }
-    INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob %d asym %d sigFlow %d power %d crf \n", 
+
+    // fence region
+    for (const auto & well : _db.vWells())
+    {
+      for (IndexType cellIdx : well.sCellIds())
+      {
+        _fenceOps.emplace_back(_nlp_details::construct_fence_type_trait<nlp_fence_type>::constructFenceOperator(cellIdx, _scale, _db.cell(cellIdx), well, getAlphaFunc, getLambdaFunc));
+      }
+    }
+    INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob %d asym %d sigFlow %d power %d crf %d fence %d\n", 
     _hpwlOps.size()+ _ovlOps.size()+ _oobOps.size()+ _asymOps.size()+ _cosOps.size()+ _powerWlOps.size() + _crfOps.size(),
-            _hpwlOps.size(), _ovlOps.size(), _oobOps.size(), _asymOps.size(), _cosOps.size(), _powerWlOps.size(), _crfOps.size());
+            _hpwlOps.size(), _ovlOps.size(), _oobOps.size(), _asymOps.size(), _cosOps.size(), _powerWlOps.size(), _crfOps.size(), _fenceOps.size());
 }
 
 template<typename nlp_settings>

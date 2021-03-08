@@ -23,6 +23,7 @@
 #include "place/nlp/nlpFirstOrderKernel.hpp"
 #include "place/nlp/nlpSecondOrderKernels.hpp"
 #include "pinassign/VirtualPinAssigner.h"
+#include "util/Polygon2Rect.h"
 PROJECT_NAMESPACE_BEGIN
 
 namespace nlp 
@@ -146,6 +147,51 @@ namespace nlp
 
 
 }// namespace nlp
+
+namespace _nlp_details
+{
+
+
+template<typename fence_type>
+struct construct_fence_type_trait
+{
+  static fence_type constructFenceOperator(
+      IndexType , typename fence_type::NumType ,
+      const Cell &, const Well &, 
+      const std::function<typename fence_type::CoordType(void)> &, const std::function<typename fence_type::NumType(void)> &
+      ) { return fence_type(); }
+};
+
+template<typename nlp_numerical_type, typename nlp_coordinate_type>
+struct construct_fence_type_trait<diff::FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+{
+  static diff::FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type, nlp_coordinate_type> constructFenceOperator(
+      IndexType cellIdx, nlp_coordinate_type scale,
+      const Cell &cell, const Well &well, 
+      const std::function<nlp_numerical_type(void)> &getAlphaFunc, const std::function<nlp_numerical_type(void)> &getLambdaFunc  
+      )
+  {
+    std::vector<Box<nlp_coordinate_type>> boxes; // Splited polygon 
+    std::vector<Box<LocType>> boxesUnScaled;
+    if (not klib::convertPolygon2Rects(well.shape().outer(), boxesUnScaled))
+    {
+      ERR("NlpGPlacer:: cannot split well polygon! \n");
+      Assert(false);
+    }
+    for (const auto &box : boxesUnScaled)
+    {
+      boxes.emplace_back(Box<nlp_coordinate_type>(box.xLo() * scale, 
+            box.yLo() * scale,
+            box.xHi() * scale,
+            box.yHi() * scale));
+    }
+    return diff::FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type, nlp_coordinate_type>
+      (cellIdx, cell.cellBBox().xLen() * scale, cell.cellBBox().yLen() * scale,
+       boxes, getAlphaFunc, getLambdaFunc);
+  }
+};
+
+} // namespace _nlp_details
 
 /// @brief non-linear programming-based analog global placement
 template<typename nlp_settings>
