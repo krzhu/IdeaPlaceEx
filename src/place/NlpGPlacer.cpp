@@ -446,6 +446,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
       for (IndexType cellIdx : well.sCellIds())
       {
         _fenceOps.emplace_back(_nlp_details::construct_fence_type_trait<nlp_fence_type>::constructFenceOperator(cellIdx, _scale, _db.cell(cellIdx), well, getAlphaFunc, getLambdaFunc));
+        _fenceOps.back().setGetVarFunc(getVarFunc);
       }
     }
     INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob %d asym %d sigFlow %d power %d crf %d fence %d\n", 
@@ -554,6 +555,11 @@ void NlpGPlacerBase<nlp_settings>::constructObjectiveCalculationTasks()
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_crf_type>::evaluate(op);};
         _evaCosTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
+    for (const auto &op : _fenceOps)
+    {
+        auto eva = [&]() { return diff::placement_differentiable_traits<nlp_fence_type>::evaluate(op);};
+        _evaFenceTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
+    }
 }
 
 template<typename nlp_settings>
@@ -622,6 +628,15 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
         }
     };
     _sumObjCrfTask = Task<FuncTask>(FuncTask(crf));
+    auto fence = [&]()
+    {
+        _objFence = 0.0;
+        for (const auto &eva : _evaFenceTasks)
+        {
+            _objFence += eva.taskData().obj();
+        }
+    };
+    _sumObjFenceTask = Task<FuncTask>(FuncTask(fence));
     auto all = [&]()
     {
         _obj = 0.0;
@@ -632,6 +647,7 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks()
         _obj += _objCos;
         _obj += _objPowerWl;
         _obj += _objCrf;
+        _obj += _objFence;
     };
     _sumObjAllTask = Task<FuncTask>(FuncTask(all));
 }
@@ -710,6 +726,16 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _sumObjCrfTask.run();
     };
     _wrapObjCrfTask = Task<FuncTask>(FuncTask(crf));
+    auto fence = [&]()
+    {
+        #pragma omp parallel for schedule(static)
+        for (IndexType idx = 0; idx < _evaFenceTasks.size(); ++idx)
+        {
+            _evaFenceTasks[idx].run();
+        }
+        _sumObjFenceTask.run();
+    };
+    _wrapObjFenceTask = Task<FuncTask>(FuncTask(fence));
     auto all = [&]()
     {
         _calcObjStopWatch->start();
@@ -720,6 +746,7 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask()
         _wrapObjCosTask.run();
         _wrapObjPowerWlTask.run();
         _wrapObjCrfTask.run();
+        _wrapObjFenceTask.run();
         _sumObjAllTask.run();
         _calcObjStopWatch->stop();
     };
@@ -772,6 +799,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
 #ifdef DEBUG_GR
         DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
 #endif
+        DBG("FENCE %f \n", this->_objFence);
         ++iter;
     } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
     optimizeStopWatch->stop();
