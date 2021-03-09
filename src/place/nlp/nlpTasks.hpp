@@ -442,6 +442,20 @@ namespace nt
         }
     };
 
+    template<typename nlp_numerical_type, typename nlp_coordinate_type>
+    struct calc_operator_partial_build_cellmap_trait<diff::FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type, nlp_coordinate_type>>
+    {
+        typedef diff::FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type, nlp_coordinate_type> nlp_op_type;
+        template<typename calc_type>
+        static void build(nlp_op_type &op, calc_type &calc)
+        {
+            calc._numCells = 1; // Each operator always have one cell
+            calc._inverseCellMap.resize(1);
+            calc._cellMap[op._cellIdx] = 0;
+            calc._inverseCellMap[0] = op._cellIdx;
+        }
+    };
+
 } //namespace nt
 
 

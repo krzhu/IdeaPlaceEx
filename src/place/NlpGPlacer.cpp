@@ -828,6 +828,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::initFirstOrderGrad()
     _gradCos.resize(size);
     _gradPowerWl.resize(size);
     _gradCrf.resize(size);
+    _gradFence.resize(size);
 }
 
 template<typename nlp_settings>
@@ -857,6 +858,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
     using Cos = CalculateOperatorPartialTask<nlp_cos_type, EigenVector>;
     using Pwl = CalculateOperatorPartialTask<nlp_power_wl_type, EigenVector>;
     using Crf = CalculateOperatorPartialTask<nlp_crf_type, EigenVector>;
+    using Fence = CalculateOperatorPartialTask<nlp_fence_type, EigenVector>;
     for (auto &hpwlOp : this->_hpwlOps)
     {
         _calcHpwlPartialTasks.emplace_back(Task<Hpwl>(Hpwl(&hpwlOp)));
@@ -885,6 +887,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructCalcPartialsTasks()
     {
         _calcCrfPartialTasks.emplace_back(Task<Crf>(&crfOp));
     }
+    for (auto &fenceOp : this->_fenceOps)
+    {
+        _calcFencePartialTasks.emplace_back(Task<Fence>(&fenceOp));
+    }
 }
 
 template<typename nlp_settings>
@@ -897,6 +903,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
     using Cos = UpdateGradientFromPartialTask<nlp_cos_type, EigenVector>;
     using Pwl = UpdateGradientFromPartialTask<nlp_power_wl_type, EigenVector>;
     using Crf = UpdateGradientFromPartialTask<nlp_crf_type, EigenVector>;
+    using Fence = UpdateGradientFromPartialTask<nlp_fence_type, EigenVector>;
     auto getIdxFunc = [&](IndexType cellIdx, Orient2DType orient) { return this->plIdx(cellIdx, orient); }; // wrapper the convert cell idx to pl idx
     for (auto &hpwl : _calcHpwlPartialTasks)
     {
@@ -926,6 +933,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructUpdatePartialsTasks()
     {
         _updateCrfPartialTasks.emplace_back(Task<Crf>(Crf(crf.taskDataPtr(), &_gradCrf, getIdxFunc)));
     }
+    for (auto &fence : _calcFencePartialTasks)
+    {
+        _updateFencePartialTasks.emplace_back(Task<Fence>(Fence(fence.taskDataPtr(), &_gradFence, getIdxFunc)));
+    }
 }
 
 template<typename nlp_settings>
@@ -939,6 +950,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructClearGradTasks()
     _clearCosGradTask = Task<FuncTask>(FuncTask([&]() { _gradCos.setZero(); }));
     _clearPowerWlGradTask = Task<FuncTask>(FuncTask([&]() { _gradPowerWl.setZero(); }));
     _clearCrfGradTask = Task<FuncTask>(FuncTask([&]() { _gradCrf.setZero(); }));
+    _clearFenceGradTask = Task<FuncTask>(FuncTask([&]() { _gradFence.setZero(); }));
 }
 
 template<typename nlp_settings>
@@ -951,7 +963,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask()
     _sumCosGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updateCosPartialTasks){ upd.run(); }}));
     _sumPowerWlTaskGradTask = Task<FuncTask>(FuncTask([&](){ for (auto &upd : _updatePowerWlPartialTasks){ upd.run(); }}));
     _sumCrfGradTask = Task<FuncTask>(FuncTask([&]() { for (auto &upd : _updateCrfPartialTasks) {upd.run(); }}));
-    _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos + _gradPowerWl + _gradCrf; }));
+    _sumFenceGradTask = Task<FuncTask>(FuncTask([&]() { for (auto &upd : _updateFencePartialTasks) {upd.run(); }}));
+    _sumGradTask = Task<FuncTask>(FuncTask([&](){ _grad = _gradHpwl + _gradOvl + _gradOob + _gradAsym + _gradCos + _gradPowerWl + _gradCrf + _gradFence; }));
 }
 
 template<typename nlp_settings>
@@ -969,6 +982,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         _clearCosGradTask.run();
         _clearPowerWlGradTask.run();
         _clearCrfGradTask.run();
+        _clearFenceGradTask.run();
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcHpwlPartialTasks.size(); ++i ) { _calcHpwlPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updateHpwlPartialTasks.size(); ++i ) { _updateHpwlPartialTasks[i].run(); }
@@ -990,6 +1004,9 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask()
         #pragma omp parallel for schedule(static)
         for (IndexType i = 0; i < _calcCrfPartialTasks.size(); ++i ) { _calcCrfPartialTasks[i].run(); }
         for (IndexType i = 0; i < _updateCrfPartialTasks.size(); ++i ) { _updateCrfPartialTasks[i].run(); }
+        #pragma omp parallel for schedule(static)
+        for (IndexType i = 0; i < _calcFencePartialTasks.size(); ++i ) { _calcFencePartialTasks[i].run(); }
+        for (IndexType i = 0; i < _updateFencePartialTasks.size(); ++i ) { _updateFencePartialTasks[i].run(); }
         _sumGradTask.run();
         _calcGradStopWatch->stop();
     };

@@ -387,6 +387,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         typedef typename base_type::nlp_cos_type nlp_cos_type;
         typedef typename base_type::nlp_power_wl_type nlp_power_wl_type;
         typedef typename base_type::nlp_crf_type nlp_crf_type;
+        typedef typename base_type::nlp_fence_type nlp_fence_type;
 
         typedef typename nlp_settings::nlp_first_order_algorithms_type nlp_first_order_algorithms;
         typedef typename nlp_first_order_algorithms::converge_type converge_type;
@@ -506,6 +507,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         EigenVector _gradCos; ///< The first order gradient of cosine signal path objective
         EigenVector _gradPowerWl;
         EigenVector _gradCrf;
+        EigenVector _gradFence; ///< The gradient of fence region objective
         /* Tasks */
         // Calculate the partials
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_hpwl_type, EigenVector>>> _calcHpwlPartialTasks;
@@ -515,6 +517,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_cos_type,  EigenVector>>> _calcCosPartialTasks;
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_power_wl_type,  EigenVector>>> _calcPowerWlPartialTasks;
         std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_crf_type,  EigenVector>>> _calcCrfPartialTasks;
+        std::vector<nt::Task<nt::CalculateOperatorPartialTask<nlp_fence_type,  EigenVector>>> _calcFencePartialTasks;
         // Update the partials
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_hpwl_type, EigenVector>>> _updateHpwlPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_ovl_type,  EigenVector>>> _updateOvlPartialTasks;
@@ -523,6 +526,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_cos_type,  EigenVector>>> _updateCosPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_power_wl_type,  EigenVector>>> _updatePowerWlPartialTasks;
         std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_crf_type,  EigenVector>>> _updateCrfPartialTasks;
+        std::vector<nt::Task<nt::UpdateGradientFromPartialTask<nlp_fence_type,  EigenVector>>> _updateFencePartialTasks;
         // Clear the gradient. Use to clear the _gradxxx records. Needs to call before updating the partials
         nt::Task<nt::FuncTask> _clearGradTask; //FIXME: not used right noe
         nt::Task<nt::FuncTask> _clearHpwlGradTask;
@@ -532,6 +536,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _clearCosGradTask;
         nt::Task<nt::FuncTask> _clearPowerWlGradTask;
         nt::Task<nt::FuncTask> _clearCrfGradTask;
+        nt::Task<nt::FuncTask> _clearFenceGradTask;
         // Sum the _grad from individual
         nt::Task<nt::FuncTask> _sumGradTask;
         nt::Task<nt::FuncTask> _sumHpwlGradTask;
@@ -541,6 +546,7 @@ class NlpGPlacerFirstOrder : public NlpGPlacerBase<nlp_settings>
         nt::Task<nt::FuncTask> _sumCosGradTask;
         nt::Task<nt::FuncTask> _sumPowerWlTaskGradTask;
         nt::Task<nt::FuncTask> _sumCrfGradTask;
+        nt::Task<nt::FuncTask> _sumFenceGradTask;
         // all the grads has been calculated but have not updated
         nt::Task<nt::FuncTask> _wrapCalcGradTask; ///<  calculating the gradient and sum them
         /* run time */
