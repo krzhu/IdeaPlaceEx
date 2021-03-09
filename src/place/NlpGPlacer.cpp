@@ -13,9 +13,11 @@ IntType NlpGPlacerBase<nlp_settings>::solve()
     auto &testWell = _db.well(0);
     Polygon<LocType> polygon;
     polygon.outer().emplace_back(Point<LocType> ( 0, 0));
-    polygon.outer().emplace_back(Point<LocType> ( 0, 100));
-    polygon.outer().emplace_back(Point<LocType> ( 100, 100));
-    polygon.outer().emplace_back(Point<LocType> ( 100, 0));
+    polygon.outer().emplace_back(Point<LocType> ( 0, 10000));
+    polygon.outer().emplace_back(Point<LocType> ( 10000, 10000));
+    polygon.outer().emplace_back(Point<LocType> ( 10000, 5000));
+    polygon.outer().emplace_back(Point<LocType> ( 20000, 5000));
+    polygon.outer().emplace_back(Point<LocType> ( 20000, 0));
     testWell.setShape(polygon.outer());
     testWell.addCellIdx(0);
     testWell.addCellIdx(1);
@@ -447,6 +449,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
       {
         _fenceOps.emplace_back(_nlp_details::construct_fence_type_trait<nlp_fence_type>::constructFenceOperator(cellIdx, _scale, _db.cell(cellIdx), well, getAlphaFunc, getLambdaFunc));
         _fenceOps.back().setGetVarFunc(getVarFunc);
+        _fenceOps.back().setWeight( _db.parameters().defaultWellWeight());
       }
     }
     INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob %d asym %d sigFlow %d power %d crf %d fence %d\n", 

@@ -110,6 +110,7 @@ namespace nlp
                 static constexpr RealType overlapRatio = 0.01; ///< with respect to total cell area
                 static constexpr RealType outOfBoundaryRatio = 0.05; ///< with respect to boundary
                 static constexpr RealType asymRatio = 0.05; ///< with respect to sqrt(total cell area)
+                static constexpr RealType outFenceRatio = 0.1; ///< With respect to total cell area needs well
                 IntType curIter = 0;
                 static constexpr IntType minIter = 10;
             };
@@ -130,12 +131,14 @@ namespace nlp
                 template<typename NlpType>
                 static BoolType stopPlaceCondition(NlpType &n, stop_type &stop)
                 {
+                    using CoordType = typename NlpType::nlp_coordinate_type;
+
                     ++stop.curIter;
                     if (stop.curIter < stop.minIter)
                     {
                         return false;
                     }
-                    using CoordType = typename NlpType::nlp_coordinate_type;
+
                     // check whether overlapping is small than threshold
                     CoordType ovlArea = 0;
                     const CoordType ovlThreshold = stop.overlapRatio * n._totalCellArea;
@@ -174,6 +177,21 @@ namespace nlp
 #endif
                             return false;
                         }
+                    }
+                    // Check whether out of fence region area is smaller than threshold
+                    CoordType outFenceArea = 0.0;
+                    CoordType inWellCellArea = 0.0;
+                    for (auto &op : n._fenceOps)
+                    {
+                      outFenceArea += diff::place_fence_trait<typename NlpType::nlp_fence_type>::outFenceRegionArea(op);
+                      inWellCellArea += op._cellWidth * op._cellHeight;
+                    }
+                    if (outFenceArea / inWellCellArea > stop.outFenceRatio)
+                    {
+#ifdef DEBUG_GR
+                        DBG("fail on fence \n");
+#endif
+                        return false;
                     }
 
 #ifdef DEBUG_GR
@@ -297,6 +315,7 @@ namespace nlp
                         mult._variedMults.at(1) = 1; // oob
                         mult._variedMults.at(2) = 1; // asym
                         mult._variedMults.at(3) = 1; // crf
+                        mult._variedMults.at(4) = 1; // Fence
                     }
 
                 };
@@ -320,6 +339,7 @@ namespace nlp
                         RealType totalCosWeights = 0.0;
                         RealType totalPowerWlWeights = 0.0;
                         RealType totalCrfWeights = 0.0;
+                        RealType totalFenceWeights = 0.0;
                         for (const auto & op : nlp._hpwlOps)
                         {
                             totalHpwlWeights += op._weight;
@@ -336,6 +356,10 @@ namespace nlp
                         {
                             totalCrfWeights += op._weight;
                         }
+                        for (const auto & op : nlp._fenceOps)
+                        {
+                          totalFenceWeights += op._weight;
+                        }
                         mult._constMults.at(0) = 1.0; // hpwl
                         const auto hpwlMult = mult._constMults.at(0);
                         const auto hpwlNorm = nlp._gradHpwl.norm();
@@ -347,6 +371,7 @@ namespace nlp
                         const auto oobNorm = nlp._gradOob.norm();
                         const auto asymNorm = nlp._gradAsym.norm();
                         const auto crfNorm = nlp._gradCrf.norm();
+                        const auto fenceNorm = nlp._gradFence.norm();
                         const auto maxPenaltyNorm = ovlNorm;
                         // Make a threshold on by referencing hpwl to determine whether one is small
                         const auto small  = init_type::small * hpwlNorm;
@@ -355,7 +380,7 @@ namespace nlp
                         if (hpwlNorm < REAL_TYPE_TOL)
                         {
                             mult._constMults.resize(3, 1);
-                            mult._variedMults.resize(4, 1);
+                            mult._variedMults.resize(5, 1);
                             WRN("Ideaplace: NLP global placement: init multipliers: wire length  gradient norm is very small %f!, ", hpwlNorm);
                             return;
                         }
@@ -409,18 +434,27 @@ namespace nlp
                         // crf
                         if (crfNorm > small)
                         {
-                            mult._variedMults.at(3) = hpwlMultNormPenaltyRatio * totalCrfWeights / totalHpwlWeights / asymNorm;
+                            mult._variedMults.at(3) = hpwlMultNormPenaltyRatio * totalCrfWeights / totalHpwlWeights / crfNorm;
                         }
                         else
                         {
                             mult._variedMults.at(3) = hpwlMultNormPenaltyRatio / maxPenaltyNorm;
                         }
+                        // fence
+                        if (fenceNorm > small)
+                        {
+                            mult._variedMults.at(4) = hpwlMultNormPenaltyRatio * totalFenceWeights / totalHpwlWeights / fenceNorm;
+                        }
+                        else
+                        {
+                            mult._variedMults.at(4) = hpwlMultNormPenaltyRatio / maxPenaltyNorm;
+                        }
 #ifdef DEBUG_GR
                         // crf
                         DBG("init mult: hpwl %f cos %f power wl %f \n",
                                 mult._constMults[0], mult._constMults[1], mult._constMults[2]);
-                        DBG("init mult: ovl %f oob %f asym %f current flow %f\n",
-                                mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._variedMults[3]);
+                        DBG("init mult: ovl %f oob %f asym %f current flow %f fence %f\n",
+                                mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._variedMults[3],  mult._variedMults[4]);
 #endif
                     }
                 };
@@ -470,7 +504,8 @@ namespace nlp
                         const auto rawOvl = nlp._objOvl / mult._variedMults.at(0);
                         const auto rawOob = nlp._objOob / mult._variedMults.at(1);
                         const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
-                        const auto fViolate = rawOvl + rawOob + rawAsym;
+                        const auto rawFence = nlp._objFence / mult._variedMults.at(4);
+                        const auto fViolate = rawOvl + rawOob + rawAsym + rawFence;
 #ifdef DEBUG_GR
                         DBG("update mult: raw ovl %f oob %f asym %f total %f \n", rawOvl, rawOob, rawAsym, fViolate);
                         DBG("update mult:  before ovl %f oob %f asym %f \n",
@@ -479,6 +514,7 @@ namespace nlp
                         mult._variedMults.at(0) += update.penalty * (rawOvl / fViolate);
                         mult._variedMults.at(1) += update.penalty * (rawOob / fViolate);
                         mult._variedMults.at(2) += update.penalty * (rawAsym / fViolate);
+                        mult._variedMults.at(4) += update.penalty * (rawFence / fViolate);
 #ifdef DEBUG_GR
                         DBG("update mult: afterafter  ovl %f oob %f asym %f \n",
                                 mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
@@ -514,6 +550,7 @@ namespace nlp
                         const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
                         const auto rawCos = nlp._objCos / mult._constMults.at(1);
                         const auto rawCrf = nlp._objCrf / mult._variedMults.at(3);
+                        const auto rawFence = nlp._objFence / mult._variedMults.at(4);
 #ifdef DEBUG_GR
                         DBG("update mult: raw ovl %f oob %f asym %f cos %f powerWl %f current flow\n", rawOvl, rawOob, rawAsym, rawCos, nlp._objPowerWl, rawCrf);
                         DBG("update mult:  before ovl %f oob %f asym %f current flow %f \n",
@@ -523,10 +560,11 @@ namespace nlp
                         mult._variedMults.at(1) += update.stepSize * (rawOob );
                         mult._variedMults.at(2) += update.stepSize * (rawAsym );
                         mult._variedMults.at(3) += update.stepSize * (rawCrf );
+                        mult._variedMults.at(4) += update.stepSize * (rawFence );
                         mult._constMults.at(1) += update.stepSize * (rawCos);
 #ifdef DEBUG_GR
-                        DBG("update mult: afterafter  ovl %f oob %f asym %f cos %f current flow %f \n",
-                                mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._constMults[1], mult._variedMults[3]);
+                        DBG("update mult: afterafter  ovl %f oob %f asym %f cos %f current flow %f Fence %f \n",
+                                mult._variedMults[0], mult._variedMults[1], mult._variedMults[2], mult._constMults[1], mult._variedMults[3], mult._variedMults[4]);
 #endif
                     }
                 };
@@ -652,6 +690,8 @@ namespace nlp
                     update.normalizeFactor.at(0) = mult._variedMults.at(0) / nlp._objOvl;
                     update.normalizeFactor.at(1) = 1;// mult._variedMults.at(1) / nlp._objOob;
                     update.normalizeFactor.at(2) = mult._variedMults.at(2) / nlp._objAsym;
+                    update.normalizeFactor.at(3) = mult._variedMults.at(3) / nlp._objCrf;
+                    update.normalizeFactor.at(4) = mult._variedMults.at(4) / nlp._objFence;
                     //update.normalizeFactor.at(0) = 1 / nlp._objOvl;
                     //update.normalizeFactor.at(1) = 1;// / nlp._objOob;
                     //update.normalizeFactor.at(2) = 1 / nlp._objAsym;
@@ -664,9 +704,13 @@ namespace nlp
                     const auto rawOvl = nlp._objOvl / mult._variedMults.at(0);
                     const auto rawOob = nlp._objOob / mult._variedMults.at(1);
                     const auto rawAsym = nlp._objAsym / mult._variedMults.at(2);
+                    const auto rawCrf = nlp._objCrf / mult._variedMults.at(3);
+                    const auto rawFence = nlp._objFence / mult._variedMults.at(4);
                     const auto normalizedOvl = rawOvl * update.normalizeFactor.at(0);
                     const auto normalizedOob = rawOob * update.normalizeFactor.at(1);
                     const auto normalizedAsym = rawAsym  * update.normalizeFactor.at(2);
+                    const auto normalizedCrf = rawCrf  * update.normalizeFactor.at(3);
+                    const auto normalizedFence = rawFence  * update.normalizeFactor.at(4);
 #ifdef DEBUG_GR
                     DBG("update mult: raw ovl %f oob %f asym %f total %f \n", normalizedOvl, normalizedOob, normalizedAsym);
                     DBG("update mult:  before ovl %f oob %f asym %f \n",
@@ -675,6 +719,8 @@ namespace nlp
                     mult._variedMults.at(0) += update.stepSize * (normalizedOvl );
                     mult._variedMults.at(1) += update.stepSize * (normalizedOob );
                     mult._variedMults.at(2) += update.stepSize * (normalizedAsym );
+                    mult._variedMults.at(3) += update.stepSize * (normalizedCrf );
+                    mult._variedMults.at(4) += update.stepSize * (normalizedFence );
 #ifdef DEBUG_GR
                     DBG("update mult: afterafter  ovl %f oob %f asym %f \n",
                             mult._variedMults[0], mult._variedMults[1], mult._variedMults[2]);
@@ -710,7 +756,7 @@ namespace nlp
             {
                 mult_type mult;
                 mult._constMults.resize(3, 0.0);
-                mult._variedMults.resize(4, 0.0);
+                mult._variedMults.resize(5, 0.0);
                 mult.update = update::multiplier_update_trait<update_type>::construct(nlp, mult);
                 return mult;
             }
@@ -727,6 +773,7 @@ namespace nlp
                 for (auto &op : nlp._asymOps) { op._getLambdaFunc = [&](){ return mult._variedMults[2]; }; }
                 for (auto &op : nlp._powerWlOps) { op._getLambdaFunc = [&](){ return mult._constMults[2]; }; }
                 for (auto &op : nlp._crfOps) { op._getLambdaFunc = [&](){ return mult._variedMults[3]; }; }
+                for (auto &op : nlp._fenceOps) { op._getLambdaFunc = [&](){ return mult._variedMults[4]; }; }
             }
 
             template<typename nlp_type>
@@ -744,6 +791,7 @@ namespace nlp
                 nlp._objOobRaw = nlp._objOob / mult._variedMults[1];
                 nlp._objAsymRaw = nlp._objAsym / mult._variedMults[2];
                 nlp._objCrfRaw = nlp._objCrf / mult._variedMults[3];
+                nlp._objFenceRaw = nlp._objFence / mult._variedMults[4];
             }
 
         };

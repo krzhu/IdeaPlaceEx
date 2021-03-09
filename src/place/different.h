@@ -1112,6 +1112,41 @@ inline void FenceReciprocalOverlapSumBoxDifferentiable<NumType, CoordType>::accu
 
 }
 
+
+template<typename op_type>
+struct place_fence_trait
+{
+  typedef typename op_type::coordinate_type coordinate_type;
+  static coordinate_type outFenceRegionArea(op_type &fence);
+};
+
+template<typename nlp_numerical_type, typename nlp_coordiante_type>
+struct place_fence_trait<FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type, nlp_coordiante_type>>
+{
+  typedef nlp_coordiante_type coordinate_type;
+  typedef FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type, nlp_coordiante_type> op_type;
+  static coordinate_type outFenceRegionArea(op_type &fence)
+  {
+    const coordinate_type cellWidth = fence._cellWidth;
+    const coordinate_type cellHeight = fence._cellHeight;
+    const coordinate_type xCell = fence._getVarFunc(fence._cellIdx, Orient2DType::HORIZONTAL);
+    const coordinate_type yCell = fence._getVarFunc(fence._cellIdx, Orient2DType::VERTICAL);
+    coordinate_type overlapArea = 0.0;
+    for (const auto & box : fence._boxes)
+    {
+      const auto xLo = box.xLo();
+      const auto yLo = box.yLo();
+      const auto xHi = box.xHi();
+      const auto yHi = box.yHi();
+
+      const auto overlapX = std::max(std::min(xCell + cellWidth, xHi) - std::max(xCell, xLo), op::conv<coordinate_type>(0.0));
+      const auto overlapY = std::max(std::min(yCell + cellHeight, yHi) - std::max(yCell, yLo), op::conv<coordinate_type>(0.0));
+      overlapArea += overlapX * overlapY;
+    }
+    return cellWidth * cellHeight - overlapArea; // Cell area - sum of overlapping area between cell and each splitted box
+  }
+};
+
 } //namespace diff
 
 PROJECT_NAMESPACE_END
