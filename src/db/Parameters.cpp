@@ -15,7 +15,7 @@ Parameters::Parameters()
     _defaultSignalFlowWeight = 5;
     _defaultCurrentFlowWeight = 0.5;
     _defaultRelativeRatioOfPowerNet = 0.2;
-    _defaultWellWeight = 10.5;
+    _defaultWellWeight = 2.5;
     _fastMode = false;
 }
 PROJECT_NAMESPACE_END

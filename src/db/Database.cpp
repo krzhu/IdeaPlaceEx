@@ -171,6 +171,7 @@ bool Database::checkSym()
 #ifdef DEBUG_DRAW
 PROJECT_NAMESPACE_END
 #include "writer/gdsii/WriteGds.h"
+#include "util/Polygon2Rect.h"
 PROJECT_NAMESPACE_BEGIN
 void Database::drawCellBlocks(const std::string &filename)
 {
@@ -193,7 +194,7 @@ void Database::drawCellBlocks(const std::string &filename)
         const auto &cell = this->cell(cellIdx);
         Box<LocType> cellBox = cell.cellBBox();
         cellBox.enlargeBy(0);
-        XY<LocType> cellLoc = XY<LocType>(cell.xLoc(), cell.yLoc());
+        auto cellLoc = Point<LocType>(cell.xLoc(), cell.yLoc());
         cellBox.offsetBy(cellLoc);
         wg->writeRectangle(cellBox, cellIdx, 0);
 #if 1
@@ -217,6 +218,21 @@ void Database::drawCellBlocks(const std::string &filename)
             box.enlargeBy(100);
             wg->writeRectangle(box, 500 + netIdx, 0);
         }
+    }
+    // Well
+    for (IndexType wellIdx = 0; wellIdx < _wellArray.size(); ++wellIdx)
+    {
+      const auto &well = _wellArray.at(wellIdx);
+      std::vector<Box<int>> boxes; // Splited polygon 
+      if (not klib::convertPolygon2Rects(well.shape().outer(), boxes))
+      {
+        ERR("NlpGPlacer:: cannot split well polygon! \n");
+        Assert(false);
+      }
+      for (const auto &box : boxes)
+      {
+        wg->writeRectangle(box, wellIdx + 200, 0);
+      }
     }
     // END
     wg->writeCellEnd();

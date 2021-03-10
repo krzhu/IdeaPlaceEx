@@ -479,6 +479,7 @@ void NlpGPlacerBase<nlp_settings>::alignToSym()
 template<typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::writeOut()
 {
+#if 0
     // find the min value
     RealType minX =1e10; 
     RealType minY = 1e10;
@@ -493,12 +494,13 @@ void NlpGPlacerBase<nlp_settings>::writeOut()
             minY = _pl(plIdx(cellIdx, Orient2DType::VERTICAL));
         }
     }
+#endif
     // Dump the cell locations to database
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
     {
         auto & cell = _db.cell(cellIdx);
-        LocType xLo = ::klib::autoRound<LocType>((_pl(plIdx(cellIdx, Orient2DType::HORIZONTAL)) - minX) / _scale + _db.parameters().layoutOffset());
-        LocType yLo = ::klib::autoRound<LocType>((_pl(plIdx(cellIdx, Orient2DType::VERTICAL)) - minY) / _scale + _db.parameters().layoutOffset());
+        LocType xLo = ::klib::autoRound<LocType>((_pl(plIdx(cellIdx, Orient2DType::HORIZONTAL))) / _scale);
+        LocType yLo = ::klib::autoRound<LocType>((_pl(plIdx(cellIdx, Orient2DType::VERTICAL))) / _scale);
         _db.cell(cellIdx).setXLoc(xLo - cell.cellBBox().xLo());
         _db.cell(cellIdx).setYLoc(yLo - cell.cellBBox().yLo());
     }
@@ -551,12 +553,12 @@ void NlpGPlacerBase<nlp_settings>::constructObjectiveCalculationTasks()
     for (const auto &wl : _powerWlOps)
     {
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_power_wl_type>::evaluate(wl);};
-        _evaCosTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
+        _evaPowerWlTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
     for (const auto &op : _crfOps)
     {
         auto eva = [&]() { return diff::placement_differentiable_traits<nlp_crf_type>::evaluate(op);};
-        _evaCosTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
+        _evaCrfTasks.emplace_back(Task<EvaObjTask>(EvaObjTask(eva)));
     }
     for (const auto &op : _fenceOps)
     {
@@ -801,6 +803,9 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
         
 #ifdef DEBUG_GR
         DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj, this->_objHpwl, this->_objOvl, this->_objOob, this->_objAsym, this->_objCos);
+#ifdef DEBUG_DRAW
+        this->drawCurrentLayout("debug/debug_gp.gds");
+#endif
 #endif
         DBG("FENCE %f \n", this->_objFence);
         ++iter;
@@ -1200,6 +1205,20 @@ void NlpGPlacerBase<nlp_settings>::drawCurrentLayout(const std::string &filename
     LocType boundaryYHi = static_cast<LocType>(_boundary.yHi() / _scale);
     Box<LocType> scaleBoundary(boundaryXLo, boundaryYLo, boundaryXHi, boundaryYHi);
     wg->writeRectangle(scaleBoundary, 666, 0);
+    for (IndexType wellIdx = 0; wellIdx < _db.vWells().size(); ++wellIdx)
+    {
+      const auto &well = _db.vWells().at(wellIdx);
+      std::vector<Box<int>> boxes; // Splited polygon 
+      if (not klib::convertPolygon2Rects(well.shape().outer(), boxes))
+      {
+        ERR("NlpGPlacer:: cannot split well polygon! \n");
+        Assert(false);
+      }
+      for (const auto &box : boxes)
+      {
+        wg->writeRectangle(box, wellIdx + 200, 0);
+      }
+    }
     // END
     wg->writeCellEnd();
     wg->endLib();
