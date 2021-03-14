@@ -22,7 +22,6 @@
 #include "place/nlp/nlpOptmKernels.hpp"
 #include "place/nlp/nlpFirstOrderKernel.hpp"
 #include "place/nlp/nlpSecondOrderKernels.hpp"
-#include "place/nlp/conjugateGradientWnlib.hpp" // TODO: remove after no need
 #include "pinassign/VirtualPinAssigner.h"
 PROJECT_NAMESPACE_BEGIN
 
