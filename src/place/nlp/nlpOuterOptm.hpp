@@ -825,7 +825,7 @@ namespace nlp
             static alpha_type construct(nlp_type &)
             {
                 alpha_type alpha;
-                alpha._alpha.resize(4, 1.0);
+                alpha._alpha.resize(5, 1.0);
                 return alpha;
             }
 
@@ -848,6 +848,10 @@ namespace nlp
                 {
                     op.setGetAlphaFunc([&](){ return alpha._alpha[3]; });
                 }
+                for (auto & op : nlp._fenceOps)
+                {
+                    op.setGetAlphaFunc([&](){ return alpha._alpha[4]; });
+                }
             }
 
         };
@@ -860,7 +864,7 @@ namespace nlp
             struct exponential_by_obj
             {
                 static constexpr nlp_numerical_type alphaMax = 1.5;
-                static constexpr nlp_numerical_type alphaMin = 0.4;
+                static constexpr nlp_numerical_type alphaMin = 0.3;
                 static constexpr nlp_numerical_type alphaMin_minus_one = alphaMin - 1;
                 static constexpr nlp_numerical_type log_alphaMax_minus_alphaMin_plus_1 = std::log(alphaMax - alphaMin_minus_one);
                 nlp_numerical_type theConstant = 0.0; ///< log(alpha_max - alpha_min + 1) / init
@@ -879,7 +883,8 @@ namespace nlp
                         case 0: return nlp._objHpwlRaw; break;
                         case 1: return nlp._objOvlRaw; break;
                         case 2: return nlp._objOobRaw; break;
-                        default: return nlp._objCrfRaw; break;
+                        case 3: return nlp._objCrfRaw; break;
+                        default: return nlp._objFenceRaw; break;
                     }
                 }
 
@@ -927,7 +932,7 @@ namespace nlp
             {
                 // alpha = a / (x - k * obj_init) + b
                 static constexpr nlp_numerical_type alphaMax = 2.0;
-                static constexpr nlp_numerical_type alphaMin = 0.4;
+                static constexpr nlp_numerical_type alphaMin = 0.3;
                 static constexpr nlp_numerical_type k = 100; ///< k > 1.0
                 nlp_numerical_type a = -1.0; ///< (k ^2 - k) * obj_init * (alphaMax - alphaMin), should > 0
                 nlp_numerical_type b = 1.0; // -k * alphaMax + k * alphaMin + alphaMax; < 0 for most k
@@ -947,7 +952,8 @@ namespace nlp
                         case 0: return nlp._objHpwlRaw; break;
                         case 1: return nlp._objOvlRaw; break;
                         case 2: return nlp._objOobRaw; break;
-                        default: return nlp._objCrfRaw; break;
+                        case 3: return nlp._objCrfRaw; break;
+                        default: return nlp._objFenceRaw; break;
                     }
                 }
 
@@ -1004,7 +1010,7 @@ namespace nlp
             {
                 // alpha = a / (x - k * obj_init) + b
                 static constexpr nlp_numerical_type alphaMax = 2.0;
-                static constexpr nlp_numerical_type alphaMin = 0.4;
+                static constexpr nlp_numerical_type alphaMin = 0.3;
                 nlp_numerical_type objInit = -1.0;
             };
 
@@ -1021,7 +1027,8 @@ namespace nlp
                         case 0: return nlp._objHpwlRaw; break;
                         case 1: return nlp._objOvlRaw; break;
                         case 2: return nlp._objOobRaw; break;
-                        default: return nlp._objCrfRaw; break;
+                        case 3: return nlp._objCrfRaw; break;
+                        default: return nlp._objFenceRaw; break;
                     }
                 }
 

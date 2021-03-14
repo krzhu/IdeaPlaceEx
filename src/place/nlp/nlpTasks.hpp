@@ -336,6 +336,14 @@ namespace nt
         template<typename calc_type>
         static void build(nlp_op_type &op, calc_type &calc)
         {
+            if (op._considerOnlyOneCell)
+            {
+              calc._numCells = 1; 
+              calc._inverseCellMap.resize(1);
+              calc._cellMap[op._cellIdxI] = 0;
+              calc._inverseCellMap[0] = op._cellIdxI;
+              return;
+            }
             calc._numCells = 2; // Always have exactly two cells
             calc._inverseCellMap.resize(2);
             calc._cellMap[op._cellIdxI] = 0;

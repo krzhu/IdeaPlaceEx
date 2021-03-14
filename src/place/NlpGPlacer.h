@@ -93,7 +93,8 @@ namespace nlp
         typedef alpha::update::alpha_update_list<
                 alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 1>,
                 alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 2>,
-                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 3>
+                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 3>,
+                alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type, 4>
             > alpha_update_type;
     };
 

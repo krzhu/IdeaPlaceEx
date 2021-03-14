@@ -12,12 +12,12 @@ IntType NlpGPlacerBase<nlp_settings>::solve()
     _db.allocateWell();
     auto &testWell = _db.well(0);
     Polygon<LocType> polygon;
-    polygon.outer().emplace_back(Point<LocType> ( 0, 0));
+    polygon.outer().emplace_back(Point<LocType> ( -10000, 3000));
+    polygon.outer().emplace_back(Point<LocType> ( -10000, 10000));
     polygon.outer().emplace_back(Point<LocType> ( 0, 10000));
-    polygon.outer().emplace_back(Point<LocType> ( 10000, 10000));
-    polygon.outer().emplace_back(Point<LocType> ( 10000, 5000));
-    polygon.outer().emplace_back(Point<LocType> ( 20000, 5000));
-    polygon.outer().emplace_back(Point<LocType> ( 20000, 0));
+    polygon.outer().emplace_back(Point<LocType> ( 0, 8000));
+    polygon.outer().emplace_back(Point<LocType> ( 10000, 8000));
+    polygon.outer().emplace_back(Point<LocType> ( 10000, 3000));
     testWell.setShape(polygon.outer());
     testWell.addCellIdx(0);
     testWell.addCellIdx(1);
@@ -269,6 +269,47 @@ void NlpGPlacerBase<nlp_settings>::initOperators()
                         ));
             _ovlOps.back().setGetVarFunc(getVarFunc);
         }
+    }
+    // Pair-wise well-to-cell overlapping
+    for (IndexType wellIdx = 0; wellIdx < _db.vWells().size(); ++wellIdx)
+    {
+      const auto &well = _db.vWells().at(wellIdx);
+      std::vector<Box<nlp_coordinate_type>> boxes; // Splited polygon 
+      std::vector<Box<LocType>> boxesUnScaled;
+      if (not klib::convertPolygon2Rects(well.shape().outer(), boxesUnScaled))
+      {
+        ERR("NlpGPlacer:: cannot split well polygon! \n");
+        Assert(false);
+      }
+      for (const auto &box : boxesUnScaled)
+      {
+        boxes.emplace_back(Box<nlp_coordinate_type>(box.xLo() * _scale, 
+              box.yLo() * _scale,
+              box.xHi() * _scale,
+              box.yHi() * _scale));
+      }
+      for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
+      {
+        if (well.sCellIds().find(cellIdx) ==  well.sCellIds().end())
+        {
+          const auto cellBBox = _db.cell(cellIdx).cellBBox();
+          for (const auto& wellBox : boxes)
+          {
+            _ovlOps.emplace_back(nlp_ovl_type(
+                        cellIdx,
+                        cellBBox.xLen() * _scale,
+                        cellBBox.yLen() * _scale,
+                        666666, // Doesn't matter
+                        wellBox.xLen() ,
+                        wellBox.yLen() ,
+                        getAlphaFunc,
+                        getLambdaFunc
+                        ));
+            _ovlOps.back().configConsiderOnlyOneCell(wellBox.xLo(), wellBox.yLo());
+            _ovlOps.back().setGetVarFunc(getVarFunc);
+          }
+        }
+      }
     }
     // Out of boundary
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx)
@@ -807,7 +848,6 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize()
         this->drawCurrentLayout("debug/debug_gp.gds");
 #endif
 #endif
-        DBG("FENCE %f \n", this->_objFence);
         ++iter;
     } while (not base_type::stop_condition_trait::stopPlaceCondition(*this, this->_stopCondition));
     optimizeStopWatch->stop();

@@ -281,12 +281,21 @@ struct CellPairOverlapPenaltyDifferentiable
     {
         const NumType xi = op::conv<NumType>(_getVarFunc(_cellIdxI, Orient2DType::HORIZONTAL));
         const NumType yi = op::conv<NumType>(_getVarFunc(_cellIdxI, Orient2DType::VERTICAL));
-        const NumType xj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL));
-        const NumType yj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::VERTICAL));
         const NumType wi = op::conv<NumType>(_cellWidthI);
         const NumType hi = op::conv<NumType>(_cellHeightI);
         const NumType wj = op::conv<NumType>(_cellWidthJ);
         const NumType hj = op::conv<NumType>(_cellHeightJ);
+        NumType xj, yj;
+        if (_considerOnlyOneCell)
+        {
+          xj = op::conv<NumType>(_cellJXLo);
+          yj = op::conv<NumType>(_cellJYLo);
+        }
+        else
+        {
+          xj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL));
+          yj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::VERTICAL));
+        }
         const NumType alpha = _getAlphaFunc();
         const NumType lambda = _getLambdaFunc();
         
@@ -337,12 +346,21 @@ struct CellPairOverlapPenaltyDifferentiable
          */
         const NumType xi = op::conv<NumType>(_getVarFunc(_cellIdxI, Orient2DType::HORIZONTAL));
         const NumType yi = op::conv<NumType>(_getVarFunc(_cellIdxI, Orient2DType::VERTICAL));
-        const NumType xj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL));
-        const NumType yj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::VERTICAL));
         const NumType wi = op::conv<NumType>(_cellWidthI);
         const NumType hi = op::conv<NumType>(_cellHeightI);
         const NumType wj = op::conv<NumType>(_cellWidthJ);
         const NumType hj = op::conv<NumType>(_cellHeightJ);
+        NumType xj, yj;
+        if (_considerOnlyOneCell)
+        {
+          xj = op::conv<NumType>(_cellJXLo);
+          yj = op::conv<NumType>(_cellJYLo);
+        }
+        else
+        {
+          xj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::HORIZONTAL));
+          yj = op::conv<NumType>(_getVarFunc(_cellIdxJ, Orient2DType::VERTICAL));
+        }
         const NumType alpha = _getAlphaFunc();
         const NumType lambda = _getLambdaFunc();
 
@@ -358,9 +376,20 @@ struct CellPairOverlapPenaltyDifferentiable
 
         // accumulate the computed partials
         _accumulateGradFunc(dxi , _cellIdxI, Orient2DType::HORIZONTAL);
-        _accumulateGradFunc(dxj , _cellIdxJ, Orient2DType::HORIZONTAL);
         _accumulateGradFunc(dyi , _cellIdxI, Orient2DType::VERTICAL);
-        _accumulateGradFunc(dyj , _cellIdxJ, Orient2DType::VERTICAL);
+        if (not _considerOnlyOneCell)
+        {
+          _accumulateGradFunc(dyj + 1e-6 , _cellIdxJ, Orient2DType::VERTICAL);
+          _accumulateGradFunc(dxj + 1e-6 , _cellIdxJ, Orient2DType::HORIZONTAL);
+        }
+    }
+
+    /// @brief only consider cell 
+    void configConsiderOnlyOneCell(CoordType xLo, CoordType yLo) 
+    { 
+      _considerOnlyOneCell = true; 
+      _cellJXLo = xLo;
+      _cellJYLo = yLo;
     }
 
     IndexType _cellIdxI;
@@ -373,6 +402,9 @@ struct CellPairOverlapPenaltyDifferentiable
     std::function<NumType(void)> _getLambdaFunc; ///< A function to get the current lambda multiplier
     std::function<CoordType(IndexType cellIdx, Orient2DType orient)> _getVarFunc; ///< A function to get current variable value
     std::function<void(NumType, IndexType, Orient2DType)> _accumulateGradFunc; ///< A function to update partial
+    bool _considerOnlyOneCell = false;
+    CoordType _cellJXLo; ///< Valid only when _considerOnlyOneCell = true
+    CoordType _cellJYLo; ///< Valid only when _consdierOnlyOneCell = true
 };
 
 template<typename op_type>
@@ -384,16 +416,26 @@ struct place_overlap_trait
     {
         const coordinate_type xi = ovl._getVarFunc(ovl._cellIdxI, Orient2DType::HORIZONTAL);
         const coordinate_type yi = ovl._getVarFunc(ovl._cellIdxI, Orient2DType::VERTICAL);
-        const coordinate_type xj = ovl._getVarFunc(ovl._cellIdxJ, Orient2DType::HORIZONTAL);
-        const coordinate_type yj = ovl._getVarFunc(ovl._cellIdxJ, Orient2DType::VERTICAL);
         const coordinate_type wi = ovl._cellWidthI;
         const coordinate_type hi = ovl._cellHeightI;
         const coordinate_type wj = ovl._cellWidthJ;
         const coordinate_type hj = ovl._cellHeightJ;
+        coordinate_type xj, yj;
+        if (ovl._considerOnlyOneCell)
+        {
+          xj = ovl._cellJXLo;
+          yj = ovl._cellJYLo;
+        }
+        else
+        {
+          xj = ovl._getVarFunc(ovl._cellIdxJ, Orient2DType::HORIZONTAL);
+          yj = ovl._getVarFunc(ovl._cellIdxJ, Orient2DType::VERTICAL);
+        }
 
         const auto overlapX = std::max(std::min(xi + wi, xj + wj) - std::max(xi, xj), op::conv<coordinate_type>(0.0));
         const auto overlapY = std::max(std::min(yi + hi, yj + hj) - std::max(yi, yj), op::conv<coordinate_type>(0.0));
         return overlapX * overlapY;
+        
     }
 };
 
