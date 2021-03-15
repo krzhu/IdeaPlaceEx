@@ -144,7 +144,9 @@ file(GLOB PY_API_SOURCES src/api/*.cpp)
 # linking libraries
 file(GLOB STATIC_LIB 
     ${LIMBO_ROOT_DIR}/lib/libgdsdb.a 
-    ${LIMBO_ROOT_DIR}/lib/libgdsparser.a)
+    ${LIMBO_ROOT_DIR}/lib/libgdsparser.a
+    ${LIMBO_ROOT_DIR}/lib/libgzstream.a
+    )
 
 #pybind11
 if (PYBIND11_DIR)
