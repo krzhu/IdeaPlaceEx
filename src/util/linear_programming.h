@@ -15,61 +15,49 @@ namespace klib {
 // Select LP solver
 namespace _lp {
 
-    template<int rank>
-    struct lp_rank
-    {
-        static const bool if_enable = true;
-        typedef _undefined LpModel;
-        typedef linear_programming_trait<_undefined> LpTrait;
-    };
-
-    template<>
-    struct lp_rank<1>
-    {
-#ifndef LP_NOT_USE_GUROBI
-        static const bool if_enable = true;
-        typedef LimboLpGurobi LpModel;
-        typedef LimboLpGurobiTrait LpTrait;
-#else
-        static const bool if_enable = false;
-#endif
-    };
-
-    template<>
-    struct lp_rank<0>
-    {
-#ifndef LP_NOT_USE_LPSOLVE
-        static const bool if_enable = true;
-        typedef LimboLpsolve LpModel;
-        typedef LimboLpsolveTrait LpTrait;
-#else
-        static const bool if_enable = false;
-#endif
-    };
-
-    template<int rank, bool>
-    struct select_lp {};
-    template<int rank>
-    struct select_lp<rank, true>
-    {
-        typedef typename lp_rank<rank>::LpModel LpModel;
-        typedef typename lp_rank<rank>::LpTrait LpTrait;
-    };
-    template<int rank>
-    struct select_lp<rank, false>
-    {
-        typedef lp_rank<rank+1> rank_type;
-        typedef typename select_lp<rank+1, rank_type::if_enable>::LpModel LpModel;
-        typedef typename select_lp<rank+1, rank_type::if_enable>::LpTrait LpTrait;
-    };
-}; //namspace _lp
-
-namespace lp
-{
-    typedef typename _lp::select_lp<0, _lp::lp_rank<0>::if_enable>::LpModel LpModel;
-    typedef typename _lp::select_lp<0, _lp::lp_rank<0>::if_enable>::LpTrait LpTrait;
+template <int rank> struct lp_rank {
+  static const bool if_enable = true;
+  typedef _undefined LpModel;
+  typedef linear_programming_trait<_undefined> LpTrait;
 };
 
-} //namespace klib
+template <> struct lp_rank<1> {
+#ifndef LP_NOT_USE_GUROBI
+  static const bool if_enable = true;
+  typedef LimboLpGurobi LpModel;
+  typedef LimboLpGurobiTrait LpTrait;
+#else
+  static const bool if_enable = false;
+#endif
+};
 
-#endif //KLIB_LINEAR_PROGRAMMING_H_
+template <> struct lp_rank<0> {
+#ifndef LP_NOT_USE_LPSOLVE
+  static const bool if_enable = true;
+  typedef LimboLpsolve LpModel;
+  typedef LimboLpsolveTrait LpTrait;
+#else
+  static const bool if_enable = false;
+#endif
+};
+
+template <int rank, bool> struct select_lp {};
+template <int rank> struct select_lp<rank, true> {
+  typedef typename lp_rank<rank>::LpModel LpModel;
+  typedef typename lp_rank<rank>::LpTrait LpTrait;
+};
+template <int rank> struct select_lp<rank, false> {
+  typedef lp_rank<rank + 1> rank_type;
+  typedef typename select_lp<rank + 1, rank_type::if_enable>::LpModel LpModel;
+  typedef typename select_lp<rank + 1, rank_type::if_enable>::LpTrait LpTrait;
+};
+}; // namespace _lp
+
+namespace lp {
+typedef typename _lp::select_lp<0, _lp::lp_rank<0>::if_enable>::LpModel LpModel;
+typedef typename _lp::select_lp<0, _lp::lp_rank<0>::if_enable>::LpTrait LpTrait;
+}; // namespace lp
+
+} // namespace klib
+
+#endif // KLIB_LINEAR_PROGRAMMING_H_

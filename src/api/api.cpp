@@ -5,20 +5,22 @@
  * @date 12/16/2019
  */
 
+#include "global/global.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
-#include "global/global.h"
 
 namespace py = pybind11;
 
 void initIdeaPlaceExAPI(py::module &);
-void initPointAPI(py::module&);
+void initGPlacerApi(py::module &);
+void initPointAPI(py::module &);
 
 PYBIND11_MAKE_OPAQUE(std::vector<PROJECT_NAMESPACE::IndexType>);
-PYBIND11_MAKE_OPAQUE(std::vector<std::pair<PROJECT_NAMESPACE::LocType, PROJECT_NAMESPACE::LocType>>);
+PYBIND11_MAKE_OPAQUE(std::vector<std::pair<PROJECT_NAMESPACE::LocType,
+                                           PROJECT_NAMESPACE::LocType>>);
 
-PYBIND11_MODULE(IdeaPlaceExPy, m)
-{
+PYBIND11_MODULE(IdeaPlaceExPy, m) {
+  initGPlacerApi(m);
   initIdeaPlaceExAPI(m);
   initPointAPI(m);
 }

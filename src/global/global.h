@@ -10,13 +10,13 @@
 
 // Add all global/common header files here
 
-#include "type.h"
 #include "constant.h"
 #include "parameter.h"
-#include "util/MsgPrinter.h"
+#include "type.h"
 #include "util/Assert.h"
-#include "util/kLibBase.h"
+#include "util/MsgPrinter.h"
 #include "util/StopWatch.hpp"
+#include "util/kLibBase.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -27,7 +27,8 @@ static const auto &ERR = MsgPrinter::err;
 static const auto &DBG = MsgPrinter::dbg;
 static const auto &WATCH_QUICK_START = klib::StopWatchMgr::quickStart;
 static const auto &WATCH_QUICK_END = klib::StopWatchMgr::quickEnd;
-static const auto &WATCH_CREATE_NEW = klib::StopWatchMgr::createNewStopWatch;;
+static const auto &WATCH_CREATE_NEW = klib::StopWatchMgr::createNewStopWatch;
+;
 static const auto &WATCH_LOOK_RECORD_TIME = klib::StopWatchMgr::time;
 
 PROJECT_NAMESPACE_END
