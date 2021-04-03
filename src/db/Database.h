@@ -215,6 +215,7 @@ public:
                _wellArray.end()) != _wellArray.end();
   }
   void clearWells() { _wellArray.clear(); }
+  void assignCellToWell();
 
   /*------------------------------*/
   /* Query function wrappers      */

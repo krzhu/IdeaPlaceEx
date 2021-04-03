@@ -12,6 +12,7 @@
 /* Solver */
 #include "place/CGLegalizer.h"
 #include "place/NlpGPlacer.h"
+#include "place/ProximityMgr.h"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -29,6 +30,8 @@ public:
   /// @brief run the placement algorithm
   /// @return whether the placement is successful
   LocType solve(LocType gridSize = -1);
+  /// @brief prepare input before gp. Should not be used together with solve()
+  void prepareGp();
   /// @brief the file-based output
   /// @param the system arguments
   /// @return if the writing is successful
@@ -118,6 +121,9 @@ public:
     _db.initCell(cellIdx);
     return cellIdx;
   }
+  /// @brief set this cell as it needs well
+  /// @param the index of the cell
+  void flagCellAsNeedWell(IndexType cellIdx) { _db.cell(cellIdx).setNeedWell(true); }
   /// @brief add a new pin
   /// @param the index of cell this pin belonging to
   /// @return the index of the pin allocated
@@ -404,9 +410,17 @@ public:
     _db.well(wellIdx).printInfo();
   }
   void clearWells() { _db.clearWells(); }
+  void assignCellToWell() { _db.assignCellToWell(); }
+  /* Debug */
+#ifdef DEBUG_DRAW
+  void drawDebug(const std::string &filename) {
+    _db.drawCellBlocks(filename);
+  }
+#endif
 
 protected:
   Database _db; ///< The placement engine database
+  ProximityMgr _proximityMgr;
 };
 
 PROJECT_NAMESPACE_END

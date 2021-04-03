@@ -296,22 +296,24 @@ public:
   virtual void reinitWellOperators();
 
 protected:
+
+  /* construct tasks */
+  virtual void constructTasks();
+  virtual void clearTasks();
   void assignIoPins();
   /* calculating obj */
   void calcObj() { _wrapObjAllTask.run(); }
   /* Init functions */
   virtual void initProblem();
+  void initPlace();
+  void initOperators();
   void initHyperParams();
   void initBoundaryParams();
   void initVariables();
-  void initPlace();
-  void initOperators();
   void initOptimizationKernelMembers();
   /* Util functions */
   IndexType plIdx(IndexType cellIdx, Orient2DType orient);
   void alignToSym();
-  /* construct tasks */
-  virtual void constructTasks();
   // Obj-related
   void constructObjTasks();
   void constructObjectiveCalculationTasks();
@@ -321,7 +323,6 @@ protected:
 #endif
   /* Optimization  kernel */
   virtual void optimize();
-  /* build the computational graph */
   /* Debugging function */
 #ifdef DEBUG_GR
 #ifdef DEBUG_DRAW
@@ -375,40 +376,24 @@ protected:
   EigenVector _pl; ///< The placement solutions
   /* Tasks */
   // Evaluating objectives
-  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>>
-      _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives
-  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>>
-      _evaOvlTasks; ///< The tasks for evaluating overlap objectives
-  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>>
-      _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
-  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>>
-      _evaAsymTasks; ///< The tasks for evaluating asymmetry objectives
-  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>>
-      _evaCosTasks; ///< The tasks for evaluating signal path objectives
-  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>>
-      _evaPowerWlTasks; ///< The tasks for evaluating power wirelength
-                        ///< objectives
-  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>>
-      _evaCrfTasks; ///< The tasks for evaluating current flow objectives
-  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>>
-      _evaFenceTasks; ///< The tasks for evaluating fence region objectives
+  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaHpwlTasks; ///< The tasks for evaluating hpwl objectives
+  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOvlTasks; ///< The tasks for evaluating overlap objectives
+  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaOobTasks; ///< The tasks for evaluating out of boundary objectives
+  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaAsymTasks; ///< The tasks for evaluating asymmetry objectives
+  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCosTasks; ///< The tasks for evaluating signal path objectives
+  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaPowerWlTasks; ///< The tasks for evaluating power wirelength objectives
+  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCrfTasks; ///< The tasks for evaluating current flow objectives
+  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaFenceTasks; ///< The tasks for evaluating fence region objectives
   // Sum the objectives
-  nt::Task<nt::FuncTask>
-      _sumObjHpwlTask; ///< The task for summing hpwl objective
-  nt::Task<nt::FuncTask>
-      _sumObjOvlTask; ///< The task for summing the overlapping objective
-  nt::Task<nt::FuncTask>
-      _sumObjOobTask; ///< The task for summing the out of boundary objective
-  nt::Task<nt::FuncTask>
-      _sumObjAsymTask; ///< The task for summing the asymmetry objective
-  nt::Task<nt::FuncTask>
-      _sumObjCosTask; ///< The task for summing the cosine signal path objective
+  nt::Task<nt::FuncTask> _sumObjHpwlTask; ///< The task for summing hpwl objective
+  nt::Task<nt::FuncTask> _sumObjOvlTask; ///< The task for summing the overlapping objective
+  nt::Task<nt::FuncTask> _sumObjOobTask; ///< The task for summing the out of boundary objective
+  nt::Task<nt::FuncTask> _sumObjAsymTask; ///< The task for summing the asymmetry objective
+  nt::Task<nt::FuncTask> _sumObjCosTask; ///< The task for summing the cosine signal path objective
   nt::Task<nt::FuncTask> _sumObjPowerWlTask; ///< The task for summing the
                                              ///< cosine signal path objective
-  nt::Task<nt::FuncTask>
-      _sumObjCrfTask; ///< The task for summing the current flow objective
-  nt::Task<nt::FuncTask>
-      _sumObjFenceTask; ///< The task for summing the fence region objecitve
+  nt::Task<nt::FuncTask> _sumObjCrfTask; ///< The task for summing the current flow objective
+  nt::Task<nt::FuncTask> _sumObjFenceTask; ///< The task for summing the fence region objecitve
   nt::Task<nt::FuncTask> _sumObjAllTask; ///< The task for summing the different
                                          ///< objectives together
   // Wrapper tasks for debugging
@@ -437,8 +422,6 @@ protected:
   std::vector<nlp_power_wl_type> _powerWlOps;
   std::vector<nlp_crf_type> _crfOps;     ///< The current flow operators
   std::vector<nlp_fence_type> _fenceOps; ///< The fence region operators
-  /* run time */
-  std::unique_ptr<::klib::StopWatch> _calcObjStopWatch;
 };
 
 template <typename nlp_settings>
@@ -575,15 +558,32 @@ public:
   }
   /* Well related */
   virtual void reinitWellOperators() override;
-  /* Paarameters */
+  /* Parameters */
+  void openUseWellCellOvl() { _useWellCellOvl = true; }
+  void closeUseWellCellOvl() { _useWellCellOvl = false; }
+  /* Init */
+  virtual void prepareWellAwarePlace();
+  /* Core Optimization*/
+  /// @brief Finish one iteration of optimization and update the problem
+  void stepOptmIter();
+  /// @brief get the overlapping area ratio
+  RealType overlapAreaRatio() {
+    typename base_type::nlp_coordinate_type overlapArea = 0.0;
+    for (auto &op : base_type::_ovlOps) {
+      overlapArea += diff::place_overlap_trait<
+          typename base_type::nlp_ovl_type>::overlapArea(op);
+      }
+    return overlapArea / base_type::_totalCellArea;
+  }
 protected:
+  /* Construct tasks */
+  virtual void constructTasks() override;
+  virtual void clearTasks() override;
   /* calculating gradient */
   void calcGrad() { _wrapCalcGradTask.run(); }
   /* Init */
   virtual void initProblem() override;
   void initFirstOrderGrad();
-  /* Construct tasks */
-  virtual void constructTasks() override;
   void constructFirstOrderTasks();
   void constructCalcPartialsTasks();
   void constructUpdatePartialsTasks();
@@ -603,16 +603,38 @@ protected:
   void regCalcGradForLoop(tf::Taskflow &tfFlow);
 #endif
 
+private:
+  void initFirstOrderOuterProblem() {
+    if (_hasInitFirstOrderOuterProblem) { return; }
+    _hasInitFirstOrderOuterProblem = true;
+    // setting up the multipliers
+    this->_wrapObjAllTask.run();
+    _wrapCalcGradTask.run();
+
+
+    _multiplier = std::make_shared<mult_type>(mult_trait::construct(*this));
+    mult_trait::init(*this, *_multiplier);
+    mult_trait::recordRaw(*this, *_multiplier);
+
+    _multAdjuster = std::make_shared<mult_adjust_type>(
+        mult_adjust_trait::construct(*this, *_multiplier));
+    mult_adjust_trait::init(*this, *_multiplier, *_multAdjuster);
+
+    _alpha = std::make_shared<alpha_type>(alpha_trait::construct(*this));
+    alpha_trait::init(*this, *_alpha);
+    _alphaUpdate = std::make_shared<alpha_update_type>(
+        alpha_update_trait::construct(*this, *_alpha));
+    alpha_update_trait::init(*this, *_alpha, *_alphaUpdate);
+
+  }
 protected:
   /* Optimization data */
   EigenVector _grad;     ///< The first order graident
   EigenVector _gradHpwl; ///< The first order gradient of hpwl objective
   EigenVector _gradOvl;  ///< The first order gradient  of overlapping objective
-  EigenVector
-      _gradOob; ///< The first order gradient of out of boundary objective
+  EigenVector _gradOob; ///< The first order gradient of out of boundary objective
   EigenVector _gradAsym; ///< The first order gradient of asymmetry objective
-  EigenVector
-      _gradCos; ///< The first order gradient of cosine signal path objective
+  EigenVector _gradCos; ///< The first order gradient of cosine signal path objective
   EigenVector _gradPowerWl;
   EigenVector _gradCrf;
   EigenVector _gradFence; ///< The gradient of fence region objective
@@ -689,11 +711,7 @@ protected:
   nt::Task<nt::FuncTask> _sumCrfGradTask;
   nt::Task<nt::FuncTask> _sumFenceGradTask;
   // all the grads has been calculated but have not updated
-  nt::Task<nt::FuncTask>
-      _wrapCalcGradTask; ///<  calculating the gradient and sum them
-  /* run time */
-  std::unique_ptr<::klib::StopWatch> _calcGradStopWatch;
-  std::unique_ptr<::klib::StopWatch> _optimizerKernelStopWatch;
+  nt::Task<nt::FuncTask> _wrapCalcGradTask; ///<  calculating the gradient and sum them
   /* optim and problem */
   optm_type _optm;
   std::shared_ptr<mult_type> _multiplier;
@@ -702,6 +720,8 @@ protected:
   std::shared_ptr<alpha_update_type> _alphaUpdate;
   /* Parameters */
   BoolType _useWellCellOvl = false; ///<
+  /* Misc. */
+  BoolType _hasInitFirstOrderOuterProblem = false; ///< Whether has init multiplier, alpha, etc.
 };
 
 //// @brief some helper function for NlpGPlacerSecondOrder

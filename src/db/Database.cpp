@@ -1,4 +1,5 @@
 #include "Database.h"
+#include <boost/geometry/algorithms/distance.hpp>
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -157,6 +158,25 @@ bool Database::checkSym() {
     }
   }
   return true;
+}
+
+void Database::assignCellToWell() {
+  for (IndexType cellIdx = 0; cellIdx <  _cellArray.size(); ++cellIdx) {
+    if (not cell(cellIdx).needWell()) { continue; }
+    LocType shortestDist = LOC_TYPE_MAX;
+    for (IndexType wellIdx = 0; wellIdx < _wellArray.size(); ++wellIdx) {
+      auto &well = _wellArray.at(wellIdx);
+      LocType dist = boost::geometry::distance(cell(cellIdx).loc(), well.shape());
+      if (dist < shortestDist) {
+        well.addCellIdx(cellIdx);
+        cell(cellIdx).setWellIdx(wellIdx);
+      }
+    }
+    if (shortestDist == LOC_TYPE_MAX)
+    {
+      cell(cellIdx).setWellIdx(INDEX_TYPE_MAX);
+    }
+  }
 }
 
 /*------------------------------*/

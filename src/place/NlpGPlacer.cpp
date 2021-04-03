@@ -6,15 +6,11 @@ PROJECT_NAMESPACE_BEGIN
 using namespace nt;
 
 template <typename nlp_settings> IntType NlpGPlacerBase<nlp_settings>::solve() {
-  auto stopWatch = WATCH_CREATE_NEW("NlpGPlacer");
-  stopWatch->start();
-  _calcObjStopWatch = WATCH_CREATE_NEW("GP_calculate_obj");
   this->initProblem();
   this->initPlace();
   this->initOperators();
   this->constructTasks();
   this->optimize();
-  stopWatch->stop();
   return 0;
 }
 
@@ -479,6 +475,19 @@ void NlpGPlacerBase<nlp_settings>::constructTasks() {
 }
 
 template <typename nlp_settings>
+void NlpGPlacerBase<nlp_settings>::clearTasks() {
+  _evaHpwlTasks.clear();
+  _evaOvlTasks.clear();
+  _evaOobTasks.clear();
+  _evaAsymTasks.clear();
+  _evaCosTasks.clear();
+  _evaPowerWlTasks.clear();
+  _evaCrfTasks.clear();
+  _evaFenceTasks.clear();
+
+}
+
+template <typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::constructObjTasks() {
   constructObjectiveCalculationTasks();
   constructSumObjTasks();
@@ -682,7 +691,6 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask() {
   };
   _wrapObjFenceTask = Task<FuncTask>(FuncTask(fence));
   auto all = [&]() {
-    _calcObjStopWatch->start();
     _wrapObjHpwlTask.run();
     _wrapObjOvlTask.run();
     _wrapObjOobTask.run();
@@ -692,7 +700,6 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask() {
     _wrapObjCrfTask.run();
     _wrapObjFenceTask.run();
     _sumObjAllTask.run();
-    _calcObjStopWatch->stop();
   };
   _wrapObjAllTask = Task<FuncTask>(FuncTask(all));
 }
@@ -702,42 +709,22 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask() {
 
 template <typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::optimize() {
-  _optimizerKernelStopWatch = WATCH_CREATE_NEW("GP_optimizer_kernel");
-  auto optimizeStopWatch = WATCH_CREATE_NEW("GP_optimize");
-  optimizeStopWatch->start();
-  auto updateProblemStopWatch = WATCH_CREATE_NEW("GP_update_problem");
   this->assignIoPins();
-  // setting up the multipliers
-  this->_wrapObjAllTask.run();
-  _wrapCalcGradTask.run();
 
-  _multiplier = std::make_shared<mult_type>(mult_trait::construct(*this));
-  mult_trait::init(*this, *_multiplier);
-  mult_trait::recordRaw(*this, *_multiplier);
-
-  _multAdjuster = std::make_shared<mult_adjust_type>(
-      mult_adjust_trait::construct(*this, *_multiplier));
-  mult_adjust_trait::init(*this, *_multiplier, *_multAdjuster);
-
-  _alpha = std::make_shared<alpha_type>(alpha_trait::construct(*this));
-  alpha_trait::init(*this, *_alpha);
-  _alphaUpdate = std::make_shared<alpha_update_type>(
-      alpha_update_trait::construct(*this, *_alpha));
-  alpha_update_trait::init(*this, *_alpha, *_alphaUpdate);
+  initFirstOrderOuterProblem();
 
   IntType iter = 0;
   do {
+    break;
     INF("First order NLP: iter %d \n", iter);
 
     optm_trait::optimize(*this, _optm);
-    updateProblemStopWatch->start();
     mult_trait::update(*this, *_multiplier);
     mult_trait::recordRaw(*this, *_multiplier);
     mult_adjust_trait::update(*this, *_multiplier, *_multAdjuster);
 
     alpha_update_trait::update(*this, *_alpha, *_alphaUpdate);
     this->assignIoPins();
-    updateProblemStopWatch->stop();
 
 #ifdef DEBUG_GR
     DBG("obj %f hpwl %f ovl %f oob %f asym %f cos %f \n", this->_obj,
@@ -750,8 +737,18 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize() {
     ++iter;
   } while (not base_type::stop_condition_trait::stopPlaceCondition(
       *this, this->_stopCondition));
-  optimizeStopWatch->stop();
   this->writeLocs();
+}
+
+
+template <typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::stepOptmIter() {
+  initFirstOrderOuterProblem(); // Will skip if already initialized
+  optm_trait::optimize(*this, _optm);
+  mult_trait::update(*this, *_multiplier);
+  mult_trait::recordRaw(*this, *_multiplier);
+  mult_adjust_trait::update(*this, *_multiplier, *_multAdjuster);
+  alpha_update_trait::update(*this, *_alpha, *_alphaUpdate);
 }
 
 template <typename nlp_settings>
@@ -763,11 +760,19 @@ void NlpGPlacerFirstOrder<nlp_settings>::initProblem() {
   this->initFirstOrderGrad();
 }
 
+
+template <typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::prepareWellAwarePlace() {
+  INF("NlpGPlacer:: prepare well aware place flow problem initialization. Should not be called with .solve() flow \n");
+  this->initProblem();
+  base_type::initPlace();
+  this->initOperators();
+}
+
 template <typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::reinitWellOperators() {
   base_type::_fenceOps.clear();
   base_type::_ovlOps.resize(base_type::_numCellOvlOps);
-  ;
   auto getVarFunc = [&](IndexType cellIdx, Orient2DType orient) {
 #ifdef MULTI_SYM_GROUP
     return _pl(plIdx(cellIdx, orient));
@@ -783,6 +788,17 @@ void NlpGPlacerFirstOrder<nlp_settings>::reinitWellOperators() {
   auto getFenceLambdaFunc = mult_trait::fenceGetLambdaFunc(*_multiplier);
   auto getOvlAlphaFunc = alpha_trait::fenceGetAlphaFunc(*_alpha);
   auto getOvlLambdaFunc = mult_trait::fenceGetLambdaFunc(*_multiplier);
+
+  if (not _hasInitFirstOrderOuterProblem) {
+    // Before init first order outer problem
+    // The alpha, lambda have not been constructed
+    // Just use naive values
+    getFenceAlphaFunc = [&]() { return 1.0; };
+    getFenceLambdaFunc = [&]() { return  1.0; };
+    getOvlAlphaFunc = [&](){ return 1.0; };
+    getOvlLambdaFunc = [&]() { return  1.0; };
+
+  }
 
   // Pair-wise well-to-cell overlapping
   if (_useWellCellOvl) {
@@ -826,12 +842,16 @@ void NlpGPlacerFirstOrder<nlp_settings>::reinitWellOperators() {
           _nlp_details::construct_fence_type_trait<nlp_fence_type>::
               constructFenceOperator(cellIdx, base_type::_scale,
                                      base_type::_db.cell(cellIdx), well,
-                                     getFenceAlphaFunc, getFenceAlphaFunc));
+                                     getFenceAlphaFunc, getFenceLambdaFunc));
       base_type::_fenceOps.back().setGetVarFunc(getVarFunc);
       base_type::_fenceOps.back().setWeight(
           base_type::_db.parameters().defaultWellWeight());
     }
   }
+
+  // Re-construct tasks
+  clearTasks();
+  constructTasks();
 }
 
 template <typename nlp_settings>
@@ -850,9 +870,35 @@ void NlpGPlacerFirstOrder<nlp_settings>::initFirstOrderGrad() {
 
 template <typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::constructTasks() {
-  this->constructObjTasks();
+  base_type::constructTasks();
   constructFirstOrderTasks();
 }
+
+
+template <typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::clearTasks() {
+  base_type::clearTasks();
+  
+  _calcHpwlPartialTasks.clear();
+  _calcOvlPartialTasks.clear();
+  _calcOobPartialTasks.clear();
+  _calcAsymPartialTasks.clear();
+  _calcCosPartialTasks.clear();
+  _calcPowerWlPartialTasks.clear();
+  _calcCrfPartialTasks.clear();
+  _calcFencePartialTasks.clear();
+
+  _updateHpwlPartialTasks.clear();
+  _updateOvlPartialTasks.clear();
+  _updateOobPartialTasks.clear();
+  _updateAsymPartialTasks.clear();
+  _updateCosPartialTasks.clear();
+  _updatePowerWlPartialTasks.clear();
+  _updateCrfPartialTasks.clear();
+  _updateFencePartialTasks.clear();
+}
+
+
 
 template <typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::constructFirstOrderTasks() {
@@ -1011,9 +1057,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructSumGradTask() {
 
 template <typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask() {
-  _calcGradStopWatch = WATCH_CREATE_NEW("GP_calculate_gradient");
   auto calcGradLambda = [&]() {
-    _calcGradStopWatch->start();
     _clearGradTask.run();
     _clearHpwlGradTask.run();
     _clearOvlGradTask.run();
@@ -1080,7 +1124,6 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask() {
       _updateFencePartialTasks[i].run();
     }
     _sumGradTask.run();
-    _calcGradStopWatch->stop();
   };
   _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGradLambda));
 }

@@ -95,7 +95,6 @@ struct optm_trait<
       ++iter;
       n.calcGrad();
 
-      n._optimizerKernelStopWatch->start();
 
       m = o.beta1 * m + (1 - o.beta1) * n._grad;
       v = o.beta2 * v + (1 - o.beta2) * n._grad.cwiseProduct(n._grad);
@@ -108,7 +107,6 @@ struct optm_trait<
         n._pl -= optm_type::naiveGradientDescentStepSize * n._grad;
       }
 
-      n._optimizerKernelStopWatch->stop();
       // n.calcObj();
       // DBG("norm %f \n", n._grad.norm());
       // DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj,

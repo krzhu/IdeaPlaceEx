@@ -11,7 +11,6 @@
 #include "parser/ProgArgs.h"
 /* Placement */
 #include "pinassign/VirtualPinAssigner.h"
-#include "place/ProximityMgr.h"
 /* Post-Processing */
 #include "place/alignGrid.h"
 #include <omp.h>
@@ -134,37 +133,12 @@ bool IdeaPlaceEx::parseFileBased(int argc, char **argv) {
 }
 
 IdeaPlaceEx::GPlacer IdeaPlaceEx::initGlobalPlacer() {
-  omp_set_num_threads(_db.parameters().numThreads());
-  // Start message printer timer
-  MsgPrinter::startTimer();
-  // Solve cleaning up tasks for safe...
-  for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
-    _db.cell(cellIdx).calculateCellBBox();
-#ifdef DEBUG_GR
-    DBG("cell %d %s bbox %s \n", cellIdx, _db.cell(cellIdx).name().c_str(),
-        _db.cell(cellIdx).cellBBox().toStr().c_str());
-#endif
-  }
-
-  auto gridStep = _db.parameters().gridStep();
-
-  if (gridStep > 0) {
-    _db.expandCellToGridSize(gridStep);
-  }
-
-  // Set proximity group
-  ProximityMgr proximityMgr(_db);
-  proximityMgr.applyProximityWithDummyNets();
-
-  // Clean up the signal path
-  _db.splitSignalPathsBySymPairs();
+  prepareGp();
 
   return GPlacer(_db);
 }
 
-LocType IdeaPlaceEx::solve(LocType gridStep) {
-  auto stopWatch = WATCH_CREATE_NEW("IdeaPlaceEx");
-  stopWatch->start();
+void IdeaPlaceEx::prepareGp() {
   omp_set_num_threads(_db.parameters().numThreads());
   // Start message printer timer
   MsgPrinter::startTimer();
@@ -177,19 +151,26 @@ LocType IdeaPlaceEx::solve(LocType gridStep) {
 #endif
   }
 
-  if (gridStep > 0) {
-    _db.parameters().setGridStep(gridStep);
-    _db.expandCellToGridSize(gridStep);
+  if (_db.parameters().gridStep() > 0) {
+    _db.expandCellToGridSize(_db.parameters().gridStep());
   }
 
   // Set proximity group
-  ProximityMgr proximityMgr(_db);
-  proximityMgr.applyProximityWithDummyNets();
+  _proximityMgr = ProximityMgr(&_db);
+  _proximityMgr.applyProximityWithDummyNets();
 
   // Clean up the signal path
   _db.splitSignalPathsBySymPairs();
 
-  INF("Ideaplace: Entering global placement...\n");
+}
+
+LocType IdeaPlaceEx::solve(LocType gridStep) {
+
+  if (gridStep > 0) {
+    _db.parameters().setGridStep(gridStep);
+  }
+
+  prepareGp();
 
   NlpGPlacerFirstOrder<nlp::nlp_default_settings> placer(_db);
   placer.solve();
@@ -209,7 +190,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep) {
   LocType symAxis(0);
 
   // Restore proxmity group
-  proximityMgr.restore();
+  _proximityMgr.restore();
 
   // stats for sigpath current path
   LocType sigHpwl = 0;
@@ -256,7 +237,6 @@ LocType IdeaPlaceEx::solve(LocType gridStep) {
 #endif // DEBUG_DRAW
 #endif
 
-  stopWatch->stop();
 
   return symAxis;
 }

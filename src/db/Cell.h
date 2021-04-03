@@ -224,6 +224,8 @@ public:
   void setSelfSym(bool selfSym = true) { _bSelfSym = selfSym; };
   void setSymNetIdx(IndexType symNetIdx) { _symNetIdx = symNetIdx; }
   IndexType symNetIdx() const { return _symNetIdx; }
+  void setNeedWell(BoolType needWell) { _needWell = needWell; }
+  BoolType needWell() const { return _needWell; }
 
   /*------------------------------*/
   /* Well`              `         */
@@ -245,6 +247,7 @@ private:
   bool _flip = false;
 
   IndexType _wellIdx = INDEX_TYPE_MAX;
+  BoolType _needWell = false; ///< Wehther this cell need a well
 };
 
 PROJECT_NAMESPACE_END

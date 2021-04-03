@@ -192,7 +192,15 @@ void initIdeaPlaceExAPI(py::module &m) {
       .def("setWellShape", &PROJECT_NAMESPACE::IdeaPlaceEx::setWellShape,
            "Set the shape (polygon) of a well")
       .def("printWellInfo", &PROJECT_NAMESPACE::IdeaPlaceEx::printWellInfo,
-           "Print the info of a well");
+           "Print the info of a well")
+      .def("clearWells", &PROJECT_NAMESPACE::IdeaPlaceEx::clearWells, 
+          "Clear the current wells")
+      .def("flagCellAsNeedWell", &PROJECT_NAMESPACE::IdeaPlaceEx::flagCellAsNeedWell, "Flag a cell as it need well")
+      .def("assignCellToWell", &PROJECT_NAMESPACE::IdeaPlaceEx::assignCellToWell, "Assign cells to wells")
+#ifdef DEBUG_DRAW
+      .def("debugDraw", &PROJECT_NAMESPACE::IdeaPlaceEx::drawDebug, "Draw the debug layout")
+#endif // ifdef DEBUG_DRAW
+      ;
 }
 
 void initPointAPI(py::module &m) {

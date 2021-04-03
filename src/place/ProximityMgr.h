@@ -26,7 +26,8 @@ class ProximityMgr {
 
 public:
   /// @brief default constructor
-  explicit ProximityMgr(Database &db) : _db(db) {}
+  explicit ProximityMgr() = default;  
+  explicit ProximityMgr(Database *db) : _db(db) {}
   /// @brief restore all the changes
   void restore();
   /// @brief configure the proximity with adding dummy nets
@@ -38,7 +39,7 @@ private:
   void addDummyNetForProximityGroup(const ProximityGroup &pg);
 
 private:
-  Database &_db;                         ///< The placement engine database
+  Database *_db;                         ///< The placement engine database
   std::vector<IndexType> _dummyPins;     ///< The indices of dummy pins
   std::vector<IndexType> _dummyNets;     ///< The indices of dummy nets
   std::vector<PinInCellIdx> _dummyCells; ///< The indices for dummy cells
