@@ -88,6 +88,8 @@ public:
   RealType defaultAspectRatio() const { return _defaultAspectRatio; }
   /// @brief get the default max white space
   RealType maxWhiteSpace() const { return _maxWhiteSpace; }
+  /// @brief get the default sym weight
+  RealType defaultSymWeight() const { return _defaultSymWeight; }
   /// @brief get the default signal flow operator weight
   RealType defaultSignalFlowWeight() const { return _defaultSignalFlowWeight; }
   /// @brief get the default current flow operator weight
@@ -119,6 +121,7 @@ private:
   RealType
       _defaultAspectRatio; ///< The defaut aspect ratio for global placement
   RealType _maxWhiteSpace; ///< The default maximum white space target
+  RealType _defaultSymWeight; ///< The default weight for sym pair
   RealType _defaultSignalFlowWeight;  ///< The default weight for signal flow
                                       ///< operators
   RealType _defaultCurrentFlowWeight; ///< The default weight for current flow

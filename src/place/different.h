@@ -289,7 +289,7 @@ struct CellPairOverlapPenaltyDifferentiable {
             1) *
         log(1 / (exp(-(wi + xi - xj) / alpha) + exp(-(wj - xi + xj) / alpha)) +
             1);
-    return lambda * ovl;
+    return lambda * ovl * _weight;
   }
 
   void accumlateGradient() const {
@@ -393,8 +393,8 @@ struct CellPairOverlapPenaltyDifferentiable {
     NumType dyj = -dyi;
 
     // accumulate the computed partials
-    _accumulateGradFunc(dxi, _cellIdxI, Orient2DType::HORIZONTAL);
-    _accumulateGradFunc(dyi, _cellIdxI, Orient2DType::VERTICAL);
+    _accumulateGradFunc(dxi * _weight, _cellIdxI, Orient2DType::HORIZONTAL);
+    _accumulateGradFunc(dyi * _weight, _cellIdxI, Orient2DType::VERTICAL);
     if (not _considerOnlyOneCell) {
       _accumulateGradFunc(dyj + 1e-6, _cellIdxJ, Orient2DType::VERTICAL);
       _accumulateGradFunc(dxj + 1e-6, _cellIdxJ, Orient2DType::HORIZONTAL);
@@ -407,6 +407,8 @@ struct CellPairOverlapPenaltyDifferentiable {
     _cellJXLo = xLo;
     _cellJYLo = yLo;
   }
+  
+  void setWeight(NumType weight) { _weight  = weight; }
 
   IndexType _cellIdxI;
   CoordType _cellWidthI;
@@ -425,6 +427,7 @@ struct CellPairOverlapPenaltyDifferentiable {
   bool _considerOnlyOneCell = false;
   CoordType _cellJXLo; ///< Valid only when _considerOnlyOneCell = true
   CoordType _cellJYLo; ///< Valid only when _consdierOnlyOneCell = true
+  NumType _weight = 1.0;
 };
 
 template <typename op_type> struct place_overlap_trait {
@@ -639,7 +642,7 @@ template <typename NumType, typename CoordType> struct AsymmetryDifferentiable {
 
       asym += pow(x + w / 2 - symAxis, 2.0);
     }
-    return asym * lambda;
+    return asym * lambda * _weight;
   }
   void accumlateGradient() const {
     NumType lambda = _getLambdaFunc();
@@ -675,17 +678,20 @@ template <typename NumType, typename CoordType> struct AsymmetryDifferentiable {
 
       NumType partial = 2.0 * (x + w / 2 - symAxis) * lambda;
 
-      _accumulateGradFunc(partial, _selfSymCells[ssIdx],
+      _accumulateGradFunc(partial * _weight, _selfSymCells[ssIdx],
                           Orient2DType::HORIZONTAL);
-      _accumulateGradFunc(-partial, _symGrpIdx, Orient2DType::NONE);
+      _accumulateGradFunc(-partial * _weight, _symGrpIdx, Orient2DType::NONE);
     }
   }
+
+  void setWeight(NumType weight) { _weight = weight; }
 
   IndexType _symGrpIdx;
   std::vector<std::array<IndexType, 2>> _pairCells;
   std::vector<NumType> _pairWidths;
   std::vector<IndexType> _selfSymCells;
   std::vector<NumType> _selfSymWidths;
+  NumType _weight = 1.0;
   std::function<NumType(void)> _getLambdaFunc;
   std::function<CoordType(IndexType cellIdx, Orient2DType orient)>
       _getVarFunc; ///< A function to get current variable value

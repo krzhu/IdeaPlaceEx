@@ -228,8 +228,8 @@ void NlpGPlacerBase<nlp_settings>::initOperators() {
     }
     for (const auto &box : boxesUnScaled) {
       boxes.emplace_back(
-          Box<nlp_coordinate_type>(box.xLo() * _scale, box.yLo() * _scale,
-                                   box.xHi() * _scale, box.yHi() * _scale));
+          Box<nlp_coordinate_type>((box.xLo() - box.xLen() / 2 )* _scale, (box.yLo() - box.yLen() / 2 )* _scale,
+                                   (box.xHi() + box.xLen() / 2 )* _scale, (box.yHi() + box.yLen() / 2)* _scale));
     }
     for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
       if (well.sCellIds().find(cellIdx) == well.sCellIds().end()) {
@@ -242,6 +242,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators() {
           _ovlOps.back().configConsiderOnlyOneCell(wellBox.xLo(),
                                                    wellBox.yLo());
           _ovlOps.back().setGetVarFunc(getVarFunc);
+          _ovlOps.back().setWeight(_db.parameters().defaultWellWeight());
         }
       }
     }
@@ -272,6 +273,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators() {
       _asymOps.back().addSelfSym(ssCellIdx, width);
     }
     _asymOps.back().setGetVarFunc(getVarFunc);
+    _asymOps.back().setWeight(_db.parameters().defaultSymWeight());
   }
   // Signal path
   SigPathMgr pathMgr(_db);
@@ -767,6 +769,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::prepareWellAwarePlace() {
   this->initProblem();
   base_type::initPlace();
   this->initOperators();
+  this->constructTasks();
 }
 
 template <typename nlp_settings>
@@ -813,9 +816,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::reinitWellOperators() {
         Assert(false);
       }
       for (const auto &box : boxesUnScaled) {
-        boxes.emplace_back(Box<typename base_type::nlp_coordinate_type>(
-            box.xLo() * base_type::_scale, box.yLo() * base_type::_scale,
-            box.xHi() * base_type::_scale, box.yHi() * base_type::_scale));
+        boxes.emplace_back(
+            Box<typename base_type::nlp_coordinate_type>(
+            (box.xLo()  - box.xLen() / 2)* base_type::_scale, (box.yLo() - box.yLen() / 2)* base_type::_scale,
+            (box.xHi()  + box.xLen() / 2)* base_type::_scale, (box.yHi() + box.yLen() / 2)* base_type::_scale));
       }
       for (IndexType cellIdx = 0; cellIdx < base_type::_db.numCells();
            ++cellIdx) {
@@ -831,6 +835,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::reinitWellOperators() {
             base_type::_ovlOps.back().configConsiderOnlyOneCell(wellBox.xLo(),
                                                                 wellBox.yLo());
             base_type::_ovlOps.back().setGetVarFunc(getVarFunc);
+            base_type::_ovlOps.back().setWeight(base_type::_db.parameters().defaultWellWeight());
           }
         }
       }

@@ -91,7 +91,8 @@ struct nlp_default_first_order_algorithms {
           nlp_default_types::nlp_numerical_type>,
       converge::converge_criteria_max_iter<3000>,
       converge::converge_criteria_enable_if_fast_mode<
-          converge::converge_criteria_max_iter<200>>>
+          converge::converge_criteria_max_iter<200>>,
+      converge::converge_criteria_stop_when_large_variable_changes<nlp_default_types::nlp_numerical_type, nlp_default_types::EigenVector>>
       converge_type;
   // typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
   typedef optm::first_order::adam<converge_type,
@@ -566,6 +567,12 @@ public:
   /* Core Optimization*/
   /// @brief Finish one iteration of optimization and update the problem
   void stepOptmIter();
+  /// @brief query whether meet stop condition
+  /// @return true: meet stop condition. false: does not meet
+  BoolType meetStopCondition() {
+    return base_type::stop_condition_trait::stopPlaceCondition(
+      *this, this->_stopCondition);
+  }
   /// @brief get the overlapping area ratio
   RealType overlapAreaRatio() {
     typename base_type::nlp_coordinate_type overlapArea = 0.0;
@@ -573,6 +580,7 @@ public:
       overlapArea += diff::place_overlap_trait<
           typename base_type::nlp_ovl_type>::overlapArea(op);
       }
+    DBG("%s: ratio : %f\n", __FUNCTION__,  overlapArea / base_type::_totalCellArea);
     return overlapArea / base_type::_totalCellArea;
   }
 protected:

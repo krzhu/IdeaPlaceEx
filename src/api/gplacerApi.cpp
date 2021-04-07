@@ -21,5 +21,8 @@ void initGPlacerApi(py::module &m) {
       .def("prepareWellAwarePlace", &GP::prepareWellAwarePlace, "Prepare the well-aware placement problem")
       .def("stepOptmIter", &GP::stepOptmIter, "Run an iteration of optimization problem")
       .def("overlapAreaRatio", &GP::overlapAreaRatio, "Calculate the current overlapping area ratio over total cell area")
+      .def("meetStopCondition", &GP::meetStopCondition, "Whether the GPlacer meet its stop condition")
+      .def("openUseWellCellOvl", &GP::openUseWellCellOvl, "Open cell to well overlap cost")
+      .def("closeUseWellCellOvl", &GP::closeUseWellCellOvl, "close cell to well overlap cost")
       ;
 }

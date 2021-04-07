@@ -134,6 +134,35 @@ struct converge_criteria_trait<
   }
 };
 
+template<typename nlp_numerical_type, typename eigen_vector_type>
+struct converge_criteria_stop_when_large_variable_changes {
+  static constexpr nlp_numerical_type _l1Threshold = 1.0;
+  bool _init = false;
+  eigen_vector_type _vec;
+};
+
+template<typename nlp_numerical_type, typename eigen_vector_type>
+struct converge_criteria_trait<
+      converge_criteria_stop_when_large_variable_changes<nlp_numerical_type, eigen_vector_type>>  {
+  typedef converge_criteria_stop_when_large_variable_changes<nlp_numerical_type, eigen_vector_type> converge_type;
+  static void clear(converge_type &c) {
+    c._init = false;
+  }
+  template <typename nlp_type, typename optm_type>
+  static BoolType stopCriteria(nlp_type &n, optm_type &, converge_type &c) {
+    if (not c._init) {
+      c._init = true;
+      c._vec = n._pl;
+    }
+    nlp_numerical_type l1 = (n._pl - c._vec).cwiseAbs().sum();
+    if (l1 > converge_type::_l1Threshold) {
+      c._vec = n._pl;
+      return true;
+    }
+    return false;
+  }
+};
+
 /// @brief a convenient wrapper for combining different types of converge
 /// condition. the list in the template will be check one by one and return
 /// converge if any of them say so

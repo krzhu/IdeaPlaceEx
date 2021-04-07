@@ -96,13 +96,13 @@ struct stop_condition_trait<stop_enable_if_fast_mode<stop_slave_type>> {
 /// @brief stop after violating is small enough
 struct stop_after_violate_small {
   static constexpr RealType overlapRatio =
-      0.01; ///< with respect to total cell area
+      0.02; ///< with respect to total cell area
   static constexpr RealType outOfBoundaryRatio =
-      0.05; ///< with respect to boundary
+      0.1; ///< with respect to boundary
   static constexpr RealType asymRatio =
       0.05; ///< with respect to sqrt(total cell area)
   static constexpr RealType outFenceRatio =
-      0.1; ///< With respect to total cell area needs well
+      1; ///< With respect to total cell area needs well
   IntType curIter = 0;
   static constexpr IntType minIter = 10;
 };
