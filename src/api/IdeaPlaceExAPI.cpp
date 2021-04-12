@@ -18,6 +18,9 @@ void initIdeaPlaceExAPI(py::module &m) {
       .def("initGlobalPlacer",
            &PROJECT_NAMESPACE::IdeaPlaceEx::initGlobalPlacer,
            "Initialize a global placer")
+      .def("initLegalizer",
+          &PROJECT_NAMESPACE::IdeaPlaceEx::initLegalizer,
+          "Initialize a legalizer")
       .def("alignToGrid", &PROJECT_NAMESPACE::IdeaPlaceEx::alignToGrid,
            "Align the placement to grid")
       .def("numThreads", &PROJECT_NAMESPACE::IdeaPlaceEx::setNumThreads,

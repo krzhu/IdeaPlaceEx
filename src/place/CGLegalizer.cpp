@@ -12,15 +12,24 @@ bool CGLegalizer::legalize() {
   // this->generateConstraints();
   _db.offsetLayout();
 
-  auto legalizationStopWath = WATCH_CREATE_NEW("legalization");
-  legalizationStopWath->start();
 
-  this->generateVerConstraints();
-  lpLegalization(false);
-  this->generateHorConstraints();
-  lpLegalization(true);
-  legalizationStopWath->stop();
+  areaDrivenCompaction();
 
+  if (_db.parameters().ifUsePinAssignment()) {
+    pinAssigner.solveFromDB();
+  }
+  if (!wirelengthDrivenCompaction()) {
+    INF("CG Legalizer: detailed placement fine tunning failed. Directly output "
+        "legalization output. \n");
+    return true;
+  }
+  return true;
+
+  INF("CG Legalizer: legalization finished\n");
+  return true;
+}
+
+void CGLegalizer::findCellBoundary() {
   LocType xMin = LOC_TYPE_MAX;
   LocType xMax = LOC_TYPE_MIN;
   LocType yMin = LOC_TYPE_MAX;
@@ -34,30 +43,10 @@ bool CGLegalizer::legalize() {
   }
   _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
   _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
-  // this->generateConstraints();
+}
 
-  auto dpStopWatch = WATCH_CREATE_NEW("detailedPlacement");
-  dpStopWatch->start();
-  if (_db.parameters().ifUsePinAssignment()) {
-    pinAssigner.solveFromDB();
-  }
-  if (!lpDetailedPlacement()) {
-    INF("CG Legalizer: detailed placement fine tunning failed. Directly output "
-        "legalization output. \n");
-    dpStopWatch->stop();
-    return true;
-  }
-  if (!lpDetailedPlacement()) {
-    INF("CG Legalizer: detailed placement fine tunning failed. Directly output "
-        "legalization output. \n");
-    dpStopWatch->stop();
-    return true;
-  }
-  dpStopWatch->stop();
-  return true;
-
-  INF("CG Legalizer: legalization finished\n");
-  return true;
+void CGLegalizer::prepare() {
+  _db.offsetLayout();
 }
 
 void CGLegalizer::generateHorConstraints() {
@@ -96,35 +85,29 @@ void CGLegalizer::generateVerConstraints() {
 }
 
 
-void CGLegalizer::lpLegalization(bool isHor) {
-  if (isHor) {
-    INF("CG legalizer: legalize horizontal LP...\n");
-    auto solver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
-    bool optimal = solver.solve();
-    if (optimal) {
-      solver.exportSolution();
-    } else {
-      return;
-    }
+BoolType CGLegalizer::areaDrivenCompaction() {
+  this->generateHorConstraints();
+  INF("CG legalizer: legalize horizontal LP...\n");
+  auto horSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
+  if (horSolver.solve()) {
+    horSolver.exportSolution();
   } else {
-    INF("CG legalizer: legalize vertical LP...\n");
-    auto solver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
-    bool optimal = solver.solve();
-    if (optimal) {
-      solver.exportSolution();
-    } else {
-      return;
-    }
+    return false;
   }
-#ifdef DEBUG_LEGALIZE
-#ifdef DEBUG_DRAW
-  _db.drawCellBlocks("./debug/after_legalization.gds");
-#endif
-#endif
-
+  this->generateVerConstraints();
+  INF("CG legalizer: legalize vertical LP...\n");
+  auto verSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
+  if (verSolver.solve()) {
+    verSolver.exportSolution();
+  } else {
+    return false;
+  }
+  return true;
 }
 
-bool CGLegalizer::lpDetailedPlacement() {
+BoolType CGLegalizer::wirelengthDrivenCompaction() {
+  // Find the fixed boundary for this step
+  findCellBoundary();
   // Horizontal
   this->generateHorConstraints();
   INF("CG legalizer: detailed placement horizontal LP...\n");
@@ -158,6 +141,136 @@ bool CGLegalizer::lpDetailedPlacement() {
 #endif
 #endif
   return true;
+}
+
+BoolType CGLegalizer::preserveRelationCompaction() {
+  generateRedundantConstraintGraph();
+  INF("CG legalizer: Prerserve relational coodinate horizontal LP...\n");
+  auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
+  if (horSolver.solve()) {
+    horSolver.exportSolution();
+  }
+  else {
+    return false;
+  }
+  INF("CG legalizer: Prerserve relational coodinate vetical LP...\n");
+  auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
+  if (verSolver.solve()) {
+    verSolver.exportSolution();
+  }
+  else {
+    return false;
+  }
+  return true;
+}
+
+enum class Relation {
+  RIGHT, LEFT, TOP, BOTTOM, // overlap or parallel run,
+  TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT // Completely disjoined
+};
+
+Relation determineBoxRelation(const Box<LocType> &box1, const Box<LocType> &box2) {
+  if (box1.xHi() <= box2.xLo()) {
+    if (box1.yHi() <= box2.yLo()) {
+      return Relation::TOP_RIGHT;
+    }
+    else if (box1.yLo() >= box2.yHi()) {
+      return Relation::BOTTOM_RIGHT;
+    }
+    else {
+      // Parallel run on y
+      return Relation::RIGHT;
+    }
+  }
+  else if (box1.xLo() >= box2.xHi()) {
+    if (box1.yHi() <= box2.yLo()) {
+      return Relation::TOP_LEFT;
+    }
+    else if (box1.yLo() >= box2.yHi()) {
+      return Relation::BOTTOM_LEFT;
+    }
+    else {
+      // Parallel run on y
+      return Relation::LEFT;
+    }
+  }
+  else {
+    // parallel run on x
+    if (box1.yHi() <= box2.yLo()) {
+      return Relation::TOP;
+    }
+    else if (box1.yLo() >= box2.yHi()) {
+      return Relation::BOTTOM;
+    }
+    // overlap
+    bool left, bottom;
+    LocType overlapX, overlapY;
+    if (box1.xLo() <= box2.xLo()) {
+      left = false;
+      overlapX = box1.xHi() - box2.xLo();
+    }
+    else {
+      left = true;
+      overlapX = box2.xHi() - box1.xLo();
+    }
+    if (box1.yLo() <= box2.yLo()) {
+      bottom = false;
+      overlapY = box1.yHi() - box2.yLo();
+    }
+    else {
+      bottom = true;
+      overlapY = box2.yHi() - box1.yLo();
+    }
+    if (overlapX < overlapY) {
+      if (left) { return Relation::LEFT; }
+      else { return Relation::RIGHT; }
+    }
+    else {
+      if (bottom) { return Relation::BOTTOM; }
+      else { return Relation::TOP; }
+    }
+  }
+}
+
+void CGLegalizer::generateRedundantConstraintGraph() {
+  _hConstraints.clear();
+  _vConstraints.clear();
+  for (IndexType ci1 = 0; ci1 < _db.numCells(); ++ci1) {
+    const Box<LocType> box1 = _db.cell(ci1).cellBBoxOff();
+    for (IndexType ci2 = ci1 + 1; ci2 < _db.numCells(); ++ci2) {
+      const Box<LocType> box2 = _db.cell(ci2).cellBBoxOff();
+      auto relation = determineBoxRelation(box1, box2);
+      if (relation == Relation::LEFT) {
+        _hConstraints.addConstraintEdge(ci2, ci1);
+      }
+      else if (relation == Relation::RIGHT) {
+        _hConstraints.addConstraintEdge(ci1, ci2);
+      }
+      else if (relation == Relation::BOTTOM) {
+        _vConstraints.addConstraintEdge(ci2, ci1);
+      }
+      else if (relation == Relation::TOP) {
+        _vConstraints.addConstraintEdge(ci1, ci2);
+      }
+      else if (relation == Relation::BOTTOM_LEFT) {
+        _hConstraints.addConstraintEdge(ci2, ci1);
+        _vConstraints.addConstraintEdge(ci2, ci1);
+      }
+      else if (relation == Relation::BOTTOM_RIGHT) {
+        _hConstraints.addConstraintEdge(ci1, ci2);
+        _vConstraints.addConstraintEdge(ci2, ci1);
+      }
+      else if (relation == Relation::TOP_LEFT) {
+        _hConstraints.addConstraintEdge(ci2, ci1);
+        _vConstraints.addConstraintEdge(ci1, ci2);
+      }
+      else {
+        Assert(relation == Relation::TOP_RIGHT);
+        _vConstraints.addConstraintEdge(ci1, ci2);
+        _hConstraints.addConstraintEdge(ci1, ci2);
+      }
+    }
+  }
 }
 
 

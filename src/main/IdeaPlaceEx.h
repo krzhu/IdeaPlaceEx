@@ -42,6 +42,7 @@ public:
   /// @brief initialize an global placer
   /// @return A global placer object
   GPlacer initGlobalPlacer();
+  CGLegalizer initLegalizer();
   /*------------------------------*/
   /* File-based input interface   */
   /*------------------------------*/

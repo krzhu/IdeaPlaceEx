@@ -67,7 +67,13 @@ public:
   /// @param the target cell index
   /// @param the weight of the edge
   void addConstraintEdge(IndexType sourceIdx, IndexType targetIdx,
-                         IntType weight) {
+                         IntType) {
+    _edges.insert(ConstraintEdge(sourceIdx, targetIdx));
+  }
+  /// @brief add a constraint edge
+  /// @param the source cell index
+  /// @param the target cell index
+  void addConstraintEdge(IndexType sourceIdx, IndexType targetIdx) {
     _edges.insert(ConstraintEdge(sourceIdx, targetIdx));
   }
   bool hasEdgeNoDirection(IndexType sourceIdx, IndexType targetIdx) {

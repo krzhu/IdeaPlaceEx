@@ -1,8 +1,8 @@
 /**
  * @file gplacerApi.cpp
- * @brief The pybind11 interface for the core placement engine api
+ * @brief The pybind11 interface for the global placement engine api
  * @author Keren Zhu
- * @date 12/16/2019
+ * @date 04/01/2021
  */
 
 #include "main/IdeaPlaceEx.h"

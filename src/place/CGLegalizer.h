@@ -54,17 +54,24 @@ public:
   /// @brief legalize the design
   bool legalize();
 
+  /// @brief prepare the legalization
+  void prepare();
+  /// @brief Area-driven compaction
+  /// @return true, successful
+  BoolType areaDrivenCompaction();
+  /// @brief LP-based detailed placement. For optimizing wire length
+  BoolType wirelengthDrivenCompaction();
+  /// @brief compaction and preserve current coordinate relation
+  BoolType preserveRelationCompaction(); 
 private:
   /// @brief Generate the constraints (not optimal in number of constraints).
   /// Based on sweeping algorithm
   void generateHorConstraints();
   void generateVerConstraints();
-  /// @brief linear programming-based legalization
-  /// @param if solving horizontal or vertical
-  /// @return the resulting objective function. if negative, failed
-  void lpLegalization(bool isHor);
-  /// @brief LP-based detailed placement. For optimizing wire length
-  bool lpDetailedPlacement();
+
+  void findCellBoundary();
+  /// @brief generate constraint graph to preserve the current relation
+  void generateRedundantConstraintGraph();
 
 private:
   Database &_db;             ///< The database of IdeaPlaceEx

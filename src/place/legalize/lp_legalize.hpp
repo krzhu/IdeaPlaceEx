@@ -553,7 +553,9 @@ namespace lp_legalize {
       virtual void addConstraints() override {
         hpwl_trait::addConstr(*this);
         area_trait::addConstr(*this);
-        area_trait::fixBoundary(*this, _fixedBoundary);
+        if (_fixedBoundary > 0) {
+          area_trait::fixBoundary(*this, _fixedBoundary);
+        }
         sym_trait::addConstr(*this);
         spacing_trait::addConstr(*this);
       }
@@ -571,7 +573,7 @@ namespace lp_legalize {
           _wlR;              ///< The right wirelength variables of the ILP model
       lp_variable_type _boundary; ///< The boundary of the design
       sym_variable_type _symVars;
-      RealType _fixedBoundary; ///< The fixed boundary constraint
+      RealType _fixedBoundary = -1.0; ///< The fixed boundary constraint
     };
 
   /// @brief The area-length-driven LP-based legalizer.

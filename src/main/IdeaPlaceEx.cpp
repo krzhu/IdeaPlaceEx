@@ -138,6 +138,10 @@ IdeaPlaceEx::GPlacer IdeaPlaceEx::initGlobalPlacer() {
   return GPlacer(_db);
 }
 
+CGLegalizer IdeaPlaceEx::initLegalizer() {
+  return CGLegalizer(_db);
+}
+
 void IdeaPlaceEx::prepareGp() {
   omp_set_num_threads(_db.parameters().numThreads());
   // Start message printer timer
