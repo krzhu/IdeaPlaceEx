@@ -1,6 +1,7 @@
 #include "CGLegalizer.h"
 #include "constraintGraphGeneration.h"
 #include "pinassign/VirtualPinAssigner.h"
+#include "place/legalize/lp_legalize.hpp"
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -9,14 +10,15 @@ bool CGLegalizer::legalize() {
   VirtualPinAssigner pinAssigner(_db);
 
   // this->generateConstraints();
+  _db.offsetLayout();
 
   auto legalizationStopWath = WATCH_CREATE_NEW("legalization");
   legalizationStopWath->start();
 
   this->generateVerConstraints();
-  _hStar = lpLegalization(false);
+  lpLegalization(false);
   this->generateHorConstraints();
-  _wStar = lpLegalization(true);
+  lpLegalization(true);
   legalizationStopWath->stop();
 
   LocType xMin = LOC_TYPE_MAX;
@@ -24,11 +26,11 @@ bool CGLegalizer::legalize() {
   LocType yMin = LOC_TYPE_MAX;
   LocType yMax = LOC_TYPE_MIN;
   for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
-    auto cellBox = _db.cell(cellIdx).cellBBoxOff();
-    xMin = std::min(xMin, cellBox.xLo());
-    xMax = std::max(xMax, cellBox.xHi());
-    yMin = std::min(yMin, cellBox.yLo());
-    yMax = std::max(yMax, cellBox.yHi());
+    const auto &cell = _db.cell(cellIdx);
+    xMin = std::min(xMin, cell.xLo());
+    xMax = std::max(xMax, cell.xHi());
+    yMin = std::min(yMin, cell.yLo());
+    yMax = std::max(yMax, cell.yHi());
   }
   _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
   _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
@@ -94,29 +96,25 @@ void CGLegalizer::generateVerConstraints() {
 }
 
 
-RealType CGLegalizer::lpLegalization(bool isHor) {
-  RealType obj;
+void CGLegalizer::lpLegalization(bool isHor) {
   if (isHor) {
     INF("CG legalizer: legalize horizontal LP...\n");
-    auto solver = LpLegalizeSolver(_db, _hConstraints, isHor);
+    auto solver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
     bool optimal = solver.solve();
     if (optimal) {
       solver.exportSolution();
     } else {
-      return -1;
+      return;
     }
-    obj = solver.evaluateObj();
-    //_db.drawCellBlocks("./debug/after_legalization_hor.gds");
   } else {
     INF("CG legalizer: legalize vertical LP...\n");
-    auto solver = LpLegalizeSolver(_db, _vConstraints, isHor);
+    auto solver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
     bool optimal = solver.solve();
     if (optimal) {
       solver.exportSolution();
     } else {
-      return -1;
+      return;
     }
-    obj = solver.evaluateObj();
   }
 #ifdef DEBUG_LEGALIZE
 #ifdef DEBUG_DRAW
@@ -124,18 +122,17 @@ RealType CGLegalizer::lpLegalization(bool isHor) {
 #endif
 #endif
 
-  return obj;
 }
 
 bool CGLegalizer::lpDetailedPlacement() {
   // Horizontal
   this->generateHorConstraints();
   INF("CG legalizer: detailed placement horizontal LP...\n");
-  auto horSolver = LpLegalizeSolver(_db, _hConstraints, true, 1, 0);
+  auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
 #ifdef DEBUG_LEGALIZE
   DBG("wstar for width %f \n", _wStar);
 #endif
-  horSolver.setWStar(_wStar);
+  horSolver.setBoundary(_wStar);
   bool horpass = horSolver.solve();
   if (horpass) {
     horSolver.exportSolution();
@@ -146,8 +143,8 @@ bool CGLegalizer::lpDetailedPlacement() {
   // Vertical
   this->generateVerConstraints();
   INF("CG legalizer: detailed placement vertical LP...\n");
-  auto verSolver = LpLegalizeSolver(_db, _vConstraints, false, 1, 0);
-  verSolver.setWStar(_hStar);
+  auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
+  verSolver.setBoundary(_hStar);
   bool verpass = verSolver.solve();
   if (verpass) {
     verSolver.exportSolution();
@@ -162,5 +159,6 @@ bool CGLegalizer::lpDetailedPlacement() {
 #endif
   return true;
 }
+
 
 PROJECT_NAMESPACE_END

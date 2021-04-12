@@ -717,7 +717,6 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize() {
 
   IntType iter = 0;
   do {
-    break;
     INF("First order NLP: iter %d \n", iter);
 
     optm_trait::optimize(*this, _optm);

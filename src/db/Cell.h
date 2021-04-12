@@ -23,6 +23,7 @@ public:
   const std::string &name() const { return _name; }
   IndexType idx() const { return _idx; }
   const Polygon<LocType> &shape() const { return _shape; }
+  Polygon<LocType> &shape() { return _shape; }
   bool hasCell(const IndexType i) const {
     return _sCellIds.find(i) != _sCellIds.end();
   }

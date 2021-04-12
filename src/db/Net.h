@@ -27,6 +27,7 @@ public:
   void assign(IndexType netIdx) { _netIdx = netIdx; }
   void setDirection(Direction2DType dir) { _dir = dir; }
   Direction2DType direction() const { return _dir; }
+  void offset(const Point<LocType> pt) { _loc = _loc + pt; }
 
   bool operator<(const VirtualPin &pin) const { return _loc < pin._loc; }
   std::string toStr() const {
@@ -109,6 +110,8 @@ public:
   }
   /// @brief invalidate the virtual pin
   void invalidateVirtualPin() { _virtualPin.free(); }
+  /// @brief offset the current virtual pin location
+  void offsetVirtualPin(const Point<LocType> &pt) { _virtualPin.offset(pt); }
   /// @brief mark this net as a dummy net
   void markAsDummyNet() { _isDummy = true; }
   /// @brief set the symmetric pair net index of this one

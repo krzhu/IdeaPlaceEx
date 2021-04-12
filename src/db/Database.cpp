@@ -179,6 +179,55 @@ void Database::assignCellToWell() {
   }
 }
 
+void Database::offsetLayout() {
+  LocType xMin = LOC_TYPE_MAX;
+  LocType yMin = LOC_TYPE_MAX;
+  // Cell
+  for (const auto &cell : _cellArray) {
+    xMin = std::min(xMin, cell.xLo());
+    yMin = std::min(yMin, cell.yLo());
+  }
+  // Well
+  for (const auto &well : _wellArray) {
+    for (const auto &pt : well.shape().outer()) {
+      xMin = std::min(xMin, pt.x());
+      yMin = std::min(yMin, pt.y());
+    }
+  }
+  // Pin
+  for (const auto &net : _netArray) {
+    if (not net.isValidVirtualPin()) {
+      return;
+    }
+    xMin = std::min(xMin, net.virtualPinLoc().x());
+    yMin = std::min(yMin, net.virtualPinLoc().y());
+  }
+  LocType xOffset = std::max(-xMin, 0);
+  LocType yOffset = std::max(-yMin, 0);
+  if (xOffset == 0 and yOffset == 0) {
+    return;
+  }
+  // Cell
+  for (auto &cell : _cellArray) {
+    cell.setXLoc(cell.xLoc() + xOffset);
+    cell.setYLoc(cell.yLoc() + yOffset);
+  }
+  // Well
+  for (auto &well : _wellArray) {
+    for (auto &pt : well.shape().outer()) {
+      pt= pt +  Point<LocType>(xOffset, yOffset);
+    }
+  }
+  // Pin
+  for (auto &net : _netArray) {
+    if (not net.isValidVirtualPin()) {
+      return;
+    }
+    net.offsetVirtualPin(Point<LocType>(xOffset, yOffset));
+  }
+
+}
+
 /*------------------------------*/
 /* Debug functions              */
 /*------------------------------*/

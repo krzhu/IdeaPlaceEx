@@ -221,7 +221,7 @@ public:
   /* Query function wrappers      */
   /*------------------------------*/
   /// @brief get the pin offset with regarded to the ll corner of cell
-  Point<LocType> pinOffsetToCell(IndexType pinIdx) {
+  Point<LocType> pinOffsetToCell(IndexType pinIdx) const {
     const auto &pin = this->pin(pinIdx);
     IndexType cellIdx = pin.cellIdx();
     const auto &cell = this->cell(cellIdx);
@@ -258,6 +258,8 @@ public:
     }
   }
   bool checkSym();
+  /// @brief Move the layout so that everything is located >= 0
+  void offsetLayout();
   /*------------------------------*/
   /* Debug functions              */
   /*------------------------------*/
