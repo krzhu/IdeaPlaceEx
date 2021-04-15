@@ -27,6 +27,7 @@ public:
   bool hasCell(const IndexType i) const {
     return _sCellIds.find(i) != _sCellIds.end();
   }
+  const std::vector<Box<LocType>> & rects() const { return _splitedRects; }
 
   const std::set<IndexType> &sCellIds() const { return _sCellIds; }
 
@@ -51,12 +52,16 @@ public:
     }
     std::cout << std::endl;
   }
+  // Convert/split to rectanlge
+  void splitIntoRects();
+
 
 private:
   std::string _name;
   IndexType _idx;
   Polygon<LocType> _shape; // Polygon90
   std::set<IndexType> _sCellIds;
+  std::vector<Box<LocType>> _splitedRects; ///< Splited well 
 };
 
 /// @class IDEAPLACE::Cell

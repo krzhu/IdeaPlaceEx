@@ -63,6 +63,14 @@ public:
   BoolType wirelengthDrivenCompaction();
   /// @brief compaction and preserve current coordinate relation
   BoolType preserveRelationCompaction(); 
+  /// @brief close the well-aware functionality
+  void closeWellAware() {
+    _wellAware = false;
+  }
+  /// @brief open the well-aware legalization
+  void openWellAware() {
+    _wellAware = true;
+  }
 private:
   /// @brief Generate the constraints (not optimal in number of constraints).
   /// Based on sweeping algorithm
@@ -79,6 +87,7 @@ private:
   Constraints _vConstraints; ///< The vertical constraint edges
   RealType _wStar; ///< The width from the objective function of the first LP
   RealType _hStar; ///< The width from the objective function of the first LP
+  BoolType _wellAware = false;
 };
 
 PROJECT_NAMESPACE_END

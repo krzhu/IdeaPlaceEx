@@ -19,5 +19,7 @@ void initLegalizerApi(py::module &m) {
       .def("preserveRelationCompaction", &LEGAL::preserveRelationCompaction, "Compaction that preserve the current relations")
       .def("areaDrivenCompaction", &LEGAL::areaDrivenCompaction, "Area-driven legalization")
       .def("wirelengthDrivenCompaction", &LEGAL::wirelengthDrivenCompaction, "Wirelength driven legalization")
+      .def("openWellAware", &LEGAL::openWellAware, "Open well-aware legalization")
+      .def("closeWellAware", &LEGAL::closeWellAware, "Close well-aware legalization")
       ;
 }

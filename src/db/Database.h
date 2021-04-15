@@ -15,6 +15,8 @@
 #include "Pin.h"
 #include "Tech.h"
 
+#include <numeric>
+
 PROJECT_NAMESPACE_BEGIN
 
 /// @class IDEAPLACE::Database
@@ -216,6 +218,17 @@ public:
   }
   void clearWells() { _wellArray.clear(); }
   void assignCellToWell();
+  /// @brief split the well polygon into rectangles
+  void splitWells() {
+    _wellRectSize.clear();
+    for (auto &well : _wellArray) {
+      well.splitIntoRects();
+      _wellRectSize.emplace_back(well.rects().size());
+    }
+  }
+  IndexType numWellRects() const {
+    return std::accumulate(_wellRectSize.begin(), _wellRectSize.end(), 0);
+  }
 
   /*------------------------------*/
   /* Query function wrappers      */
@@ -278,6 +291,7 @@ private:
       _proximityGrps;                   ///< The proximity group constraints
   std::vector<SignalPath> _signalPaths; ///< The signal/current paths
   std::vector<Well> _wellArray;         ///< The wells for PMOS
+  std::vector<IndexType> _wellRectSize; ///< Record the number of rectangles in each well
 
   Tech _tech;       ///< The tech information
   Parameters _para; ///< The parameters for the placement engine

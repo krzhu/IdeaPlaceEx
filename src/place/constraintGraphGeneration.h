@@ -84,6 +84,13 @@ public:
     _exemptFunc = exexmptFunc;
     _setExempted = true;
   }
+
+  void openConsiderWell() {
+    _considerWell = true;
+  }
+  void closeConsiderWell() {
+    _considerWell = false;
+  }
   /// @brief the balance tree for containing the "D" in TCAD-1987. Using the
   /// std::set implementation
   class CellCoordTree {
@@ -119,7 +126,6 @@ public:
         return static_cast<IntType>(findIter->cellIdx());
       }
     }
-
   private:
     std::set<CellCoord> _tree; ///< std::set to act as the balanced tree
   };
@@ -163,6 +169,7 @@ private:
   std::function<bool(IndexType, IndexType)>
       _exemptFunc; ///< exempt pair of cells to be add constraints
   bool _setExempted = false;
+  bool _considerWell = false;
 };
 
 PROJECT_NAMESPACE_END

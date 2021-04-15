@@ -72,6 +72,12 @@ void CGLegalizer::generateHorConstraints() {
   SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints,
                                               _vConstraints);
   sweepline.setExemptFunc(exemptSelfSymsFunc);
+  if (_wellAware) {
+    sweepline.openConsiderWell();
+  }
+  else {
+    sweepline.closeConsiderWell();
+  }
   sweepline.solve();
 }
 void CGLegalizer::generateVerConstraints() {
@@ -81,6 +87,12 @@ void CGLegalizer::generateVerConstraints() {
 
   SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints,
                                               _vConstraints);
+  if (_wellAware) {
+    sweepline.openConsiderWell();
+  }
+  else {
+    sweepline.closeConsiderWell();
+  }
   sweepline.solve();
 }
 
@@ -161,6 +173,7 @@ BoolType CGLegalizer::preserveRelationCompaction() {
   else {
     return false;
   }
+
   return true;
 }
 

@@ -54,8 +54,9 @@ void SweeplineConstraintGraphGenerator::originalConstraintGeneration(
   std::vector<IntType> cand(numCells + 2, -1);
   // Insert R0
   dTree.insert(CellCoord(
-      numCells + 1, LOC_TYPE_MAX)); // R0 is behaving as the target node in the
-                                    // DAG. which in convention is numCells + 1.
+      numCells, LOC_TYPE_MAX)); // R0 is behaving as the target node in the
+                                    // DAG. which in convention is numCells + num of well rects
+                                    // Here numCells actually include wells
   for (const auto &event : events) {
     if (event.isLow()) {
       originalInsert(cellCoords.at(event.cellIdx()), dTree, cand);
@@ -70,10 +71,22 @@ void SweeplineConstraintGraphGenerator::recordCellCoords(
   cellCoords.clear();
   for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
     const auto &cell = _db.cell(cellIdx);
+    // Because here is to record cell coordinate, so that we should not skip cells with well
     if (isHor) {
       cellCoords.emplace_back(CellCoord(cellIdx, cell.xLo()));
     } else {
       cellCoords.emplace_back(CellCoord(cellIdx, cell.yLo()));
+    }
+  }
+  IndexType wellShapeIdx = _db.numCells(); // Counting from end of number of cells
+  for (const auto &well : _db.vWells()) {
+    for (const auto &rect : well.rects()) {
+      if (isHor) {
+        cellCoords.emplace_back(CellCoord(wellShapeIdx, rect.xLo()));
+      } else {
+        cellCoords.emplace_back(CellCoord(wellShapeIdx, rect.yLo()));
+      }
+      ++wellShapeIdx;
     }
   }
 }
@@ -83,6 +96,11 @@ void SweeplineConstraintGraphGenerator::generateEvents(
   events.clear();
   for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
     const auto &cell = _db.cell(cellIdx);
+    if (_considerWell) { // It would be handled by well
+      if (cell.needWell()) {
+        continue;
+      }
+    }
     if (isHor) {
       events.emplace_back(Event(cellIdx, cell.yLo(), true));
       events.emplace_back(Event(cellIdx, cell.yHi(), false));
@@ -91,6 +109,20 @@ void SweeplineConstraintGraphGenerator::generateEvents(
       events.emplace_back(Event(cellIdx, cell.xHi(), false));
     }
   }
+  IndexType wellShapeIdx = _db.numCells(); // Counting from end of number of cells
+  for (const auto &well : _db.vWells()) {
+    for (const auto &rect : well.rects()) {
+      if (isHor) {
+        events.emplace_back(Event(wellShapeIdx, rect.yLo(), true));
+        events.emplace_back(Event(wellShapeIdx, rect.yHi(), false));
+      } else {
+        events.emplace_back(Event(wellShapeIdx, rect.xLo(), true));
+        events.emplace_back(Event(wellShapeIdx, rect.xHi(), false));
+      }
+      ++wellShapeIdx;
+    }
+  }
+
   std::sort(events.begin(), events.end());
 }
 
@@ -118,12 +150,12 @@ void SweeplineConstraintGraphGenerator::originalSweepLine() {
   generateEvents(events, true);
   recordCellCoords(cellCoords, true);
   originalConstraintGeneration(_hC, events, cellCoords);
-  addEdgesFromSource(_hC, cellCoords.size());
+  //addEdgesFromSource(_hC, cellCoords.size());
   // Vertical
   generateEvents(events, false);
   recordCellCoords(cellCoords, false);
   originalConstraintGeneration(_vC, events, cellCoords);
-  addEdgesFromSource(_vC, cellCoords.size());
+  //addEdgesFromSource(_vC, cellCoords.size());
 }
 
 PROJECT_NAMESPACE_END
