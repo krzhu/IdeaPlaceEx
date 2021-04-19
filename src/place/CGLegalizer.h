@@ -15,37 +15,6 @@ PROJECT_NAMESPACE_BEGIN
 
 
 class CGLegalizer {
-private:
-  class BoxEdge {
-  public:
-    explicit BoxEdge(LocType coord_, IndexType cellIdx_, bool isTop_)
-        : coord(coord_), cellIdx(cellIdx_), isTop(isTop_) {}
-    bool operator<(const BoxEdge &rhs) const {
-      if (this->coord == rhs.coord) {
-        if (this->isTop == rhs.isTop) {
-          return this->cellIdx < rhs.cellIdx;
-        } else {
-          if (!this->isTop) {
-            return false;
-          } else {
-            return true;
-          }
-        }
-      } else {
-        return this->coord < rhs.coord;
-      }
-    }
-    std::string toStr() const {
-      std::stringstream ss;
-      ss << "LocType " << coord << " cellIdx " << cellIdx << " isTop " << isTop;
-      return ss.str();
-    }
-
-  public:
-    LocType coord;     ///< Coordinate of the edge
-    IndexType cellIdx; ///< The index of the cell
-    bool isTop;        ///< True: top/right edge. False: bottom/left edge
-  };
 
 public:
   /// @brief Constructor
