@@ -106,6 +106,10 @@ struct linear_programming_trait<_limbo_lp_solver<limbo_lp_api_type>> {
     return solver._model.addVariable(0, 1e20, limbo::solvers::CONTINUOUS,
                                      "x" + solver._model.numVariables());
   }
+  static variable_type addVar(solver_type &solver, const std::string &name) {
+    return solver._model.addVariable(0, 1e20, limbo::solvers::CONTINUOUS,
+                                     name);
+  }
   static void addConstr(solver_type &solver, const constr_type &constr) {
     bool success = solver._model.addConstraint(constr, "CONSTR");
     AssertMsg(success, "Limbo lib LP solver add constraint failed\n");

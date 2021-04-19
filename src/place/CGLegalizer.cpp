@@ -99,19 +99,21 @@ void CGLegalizer::generateVerConstraints() {
 
 BoolType CGLegalizer::areaDrivenCompaction() {
   this->generateHorConstraints();
-  INF("CG legalizer: legalize horizontal LP...\n");
+  INF("CG legalizer: area-driven legalize horizontal LP...\n");
   auto horSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
   if (horSolver.solve()) {
     horSolver.exportSolution();
   } else {
+    Assert(false);
     return false;
   }
   this->generateVerConstraints();
-  INF("CG legalizer: legalize vertical LP...\n");
+  INF("CG legalizer: area-driven legalize vertical LP...\n");
   auto verSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
   if (verSolver.solve()) {
     verSolver.exportSolution();
   } else {
+    Assert(false);
     return false;
   }
   return true;
@@ -121,8 +123,8 @@ BoolType CGLegalizer::wirelengthDrivenCompaction() {
   // Find the fixed boundary for this step
   findCellBoundary();
   // Horizontal
-  this->generateHorConstraints();
-  INF("CG legalizer: detailed placement horizontal LP...\n");
+  //this->generateHorConstraints();
+  INF("CG legalizer: wirelength-driven detailed placement horizontal LP...\n");
   auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
 #ifdef DEBUG_LEGALIZE
   DBG("wstar for width %f \n", _wStar);
@@ -136,8 +138,8 @@ BoolType CGLegalizer::wirelengthDrivenCompaction() {
   }
 
   // Vertical
-  this->generateVerConstraints();
-  INF("CG legalizer: detailed placement vertical LP...\n");
+  //this->generateVerConstraints();
+  INF("CG legalizer:  wirelength-driven detailed placement vertical LP...\n");
   auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
   verSolver.setBoundary(_hStar);
   bool verpass = verSolver.solve();

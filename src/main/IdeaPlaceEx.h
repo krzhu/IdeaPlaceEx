@@ -411,7 +411,8 @@ public:
     _db.well(wellIdx).printInfo();
   }
   void clearWells() { _db.clearWells(); }
-  void assignCellToWell() { _db.assignCellToWell(); }
+  void assignCellToWell() { _db.assignCellToWellAndRemoveUnusedWell(); }
+  void splitWells() { _db.splitWells(); }
   /* Debug */
 #ifdef DEBUG_DRAW
   void drawDebug(const std::string &filename) {

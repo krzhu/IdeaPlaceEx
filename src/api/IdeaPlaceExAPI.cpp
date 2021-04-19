@@ -200,6 +200,7 @@ void initIdeaPlaceExAPI(py::module &m) {
           "Clear the current wells")
       .def("flagCellAsNeedWell", &PROJECT_NAMESPACE::IdeaPlaceEx::flagCellAsNeedWell, "Flag a cell as it need well")
       .def("assignCellToWell", &PROJECT_NAMESPACE::IdeaPlaceEx::assignCellToWell, "Assign cells to wells")
+      .def("splitWells", &PROJECT_NAMESPACE::IdeaPlaceEx::splitWells, "Split the wells into rectangles")
 #ifdef DEBUG_DRAW
       .def("debugDraw", &PROJECT_NAMESPACE::IdeaPlaceEx::drawDebug, "Draw the debug layout")
 #endif // ifdef DEBUG_DRAW

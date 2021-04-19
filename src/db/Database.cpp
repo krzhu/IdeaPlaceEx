@@ -160,21 +160,34 @@ bool Database::checkSym() {
   return true;
 }
 
-void Database::assignCellToWell() {
+void Database::assignCellToWellAndRemoveUnusedWell() {
   for (IndexType cellIdx = 0; cellIdx <  _cellArray.size(); ++cellIdx) {
     if (not cell(cellIdx).needWell()) { continue; }
     LocType shortestDist = LOC_TYPE_MAX;
+    IndexType targetWellIdx = INDEX_TYPE_MAX;
+    const Point<LocType> cellCenter = cell(cellIdx).cellBBoxOff().center();
     for (IndexType wellIdx = 0; wellIdx < _wellArray.size(); ++wellIdx) {
       auto &well = _wellArray.at(wellIdx);
-      LocType dist = boost::geometry::distance(cell(cellIdx).loc(), well.shape());
+      LocType dist = boost::geometry::distance(cellCenter, well.shape());
       if (dist < shortestDist) {
-        well.addCellIdx(cellIdx);
-        cell(cellIdx).setWellIdx(wellIdx);
+        targetWellIdx = wellIdx;
+        shortestDist = dist;
       }
     }
-    if (shortestDist == LOC_TYPE_MAX)
-    {
-      cell(cellIdx).setWellIdx(INDEX_TYPE_MAX);
+    if (targetWellIdx != INDEX_TYPE_MAX) {
+      _wellArray.at(targetWellIdx).addCellIdx(cellIdx);
+    }
+  }
+  _wellArray.erase(
+      std::remove_if(_wellArray.begin(), _wellArray.end(),
+        [](const Well &well) { return not well.assignedWithAnyCell();}),
+      _wellArray.end()
+      );
+  // Record well index for cells
+  for (IndexType wellIdx = 0; wellIdx < _wellArray.size(); ++wellIdx) {
+    const auto &well = _wellArray.at(wellIdx);
+    for (IndexType cellIdx  : well.sCellIds()) {
+      _cellArray.at(cellIdx).setWellIdx(wellIdx);
     }
   }
 }

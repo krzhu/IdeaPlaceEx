@@ -216,8 +216,13 @@ public:
                std::remove(_wellArray.begin(), _wellArray.end(), w),
                _wellArray.end()) != _wellArray.end();
   }
-  void clearWells() { _wellArray.clear(); }
-  void assignCellToWell();
+  void clearWells() { 
+    _wellArray.clear(); 
+    for (auto &cell : _cellArray) {
+      cell.clearWell();
+    }
+  }
+  void assignCellToWellAndRemoveUnusedWell();
   /// @brief split the well polygon into rectangles
   void splitWells() {
     _wellRectSize.clear();
@@ -228,6 +233,20 @@ public:
   }
   IndexType numWellRects() const {
     return std::accumulate(_wellRectSize.begin(), _wellRectSize.end(), 0);
+  }
+  /// @return well index, rect index in the well
+  std::pair<IndexType, IndexType> getWellRectIdx(IndexType rectIdx) const {
+    for (IndexType wellIdx = 0; wellIdx < _wellRectSize.size(); ++wellIdx) {
+      if (rectIdx < _wellRectSize[wellIdx]) {
+        return std::make_pair(wellIdx, rectIdx);
+      }
+      rectIdx -= _wellRectSize[wellIdx];
+    }
+    Assert(false);
+    return std::make_pair(INDEX_TYPE_MAX, INDEX_TYPE_MAX);
+  }
+  IndexType numRectInWell(IndexType wellIdx) const {
+    return _wellRectSize.at(wellIdx);
   }
 
   /*------------------------------*/
@@ -307,6 +326,10 @@ inline RealType Database::calculateTotalCellArea() const {
 
 inline Box<LocType> Database::cellSpacing(IndexType cellIdx1,
                                           IndexType cellIdx2) const {
+  if (cellIdx1 >= numCells() or cellIdx2 >= numCells()) {
+    // FIXME: use well-well or well-cell spacing
+    return 0;
+  }
   const auto &cell1 = this->cell(cellIdx1);
   const auto &cell2 = this->cell(cellIdx2);
   Box<LocType> spacings = Box<LocType>(0, 0, 0, 0);

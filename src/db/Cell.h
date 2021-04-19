@@ -38,6 +38,14 @@ public:
   void setShape(const Polygon<LocType>::RingType &outer) {
     _shape.setOuter(outer);
   }
+  void moveBy(const LocType xOffset, const LocType yOffset) {
+    for (auto &pt : _shape.outer()) {
+      pt.shiftXY(xOffset, yOffset);
+    }
+    for (auto &rect : _splitedRects) {
+      rect.offsetBy(Point<LocType>(xOffset, yOffset));
+    }
+  }
 
   // operator
   bool operator==(const Well &w) const {
@@ -54,6 +62,7 @@ public:
   }
   // Convert/split to rectanlge
   void splitIntoRects();
+  BoolType assignedWithAnyCell() const { return _sCellIds.size() != 0; }
 
 
 private:
@@ -237,6 +246,8 @@ public:
   /* Well`              `         */
   /*------------------------------*/
   void setWellIdx(IndexType i) { _wellIdx = i; }
+  BoolType isAssignedToWell() const { return _wellIdx != INDEX_TYPE_MAX; }
+  void clearWell() { _wellIdx = INDEX_TYPE_MAX; }
 
 private:
   std::string _name;   ///< The cell name

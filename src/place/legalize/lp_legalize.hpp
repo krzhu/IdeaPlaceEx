@@ -26,12 +26,25 @@ namespace _lp_legalize_details {
     struct cell_loc_trait {};
   template<>
     struct cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION> {
-      static LocType getCellLen(const Database &db, IndexType cellIdx) {
-        return db.cell(cellIdx).cellBBox().xLen();
+      static LocType getLen(const Database &db, IndexType cellIdx) {
+        if (cellIdx < db.numCells()) {
+          return db.cell(cellIdx).cellBBox().xLen();
+        }
+        auto wellRectIdx = db.getWellRectIdx(cellIdx - db.numCells());
+        return db.well(wellRectIdx.first).rects().at(wellRectIdx.second).xLen();
       }
-      static LocType getCellSpacing(const Database &db, IndexType sourceCellIdx, IndexType targetCellIdx) {
+      static LocType getSpacing(const Database &db, IndexType sourceCellIdx, IndexType targetCellIdx) {
         // Source cell is on the left
         return db.cellSpacing(sourceCellIdx, targetCellIdx).xLo();
+      }
+      static void moveWell(Well &well, LocType offset) {
+        well.moveBy(offset, 0);
+      }
+      static LocType getCellLL(const Database &db, IndexType cellIdx) {
+        return db.cell(cellIdx).xLo();
+      }
+      static LocType getCellLL(const Cell &cell) {
+        return cell.xLo();
       }
       static LocType getPinMidLoc(const Database &db, IndexType pinIdx) {
         return db.pinOffsetToCell(pinIdx).x();
@@ -42,15 +55,34 @@ namespace _lp_legalize_details {
       static LocType getNetVirtualPinLoc(const Database &db, IndexType netIdx) {
         return db.net(netIdx).virtualPinLoc().x();
       }
+      static LocType getWellRectLL(const Well &well, IndexType rectIdx) {
+        return well.rects().at(rectIdx).xLo();
+      }
+      static LocType getWellRectLen(const Well &well, IndexType rectIdx) {
+        return well.rects().at(rectIdx).xLen();
+      }
     };
   template<>
     struct cell_loc_trait<LEGALIZE_VERTICAL_DIRECTION> {
-      static LocType getCellLen(const Database &db, IndexType cellIdx) {
-        return db.cell(cellIdx).cellBBox().yLen();
+      static LocType getLen(const Database &db, IndexType cellIdx) {
+        if (cellIdx < db.numCells()) {
+          return db.cell(cellIdx).cellBBox().yLen();
+        }
+        auto wellRectIdx = db.getWellRectIdx(cellIdx - db.numCells());
+        return db.well(wellRectIdx.first).rects().at(wellRectIdx.second).yLen();
       }
-      static LocType getCellSpacing(const Database &db, IndexType sourceCellIdx, IndexType targetCellIdx) {
+      static LocType getSpacing(const Database &db, IndexType sourceCellIdx, IndexType targetCellIdx) {
         // Source cell is on the bottom
         return db.cellSpacing(sourceCellIdx, targetCellIdx).yLo();
+      }
+      static void moveWell(Well &well, LocType offset) {
+        well.moveBy(0, offset);
+      }
+      static LocType getCellLL(const Database &db, IndexType cellIdx) {
+        return db.cell(cellIdx).yLo();
+      }
+      static LocType getCellLL(const Cell &cell) {
+        return cell.yLo();
       }
       static LocType getPinMidLoc(const Database &db, IndexType pinIdx) {
         return db.pinOffsetToCell(pinIdx).y();
@@ -60,6 +92,12 @@ namespace _lp_legalize_details {
       }
       static LocType getNetVirtualPinLoc(const Database &db, IndexType netIdx) {
         return db.net(netIdx).virtualPinLoc().y();
+      }
+      static LocType getWellRectLL(const Well &well, IndexType rectIdx) {
+        return well.rects().at(rectIdx).yLo();
+      }
+      static LocType getWellRectLen(const Well &well, IndexType rectIdx) {
+        return well.rects().at(rectIdx).yLen();
       }
     };
 
@@ -83,8 +121,8 @@ namespace _lp_legalize_details {
         lp._wlL.resize(lp._db.numNets());
         lp._wlR.resize(lp._db.numNets());
         for (IndexType i = 0; i < lp._db.numNets(); ++i) {
-          lp._wlL.at(i) = lp_type::lp_trait::addVar(lp._solver);
-          lp._wlR.at(i) = lp_type::lp_trait::addVar(lp._solver);
+          lp._wlL.at(i) = lp_type::lp_trait::addVar(lp._solver, "WLL"+std::to_string(i));
+          lp._wlR.at(i) = lp_type::lp_trait::addVar(lp._solver, "WLR"+std::to_string(i));
         }
       }
     template<typename lp_type>
@@ -123,7 +161,7 @@ namespace _lp_legalize_details {
       }
     template<typename lp_type>
       static void addVars(lp_type &lp) {
-        lp._boundary = lp_type::lp_trait::addVar(lp._solver);
+        lp._boundary = lp_type::lp_trait::addVar(lp._solver, "boundary");
       }
     template<typename lp_type>
       static void addConstr(lp_type &lp) {
@@ -131,7 +169,7 @@ namespace _lp_legalize_details {
         // 0 <= x_i <= W* - w_i
           lp_type::lp_trait::addConstr(
               lp._solver, lp._locs.at(cellIdx) - lp._boundary <=  -
-                                cell_loc_trait<typename lp_type::is_hor_type>::getCellLen(lp._db, cellIdx));
+                                cell_loc_trait<typename lp_type::is_hor_type>::getLen(lp._db, cellIdx));
           lp_type::lp_trait::addConstr(lp._solver,
                               lp._locs.at(cellIdx) >= 0);
         }
@@ -179,14 +217,14 @@ namespace _lp_legalize_details {
           lp._symVars._symRexLeft.resize(lp._db.numSymGroups());
           lp._symVars._symRexRight.resize(lp._db.numSymGroups());
           for (IndexType i = 0; i < lp._db.numSymGroups(); ++i) {
-            lp._symVars._symRexLeft.at(i) = lp_type::lp_trait::addVar(lp._solver);
-            lp._symVars._symRexRight.at(i) = lp_type::lp_trait::addVar(lp._solver);
+            lp._symVars._symRexLeft.at(i) = lp_type::lp_trait::addVar(lp._solver, "symRexLeft" + std::to_string(i));
+            lp._symVars._symRexRight.at(i) = lp_type::lp_trait::addVar(lp._solver, "symRexRight" + std::to_string(i));
           }
 #else
             lp._symVars._symRexLeft.resize(1);
-            lp._symVars._symRexLeft[0] = lp_type::lp_trait::addVar(lp._solver);
+            lp._symVars._symRexLeft[0] = lp_type::lp_trait::addVar(lp._solver, "symRexLeft");
             lp._symVars._symRexRight.resize(1);
-            lp._symVars._symRexRight[0] = lp_type::lp_trait::addVar(lp._solver);
+            lp._symVars._symRexRight[0] = lp_type::lp_trait::addVar(lp._solver, "symRexRight");
 #endif
         }
       template<typename lp_type>
@@ -210,14 +248,14 @@ namespace _lp_legalize_details {
               // x1 + x2 + width >= left * 2
               typename lp_type::lp_variable_type x1_ = lp._locs.at(symPair.firstCell());
               typename lp_type::lp_variable_type x2_ = lp._locs.at(symPair.secondCell());
-              auto width_ = cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getCellLen(lp._db, symPair.firstCell); // Two cells are equal in width <- assumption
+              auto width_ = cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, symPair.firstCell); // Two cells are equal in width <- assumption
               lp_type::lp_trait::addConstr(lp._solver, x1_ + x2_ - 2 * (rightSymLoc) <= -width_);
               lp_type::lp_trait::addConstr(lp._solver, x1_ + x2_ + -2 * (leftSymLoc) >= -width_);
             }
             for (IndexType ssIdx = 0; ssIdx < symGroup.numSelfSyms(); ++ssIdx) {
               IndexType cellIdx = symGroup.selfSym(ssIdx);
               auto x_ = lp._locs.at(cellIdx);
-              auto width_ = cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getCellLen(lp._db, cellIdx);
+              auto width_ = cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, cellIdx);
               // x + width /2 <= right
               // x + width /2 >= left
               lp_type::lp_trait::addConstr(lp._solver, x_ - (rightSymLoc) <= -width_ / 2);
@@ -251,7 +289,7 @@ namespace _lp_legalize_details {
       template<typename lp_type>
         static void addVars(lp_type &lp) {
           // Same as is horizontal
-          _sym_rex_trait<LEGALIZE_HORIZONTAL_DIRECTION>::addVars(lp);
+          _sym_rex_trait<LEGALIZE_HORIZONTAL_DIRECTION>::addVars(lp, "symRex");
         }
       template<typename lp_type>
         static void addConstr(lp_type &lp) {
@@ -288,11 +326,11 @@ namespace _lp_legalize_details {
           // Symmetric group axis variables
           lp._symVars._symLocs.resize(lp._db.numSymGroups());
           for (IndexType i = 0; i < lp._db.numSymGroups(); ++i) {
-            lp._symVars._symLocs.at(i) = lp_type::lp_trait::addVar(lp._solver);
+            lp._symVars._symLocs.at(i) = lp_type::lp_trait::addVar(lp._solver, "sym" + std::to_string(i));
           }
 #else
           lp._symVars._symLocs.resize(1);
-          lp._symVars._symLocs[0] = lp_type::lp_trait::addVar(lp._solver);
+          lp._symVars._symLocs[0] = lp_type::lp_trait::addVar(lp._solver, "sym");
 #endif
         }
       
@@ -315,14 +353,14 @@ namespace _lp_legalize_details {
                   lp._solver,
                   lp._locs.at(symPair.firstCell()) + lp._locs.at(symPair.secondCell()) -
                           2 * (symVar) ==
-                      -cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getCellLen(lp._db, symPair.firstCell())); // Two cells are equal in width <- assumption
+                      -cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, symPair.firstCell())); // Two cells are equal in width <- assumption
             for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms();
                  ++selfSymIdx) {
               IndexType ssCellIdx = symGrp.selfSym(selfSymIdx);
               // x1 + width + x2 = 2 * symAxis
               lp_type::lp_trait::addConstr(lp._solver,
                                   2 * lp._locs.at(ssCellIdx) - 2 * (symVar) ==
-                                      - cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getCellLen(lp._db, ssCellIdx));
+                                      - cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, ssCellIdx));
             }
           }
         }
@@ -339,11 +377,11 @@ namespace _lp_legalize_details {
           // Symmetric group axis variables
           lp._symVars._symLocs.resize(lp._db.numSymGroups());
           for (IndexType i = 0; i < lp._db.numSymGroups(); ++i) {
-            lp._symVars._symLocs.at(i) = lp_type::lp_trait::addVar(lp._solver);
+            lp._symVars._symLocs.at(i) = lp_type::lp_trait::addVar(lp._solver, sym + std::to_string(i));
           }
 #else
           lp._symVars._symLocs.resize(1);
-          lp._symVars._symLocs[0] = lp_type::lp_trait::addVar(lp._solver);
+          lp._symVars._symLocs[0] = lp_type::lp_trait::addVar(lp._solver, "sym");
 #endif
         }
       template<typename lp_type>
@@ -403,12 +441,49 @@ namespace _lp_legalize_details {
             // the s, t constraints
             continue;
           }
-          LocType spacing = cell_loc_trait<typename lp_type::is_hor_type>::getCellSpacing(lp._db, sourceIdx, targetIdx);
-          LocType cellLen = cell_loc_trait<typename lp_type::is_hor_type>::getCellLen(lp._db, sourceIdx);
+          LocType spacing = cell_loc_trait<typename lp_type::is_hor_type>::getSpacing(lp._db, sourceIdx, targetIdx);
+          LocType cellLen = cell_loc_trait<typename lp_type::is_hor_type>::getLen(lp._db, sourceIdx);
           // Add the constraint
           // x_i + w_i + spacing <= x_j
           lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(sourceIdx) - lp._locs.at(targetIdx) <=
                                            -cellLen - spacing);
+        }
+      }
+  };
+
+  // Ensure the splitted rectangles and cells inside are moving together
+  struct well_align_trait {
+    template<typename lp_type>
+      static void addObj(lp_type &) {}
+    template<typename lp_type>
+      static void addVars(lp_type &) {}
+    template<typename lp_type>
+      static void addConstr(lp_type &lp) {
+        using cell_loc_type = cell_loc_trait<typename lp_type::is_hor_type>;
+        const Database &db = lp._db;
+        IndexType locIdx = db.numCells(); // Loc starting from cells then wells
+        for (const auto &well : db.vWells()) {
+          Assert(well.rects().size() > 0);
+          LocType firstRectLoc = cell_loc_type::getWellRectLL(well, 0);
+          IndexType firstWellIdx = locIdx;
+          ++locIdx;
+          // Make sure the splitted well rectangles are moving together
+          for (IndexType rectIdx = 1; rectIdx < well.rects().size(); ++rectIdx) {
+            LocType currentRectLoc = cell_loc_type::getWellRectLL(well, rectIdx);
+            // Add constraint
+            // x_first - x_cur = their original location difference
+            lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(firstWellIdx) - lp._locs.at(locIdx)
+                == firstRectLoc - currentRectLoc);
+            ++locIdx;
+          }
+          // Make sure the cell inside are moving together
+          for (IndexType cellIdx : well.sCellIds()) {
+            LocType cellLoc = cell_loc_type::getCellLL(db, cellIdx);
+            // Add constraint
+            // x_first - x_cell = their original location difference
+            lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(firstWellIdx) - lp._locs.at(cellIdx)
+                == firstRectLoc - cellLoc);
+          }
         }
       }
   };
@@ -444,6 +519,8 @@ namespace lp_legalize {
     typedef _lp_legalize_details::sym_variable_type<lp_variable_type, relax_sym_type> sym_variable_type;
     typedef _lp_legalize_details::spacing_trait spacing_trait;
     friend spacing_trait;
+    typedef _lp_legalize_details::well_align_trait well_align_trait;
+    friend well_align_trait;
 
     public:
     explicit _LpLegalizeBase(Database &db, Constraints &constrs) : _db(db), _constrs(constrs) {
@@ -458,19 +535,31 @@ namespace lp_legalize {
     }
 
     void exportSolution() {
+      using cell_loc_type = _lp_legalize_details::cell_loc_trait<is_hor_type>;
       for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
         auto var = lp_trait::solution(_solver, _locs.at(cellIdx));
         // convert to cell original location
-        _lp_legalize_details::cell_loc_trait<is_hor_type>::setCellLL(_db, cellIdx, ::klib::autoRound<LocType>(var));
+        cell_loc_type::setCellLL(_db, cellIdx, ::klib::autoRound<LocType>(var));
+      }
+      IndexType locIdx = _db.numCells(); // Loc starting from cells then wells
+      for (IndexType wellIdx = 0; wellIdx < _db.vWells().size(); ++wellIdx) {
+        auto &well = _db.well(wellIdx);
+        Assert(well.rects().size() > 0);
+        LocType firstRectLoc = cell_loc_type::getWellRectLL(well, 0);
+        auto var = lp_trait::solution(_solver, _locs.at(locIdx));
+        LocType offset = ::klib::autoRound<LocType>(var) - firstRectLoc;
+        // Move the whole well together
+        cell_loc_type::moveWell(well, offset);
+        locIdx += _db.numRectInWell(wellIdx);
       }
     }
 
     protected:
     void addLocVars() {
       // _locs are x or y, depending on is_hor_type
-      _locs.resize(_db.numCells());
-      for (IndexType i = 0; i < _db.numCells(); ++i) {
-        _locs.at(i) = lp_trait::addVar(_solver);
+      _locs.resize(_db.numCells() + _db.numWellRects());
+      for (IndexType i = 0; i < _db.numCells() + _db.numWellRects(); ++i) {
+        _locs.at(i) = lp_trait::addVar(_solver, "loc"+std::to_string(i));
       }
     }
     virtual void addVariables() { AssertMsg(false, "%s: Should not call _LpLegalizeBase implementation. ", __FUNCTION__); };
@@ -534,6 +623,8 @@ namespace lp_legalize {
       typedef typename base_type::sym_variable_type sym_variable_type;
       typedef typename base_type::spacing_trait spacing_trait;
       friend spacing_trait;
+      typedef typename base_type::well_align_trait well_align_trait;
+      friend well_align_trait;
 
       public:
       LpLegalizeWirelength(Database &db, Constraints &constrs) 
@@ -548,6 +639,7 @@ namespace lp_legalize {
         area_trait::addVars(*this); // Boundary
         sym_trait::addVars(*this); // Sym axis variable
         spacing_trait::addVars(*this); // Spacing
+        well_align_trait::addVars(*this);
       }
 
       virtual void addConstraints() override {
@@ -558,12 +650,14 @@ namespace lp_legalize {
         }
         sym_trait::addConstr(*this);
         spacing_trait::addConstr(*this);
+        well_align_trait::addConstr(*this);
       }
 
       virtual void addObjective() override {
         hpwl_trait::addObj(*this);
         sym_trait::addObj(*this);
         spacing_trait::addObj(*this);
+        well_align_trait::addObj(*this);
       }
 
       protected:
@@ -600,6 +694,8 @@ namespace lp_legalize {
       typedef typename base_type::sym_variable_type sym_variable_type;
       typedef typename base_type::spacing_trait spacing_trait;
       friend spacing_trait;
+      typedef typename base_type::well_align_trait well_align_trait;
+      friend well_align_trait;
 
       public:
       LpLegalizeArea(Database &db, Constraints &constrs) 
@@ -612,18 +708,21 @@ namespace lp_legalize {
         area_trait::addVars(*this); // Boundary
         sym_trait::addVars(*this); // Sym axis variable
         spacing_trait::addVars(*this); // Spacing
+        well_align_trait::addVars(*this);
       }
 
       virtual void addConstraints() override {
         area_trait::addConstr(*this);
         sym_trait::addConstr(*this);
         spacing_trait::addConstr(*this);
+        well_align_trait::addConstr(*this);
       }
 
       virtual void addObjective() override {
         area_trait::addObj(*this);
         sym_trait::addObj(*this);
         spacing_trait::addObj(*this);
+        well_align_trait::addObj(*this);
       }
 
       protected:
