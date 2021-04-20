@@ -2,8 +2,15 @@
 #include "constraintGraphGeneration.h"
 #include "pinassign/VirtualPinAssigner.h"
 #include "place/legalize/lp_legalize.hpp"
+#include "place/legalize/legalize_well.hpp"
 
 PROJECT_NAMESPACE_BEGIN
+
+void CGLegalizer::legalizeWells() {
+  WellLegalizer wellLegalizer(_db);
+  wellLegalizer.legalize();
+  _db.splitWells();
+}
 
 bool CGLegalizer::legalize() {
 
@@ -54,16 +61,28 @@ void CGLegalizer::generateHorConstraints() {
   _hConstraints.clear();
   _vConstraints.clear();
   // Init the irredundant constraint edges
+  
+  auto getCellOrWellBBoc = [&](IndexType cellIdx) {
+    if (cellIdx < _db.numCells()) {
+      return _db.cell(cellIdx).cellBBoxOff();
+    }
+    auto wellIdx = _db.getWellRectIdx(cellIdx - _db.numCells());
+    return _db.well(wellIdx.first).rects().at(wellIdx.second);
+  };
 
-  auto exemptSelfSymsFunc = [&](IndexType cellIdx1, IndexType cellIdx2) {
-    return false;
-    if (cellIdx1 >= _db.numCells()) {
+  auto exemptVerticalMoveFunc = [&](IndexType cellIdx1, IndexType cellIdx2) {
+    IndexType largestIdx = _db.numCells() + _db.numWellRects();
+    if (cellIdx1 >= largestIdx or cellIdx2 >= largestIdx) {
       return false;
     }
-    if (cellIdx2 >= _db.numCells()) {
+    const auto box1 = getCellOrWellBBoc(cellIdx1);
+    const auto box2 = getCellOrWellBBoc(cellIdx2);
+    auto overlapX = Box<LocType>::overlapX(box1, box2);
+    auto overlapY = Box<LocType>::overlapY(box1, box2);
+    if (overlapX <= 0 or overlapY <= 0) {
       return false;
     }
-    if (_db.cell(cellIdx1).isSelfSym() and _db.cell(cellIdx2).isSelfSym()) {
+    if (overlapY < overlapX) {
       return true;
     }
     return false;
@@ -71,7 +90,7 @@ void CGLegalizer::generateHorConstraints() {
 
   SweeplineConstraintGraphGenerator sweepline(_db, _hConstraints,
                                               _vConstraints);
-  sweepline.setExemptFunc(exemptSelfSymsFunc);
+  sweepline.setExemptFunc(exemptVerticalMoveFunc);
   if (_wellAware) {
     sweepline.openConsiderWell();
   }
@@ -108,6 +127,7 @@ BoolType CGLegalizer::areaDrivenCompaction() {
     return false;
   }
   this->generateVerConstraints();
+
   INF("CG legalizer: area-driven legalize vertical LP...\n");
   auto verSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
   if (verSolver.solve()) {
@@ -120,34 +140,40 @@ BoolType CGLegalizer::areaDrivenCompaction() {
 }
 
 BoolType CGLegalizer::wirelengthDrivenCompaction() {
-  // Find the fixed boundary for this step
-  findCellBoundary();
-  // Horizontal
-  //this->generateHorConstraints();
-  INF("CG legalizer: wirelength-driven detailed placement horizontal LP...\n");
-  auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
+  LocType hpwl = _db.hpwl();
+  LocType lastHpwl = LOC_TYPE_MAX;
+  do {
+    lastHpwl = hpwl;
+    // Find the fixed boundary for this step
+    findCellBoundary();
+    // Horizontal
+    this->generateHorConstraints();
+    INF("CG legalizer: wirelength-driven detailed placement horizontal LP...\n");
+    auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
 #ifdef DEBUG_LEGALIZE
-  DBG("wstar for width %f \n", _wStar);
+    DBG("wstar for width %f \n", _wStar);
 #endif
-  horSolver.setBoundary(_wStar);
-  bool horpass = horSolver.solve();
-  if (horpass) {
-    horSolver.exportSolution();
-  } else {
-    return false;
-  }
+    horSolver.setBoundary(_wStar);
+    bool horpass = horSolver.solve();
+    if (horpass) {
+      horSolver.exportSolution();
+    } else {
+      return false;
+    }
 
-  // Vertical
-  //this->generateVerConstraints();
-  INF("CG legalizer:  wirelength-driven detailed placement vertical LP...\n");
-  auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
-  verSolver.setBoundary(_hStar);
-  bool verpass = verSolver.solve();
-  if (verpass) {
-    verSolver.exportSolution();
-  } else {
-    return false;
-  }
+    // Vertical
+    this->generateVerConstraints();
+    INF("CG legalizer:  wirelength-driven detailed placement vertical LP...\n");
+    auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
+    verSolver.setBoundary(_hStar);
+    bool verpass = verSolver.solve();
+    if (verpass) {
+      verSolver.exportSolution();
+    } else {
+      return false;
+    }
+    hpwl = _db.hpwl();
+  } while (lastHpwl != hpwl);
 
 #ifdef DEBUG_LEGALIZE
 #ifdef DEBUG_DRAW

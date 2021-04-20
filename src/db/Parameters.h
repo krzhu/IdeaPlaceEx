@@ -104,6 +104,8 @@ public:
   RealType defaultWellWeight() const { return _defaultWellWeight; }
   /// @brief get whether the placer is in fast mode
   bool isFastMode() const { return _fastMode; }
+  /// @brief get the required spacing between PMOS boundary and n-well edge
+  LocType cellToWellEdgeSpacing() const { return _CellToWellEdgeSpacing; }
 
 private:
   Box<LocType> _boundaryConstraint =
@@ -130,6 +132,7 @@ private:
                                             ///< regular net
   RealType _defaultWellWeight; ///< The default weight for well operators
   bool _fastMode;              ///< Whether this is in fast mode
+  LocType _CellToWellEdgeSpacing; ///< The required spacing between cell boundary and well edge
 };
 
 PROJECT_NAMESPACE_END

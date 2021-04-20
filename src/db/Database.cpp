@@ -79,6 +79,51 @@ LocType Database::hpwlWithVitualPins() const {
   return hpwl;
 }
 
+LocType Database::findSymAxis() {
+#ifndef MULTI_SYM_GROUP
+  LocType axis = LOC_TYPE_MIN;
+#else
+  LocType axis = LOC_TYPE_MIN;
+  Assert(false);
+#endif
+  for (const auto &symGrp : _symGroups) {
+    if (symGrp.numSymPairs() == 0) {
+      break;
+    }
+    LocType symAxis;
+    for (IndexType symPairIdx = 0; symPairIdx < symGrp.numSymPairs();
+         ++symPairIdx) {
+      const auto &symPair = symGrp.symPair(symPairIdx);
+      symAxis = (cell(symPair.firstCell()).xCenter() +
+                 cell(symPair.secondCell()).xCenter()) /
+                2;
+      /*
+          ERR("Found sym. axis %d, cell %s at x= %d, cell %s at x= %d \n",
+         symAxis, cell(symPair.firstCell()).name().c_str(),
+         cell(symPair.firstCell()).xCenter(),
+                 cell(symPair.secondCell()).name().c_str(),
+         cell(symPair.secondCell()).xCenter()); const auto &cell1 =
+         cell(symPair.firstCell()); const auto &cell2 =
+         cell(symPair.secondCell()); DBG("cell1 xlo %d xcenter %d xhi %d, xlen
+         %d \n", cell1.xLo(), cell1.xCenter(), cell1.xHi(),
+         cell1.cellBBox().xLen()); DBG("cell2 xlo %d xcenter %d xhi %d, xlen %d
+         \n", cell2.xLo(), cell2.xCenter(), cell2.xHi(),
+         cell2.cellBBox().xLen());
+          */
+      break;
+    }
+    if (axis != LOC_TYPE_MIN) {
+      if (axis != symAxis) {
+        ERR("Check Symmetry: different sym axises! \n");
+        return false;
+      }
+    } else {
+      axis = symAxis;
+    }
+  }
+  return axis;
+}
+
 bool Database::checkSym() {
 #ifndef MULTI_SYM_GROUP
   LocType axis = LOC_TYPE_MIN;
@@ -126,11 +171,11 @@ bool Database::checkSym() {
       if (symAxis != (cell(symPair.firstCell()).xCenter() +
                       cell(symPair.secondCell()).xCenter()) /
                          2) {
-        ERR("Check Symmetry: symPair failed. axis %d, cell %s at x= %d, cell "
-            "%s at x= %d \n",
-            symAxis, cell(symPair.firstCell()).name().c_str(),
+        ERR("Check Symmetry: symPair failed. axis %d, cell %d %s at x= %d, cell "
+            "%d %s at x= %d \n",
+            symAxis, symPair.firstCell(), cell(symPair.firstCell()).name().c_str(),
             cell(symPair.firstCell()).xCenter(),
-            cell(symPair.secondCell()).name().c_str(),
+            symPair.secondCell(), cell(symPair.secondCell()).name().c_str(),
             cell(symPair.secondCell()).xCenter());
         const auto &cell1 = cell(symPair.firstCell());
         const auto &cell2 = cell(symPair.secondCell());

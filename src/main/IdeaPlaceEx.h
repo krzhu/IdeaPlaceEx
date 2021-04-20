@@ -36,6 +36,8 @@ public:
   /// @param the system arguments
   /// @return if the writing is successful
   bool outputFileBased(int argc, char **argv);
+  /// @brief end the placement, should not called together with solve()
+  LocType endPlace();
   /// @brief align the placement to grid
   /// @param grid stepsize
   LocType alignToGrid(LocType gridStepSize);
@@ -419,6 +421,7 @@ public:
     _db.drawCellBlocks(filename);
   }
 #endif
+  void crfSigPathStat();
 
 protected:
   Database _db; ///< The placement engine database

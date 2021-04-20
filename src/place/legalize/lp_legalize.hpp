@@ -354,14 +354,14 @@ namespace _lp_legalize_details {
                   lp._locs.at(symPair.firstCell()) + lp._locs.at(symPair.secondCell()) -
                           2 * (symVar) ==
                       -cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, symPair.firstCell())); // Two cells are equal in width <- assumption
-            for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms();
-                 ++selfSymIdx) {
-              IndexType ssCellIdx = symGrp.selfSym(selfSymIdx);
-              // x1 + width + x2 = 2 * symAxis
-              lp_type::lp_trait::addConstr(lp._solver,
-                                  2 * lp._locs.at(ssCellIdx) - 2 * (symVar) ==
-                                      - cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, ssCellIdx));
-            }
+          }
+          for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms();
+               ++selfSymIdx) {
+            IndexType ssCellIdx = symGrp.selfSym(selfSymIdx);
+            // x1 + width + x2 = 2 * symAxis
+            lp_type::lp_trait::addConstr(lp._solver,
+                                2 * lp._locs.at(ssCellIdx) - 2 * (symVar) ==
+                                    - cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, ssCellIdx));
           }
         }
       }
@@ -437,7 +437,8 @@ namespace _lp_legalize_details {
           if (sourceIdx == targetIdx) {
             continue;
           }
-          if (sourceIdx >= lp._db.numCells() or targetIdx >= lp._db.numCells()) {
+          const IndexType numCellAndRects = lp._db.numCells()  + lp._db.numWellRects();
+          if (sourceIdx >= numCellAndRects or targetIdx >= numCellAndRects) {
             // the s, t constraints
             continue;
           }
@@ -462,7 +463,8 @@ namespace _lp_legalize_details {
         using cell_loc_type = cell_loc_trait<typename lp_type::is_hor_type>;
         const Database &db = lp._db;
         IndexType locIdx = db.numCells(); // Loc starting from cells then wells
-        for (const auto &well : db.vWells()) {
+        for (IndexType wellIdx = 0; wellIdx < db.vWells().size(); ++wellIdx) {
+          const auto &well = db.well(wellIdx);
           Assert(well.rects().size() > 0);
           LocType firstRectLoc = cell_loc_type::getWellRectLL(well, 0);
           IndexType firstWellIdx = locIdx;

@@ -19,5 +19,6 @@ Parameters::Parameters() {
   _defaultRelativeRatioOfPowerNet = 0.2;
   _defaultWellWeight = 0.05;
   _fastMode = false;
+  _CellToWellEdgeSpacing = 0;
 }
 PROJECT_NAMESPACE_END

@@ -32,6 +32,8 @@ public:
   BoolType wirelengthDrivenCompaction();
   /// @brief compaction and preserve current coordinate relation
   BoolType preserveRelationCompaction(); 
+  /// @brief legalzie with-in well 
+  void legalizeWells();
   /// @brief close the well-aware functionality
   void closeWellAware() {
     _wellAware = false;

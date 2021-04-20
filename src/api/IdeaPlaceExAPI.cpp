@@ -15,6 +15,7 @@ void initIdeaPlaceExAPI(py::module &m) {
   py::class_<PROJECT_NAMESPACE::IdeaPlaceEx>(m, "IdeaPlaceEx")
       .def(py::init<>())
       .def("solve", &PROJECT_NAMESPACE::IdeaPlaceEx::solve, "Solve the problem")
+      .def("endPlace", &PROJECT_NAMESPACE::IdeaPlaceEx::endPlace, "End and wrapping up the placement, should not be used together with solve()")
       .def("initGlobalPlacer",
            &PROJECT_NAMESPACE::IdeaPlaceEx::initGlobalPlacer,
            "Initialize a global placer")

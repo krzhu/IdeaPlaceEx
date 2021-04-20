@@ -221,6 +221,7 @@ public:
     for (auto &cell : _cellArray) {
       cell.clearWell();
     }
+    _wellRectSize.clear();
   }
   void assignCellToWellAndRemoveUnusedWell();
   /// @brief split the well polygon into rectangles
@@ -290,6 +291,7 @@ public:
     }
   }
   bool checkSym();
+  LocType findSymAxis();
   /// @brief Move the layout so that everything is located >= 0
   void offsetLayout();
   /*------------------------------*/

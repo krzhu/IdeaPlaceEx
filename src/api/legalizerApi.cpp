@@ -21,5 +21,6 @@ void initLegalizerApi(py::module &m) {
       .def("wirelengthDrivenCompaction", &LEGAL::wirelengthDrivenCompaction, "Wirelength driven legalization")
       .def("openWellAware", &LEGAL::openWellAware, "Open well-aware legalization")
       .def("closeWellAware", &LEGAL::closeWellAware, "Close well-aware legalization")
+      .def("legalizeWells", &LEGAL::legalizeWells, "Legalize the wells")
       ;
 }

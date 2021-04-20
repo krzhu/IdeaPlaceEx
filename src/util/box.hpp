@@ -143,6 +143,8 @@ public:
   static bool bOnBoundaryR(const Box &box, const Point<T> &pt);
   static bool bOnBoundaryB(const Box &box, const Point<T> &pt);
   static bool bOnBoundaryT(const Box &box, const Point<T> &pt);
+  static T overlapX(const Box &box1, const Box &box2);
+  static T overlapY(const Box &box1, const Box &box2);
   static T overlapArea(const Box &box1, const Box &box2);
   static void intersection(const Box &box1, const Box &box2,
                            std::vector<Box> &result);
@@ -596,6 +598,21 @@ bool Box<T>::bConnect(const Box<T> &box, const Point<T> &pt) {
   return (pt.x() >= box.xl() && pt.x() <= box.xh() && pt.y() >= box.yl() &&
           pt.y() <= box.yh());
 }
+
+template <typename T>
+T Box<T>::overlapX(const Box<T> &box1, const Box<T> &box2) {
+  T overlapH = std::min(box1._tr.x(), box2._tr.x()) -
+               std::max(box1._bl.x(), box2._bl.x());
+  return std::max(overlapH, 0);
+}
+
+template <typename T>
+T Box<T>::overlapY(const Box<T> &box1, const Box<T> &box2) {
+  T overlapV = std::min(box1._tr.y(), box2._tr.y()) -
+               std::max(box1._bl.y(), box2._bl.y());
+  return std::max(overlapV, 0);
+}
+
 
 template <typename T>
 T Box<T>::overlapArea(const Box<T> &box1, const Box<T> &box2) {

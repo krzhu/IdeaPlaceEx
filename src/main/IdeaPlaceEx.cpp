@@ -189,12 +189,47 @@ LocType IdeaPlaceEx::solve(LocType gridStep) {
   INF("Ideaplace: Assigning IO pin...\n");
   VirtualPinAssigner pinAssigner(_db);
   pinAssigner.solveFromDB();
-  INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
-  INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins());
   LocType symAxis(0);
 
   // Restore proxmity group
   _proximityMgr.restore();
+
+  INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
+  INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins());
+
+  _db.checkSym();
+
+  // if (gridStep > 0)
+  if (0) {
+    INF("Ideaplace: Aligning the placement to grid...\n");
+    symAxis = alignToGrid(gridStep);
+  } else {
+    symAxis = alignToGrid(1);
+  }
+
+#ifdef DEBUG_GR
+#ifdef DEBUG_DRAW
+  _db.drawCellBlocks("./debug/after_evertt.gds");
+#endif // DEBUG_DRAW
+#endif
+
+
+  return symAxis;
+}
+
+LocType IdeaPlaceEx::endPlace() {
+  // Restore proxmity group
+  _proximityMgr.restore();
+
+  INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
+  INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins());
+
+
+  return _db.findSymAxis();
+
+}
+
+void IdeaPlaceEx::crfSigPathStat() {
 
   // stats for sigpath current path
   LocType sigHpwl = 0;
@@ -224,25 +259,6 @@ LocType IdeaPlaceEx::solve(LocType gridStep) {
     }
   }
   INF("\n\n\nOVERFLOW: crf %d \n HPWL: path %d \n \n\n", crfOverflow, sigHpwl);
-
-  _db.checkSym();
-
-  // if (gridStep > 0)
-  if (0) {
-    INF("Ideaplace: Aligning the placement to grid...\n");
-    symAxis = alignToGrid(gridStep);
-  } else {
-    symAxis = alignToGrid(1);
-  }
-
-#ifdef DEBUG_GR
-#ifdef DEBUG_DRAW
-  _db.drawCellBlocks("./debug/after_evertt.gds");
-#endif // DEBUG_DRAW
-#endif
-
-
-  return symAxis;
 }
 
 bool IdeaPlaceEx::outputFileBased(int, char **) { return true; }
