@@ -197,14 +197,7 @@ struct nlp_default_settings {
 
 namespace _nlp_details {
 
-template <typename fence_type> struct construct_fence_type_trait {
-  static fence_type constructFenceOperator(
-      IndexType, typename fence_type::NumType, const Cell &, const Well &,
-      const std::function<typename fence_type::CoordType(void)> &,
-      const std::function<typename fence_type::NumType(void)> &) {
-    return fence_type();
-  }
-};
+template <typename fence_type> struct construct_fence_type_trait {};
 
 template <typename nlp_numerical_type, typename nlp_coordinate_type>
 struct construct_fence_type_trait<
@@ -233,6 +226,25 @@ struct construct_fence_type_trait<
         cellIdx, cell.cellBBox().xLen() * scale, cell.cellBBox().yLen() * scale,
         boxes, getAlphaFunc, getLambdaFunc);
   }
+  template<typename nlp_type>
+    static void construct_operators(nlp_type &nlp,
+      const std::function<nlp_numerical_type(void)> &getAlphaFunc,
+      const std::function<nlp_numerical_type(void)> &getLambdaFunc,
+      const std::function<nlp_coordinate_type(IndexType, Orient2DType)> getVarFunc
+      ) {
+      for (const auto &well : nlp._db.vWells()) {
+        for (IndexType cellIdx : well.sCellIds()) {
+          nlp._fenceOps.emplace_back(
+              _nlp_details::construct_fence_type_trait<
+                  typename nlp_type::nlp_fence_type>::constructFenceOperator(cellIdx, nlp._scale,
+                                                          nlp._db.cell(cellIdx), well,
+                                                          getAlphaFunc,
+                                                          getLambdaFunc));
+          nlp._fenceOps.back().setGetVarFunc(getVarFunc);
+          nlp._fenceOps.back().setWeight(nlp._db.parameters().defaultWellWeight());
+        }
+      }
+    }
 };
 
 template<typename fence_type> struct reinit_well_trait {};
@@ -377,6 +389,10 @@ public:
   typedef typename nlp_zero_order_algorithms::mult_type mult_type;
   typedef nlp::outer_multiplier::multiplier_trait<mult_type> mult_trait;
   friend mult_trait;
+
+
+  /* Implementation details */
+  friend _nlp_details::construct_fence_type_trait<nlp_fence_type>;
 
 public:
   explicit NlpGPlacerBase(Database &db) : _db(db) {}
@@ -604,6 +620,7 @@ public:
 
   /* Implementation details */
   friend _nlp_details::reinit_well_trait<nlp_fence_type>;
+  friend _nlp_details::construct_fence_type_trait<nlp_fence_type>;
 
   NlpGPlacerFirstOrder(Database &db) : NlpGPlacerBase<nlp_settings>(db) {}
   void writeoutCsv() {

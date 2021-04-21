@@ -371,18 +371,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators() {
   }
 
   // fence region
-  for (const auto &well : _db.vWells()) {
-    for (IndexType cellIdx : well.sCellIds()) {
-      _fenceOps.emplace_back(
-          _nlp_details::construct_fence_type_trait<
-              nlp_fence_type>::constructFenceOperator(cellIdx, _scale,
-                                                      _db.cell(cellIdx), well,
-                                                      getAlphaFunc,
-                                                      getLambdaFunc));
-      _fenceOps.back().setGetVarFunc(getVarFunc);
-      _fenceOps.back().setWeight(_db.parameters().defaultWellWeight());
-    }
-  }
+  _nlp_details::construct_fence_type_trait<nlp_fence_type>::construct_operators(*this, getAlphaFunc, getLambdaFunc, getVarFunc);
 
   INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob "
       "%d asym %d sigFlow %d power %d crf %d fence %d\n",
