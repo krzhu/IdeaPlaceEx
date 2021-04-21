@@ -235,6 +235,100 @@ struct construct_fence_type_trait<
   }
 };
 
+template<typename fence_type> struct reinit_well_trait {};
+
+template <typename nlp_numerical_type, typename nlp_coordinate_type>
+struct reinit_well_trait<
+    diff::FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type,
+    nlp_coordinate_type>> {
+
+    template<typename nlp_type> 
+      static void reinit_well_operators(nlp_type &nlp) {
+        nlp._fenceOps.clear();
+        nlp._ovlOps.resize(nlp._numCellOvlOps);
+        auto getVarFunc = [&](IndexType cellIdx, Orient2DType orient) {
+#ifdef MULTI_SYM_GROUP
+          return _pl(plIdx(cellIdx, orient));
+#else
+          if (orient == Orient2DType::NONE) {
+            return nlp._defaultSymAxis;
+          }
+          return nlp._pl(nlp.plIdx(cellIdx, orient));
+#endif
+        };
+
+        auto getFenceAlphaFunc = nlp_type::alpha_trait::fenceGetAlphaFunc(*nlp._alpha);
+        auto getFenceLambdaFunc = nlp_type::mult_trait::fenceGetLambdaFunc(*nlp._multiplier);
+        auto getOvlAlphaFunc = nlp_type::alpha_trait::fenceGetAlphaFunc(*nlp._alpha);
+        auto getOvlLambdaFunc = nlp_type::mult_trait::fenceGetLambdaFunc(*nlp._multiplier);
+
+        if (not nlp._hasInitFirstOrderOuterProblem) {
+          // Before init first order outer problem
+          // The alpha, lambda have not been constructed
+          // Just use naive values
+          getFenceAlphaFunc = [&]() { return 1.0; };
+          getFenceLambdaFunc = [&]() { return  1.0; };
+          getOvlAlphaFunc = [&](){ return 1.0; };
+          getOvlLambdaFunc = [&]() { return  1.0; };
+
+        }
+
+        // Pair-wise well-to-cell overlapping
+        if (nlp._useWellCellOvl) {
+          for (IndexType wellIdx = 0; wellIdx < nlp._db.vWells().size();
+               ++wellIdx) {
+            const auto &well = nlp._db.vWells().at(wellIdx);
+            std::vector<Box<typename nlp_type::base_type::nlp_coordinate_type>>
+                boxes; // Splited polygon
+            std::vector<Box<LocType>> boxesUnScaled;
+            if (not klib::convertPolygon2Rects(well.shape().outer(), boxesUnScaled)) {
+              ERR("NlpGPlacer:: cannot split well polygon! \n");
+              Assert(false);
+            }
+            for (const auto &box : boxesUnScaled) {
+              boxes.emplace_back(
+                  Box<typename nlp_type::base_type::nlp_coordinate_type>(
+                  (box.xLo()  - box.xLen() / 2)* nlp._scale, (box.yLo() - box.yLen() / 2)* nlp._scale,
+                  (box.xHi()  + box.xLen() / 2)* nlp._scale, (box.yHi() + box.yLen() / 2)* nlp._scale));
+            }
+            for (IndexType cellIdx = 0; cellIdx < nlp._db.numCells();
+                 ++cellIdx) {
+              if (well.sCellIds().find(cellIdx) == well.sCellIds().end()) {
+                const auto cellBBox = nlp._db.cell(cellIdx).cellBBox();
+                for (const auto &wellBox : boxes) {
+                  nlp._ovlOps.emplace_back(
+                      typename nlp_type::nlp_ovl_type(cellIdx, cellBBox.xLen() * nlp._scale,
+                                   cellBBox.yLen() * nlp._scale,
+                                   666666, // Doesn't matter
+                                   wellBox.xLen(), wellBox.yLen(), getOvlAlphaFunc,
+                                   getOvlLambdaFunc));
+                  nlp._ovlOps.back().configConsiderOnlyOneCell(wellBox.xLo(),
+                                                                      wellBox.yLo());
+                  nlp._ovlOps.back().setGetVarFunc(getVarFunc);
+                  nlp._ovlOps.back().setWeight(nlp._db.parameters().defaultWellWeight());
+                }
+              }
+            }
+          }
+        }
+        for (const auto &well : nlp._db.vWells()) {
+          for (IndexType cellIdx : well.sCellIds()) {
+            nlp._fenceOps.emplace_back(
+                _nlp_details::construct_fence_type_trait<typename nlp_type::nlp_fence_type>::
+                    constructFenceOperator(cellIdx, nlp._scale,
+                                           nlp._db.cell(cellIdx), well,
+                                           getFenceAlphaFunc, getFenceLambdaFunc));
+            nlp._fenceOps.back().setGetVarFunc(getVarFunc);
+            nlp._fenceOps.back().setWeight(
+                nlp._db.parameters().defaultWellWeight());
+          }
+        }
+
+        // Re-construct tasks
+        nlp.clearTasks();
+        nlp.constructTasks();
+      }
+};
 } // namespace _nlp_details
 
 /// @brief non-linear programming-based analog global placement
@@ -507,6 +601,9 @@ public:
   typedef nlp::alpha::update::alpha_update_trait<alpha_update_type>
       alpha_update_trait;
   template <typename T> friend struct nlp::alpha::update::alpha_update_trait;
+
+  /* Implementation details */
+  friend _nlp_details::reinit_well_trait<nlp_fence_type>;
 
   NlpGPlacerFirstOrder(Database &db) : NlpGPlacerBase<nlp_settings>(db) {}
   void writeoutCsv() {

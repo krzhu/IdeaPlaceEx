@@ -217,36 +217,6 @@ void NlpGPlacerBase<nlp_settings>::initOperators() {
     }
   }
   _numCellOvlOps = _ovlOps.size();
-  // Pair-wise well-to-cell overlapping
-  for (IndexType wellIdx = 0; wellIdx < _db.vWells().size(); ++wellIdx) {
-    const auto &well = _db.vWells().at(wellIdx);
-    std::vector<Box<nlp_coordinate_type>> boxes; // Splited polygon
-    std::vector<Box<LocType>> boxesUnScaled;
-    if (not klib::convertPolygon2Rects(well.shape().outer(), boxesUnScaled)) {
-      ERR("NlpGPlacer:: cannot split well polygon! \n");
-      Assert(false);
-    }
-    for (const auto &box : boxesUnScaled) {
-      boxes.emplace_back(
-          Box<nlp_coordinate_type>((box.xLo() - box.xLen() / 2 )* _scale, (box.yLo() - box.yLen() / 2 )* _scale,
-                                   (box.xHi() + box.xLen() / 2 )* _scale, (box.yHi() + box.yLen() / 2)* _scale));
-    }
-    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
-      if (well.sCellIds().find(cellIdx) == well.sCellIds().end()) {
-        const auto cellBBox = _db.cell(cellIdx).cellBBox();
-        for (const auto &wellBox : boxes) {
-          _ovlOps.emplace_back(nlp_ovl_type(
-              cellIdx, cellBBox.xLen() * _scale, cellBBox.yLen() * _scale,
-              666666, // Doesn't matter
-              wellBox.xLen(), wellBox.yLen(), getAlphaFunc, getLambdaFunc));
-          _ovlOps.back().configConsiderOnlyOneCell(wellBox.xLo(),
-                                                   wellBox.yLo());
-          _ovlOps.back().setGetVarFunc(getVarFunc);
-          _ovlOps.back().setWeight(_db.parameters().defaultWellWeight());
-        }
-      }
-    }
-  }
   // Out of boundary
   for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
     if (not _db.parameters().isBoundaryConstraintSet()) {
@@ -773,89 +743,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::prepareWellAwarePlace() {
 
 template <typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::reinitWellOperators() {
-  base_type::_fenceOps.clear();
-  base_type::_ovlOps.resize(base_type::_numCellOvlOps);
-  auto getVarFunc = [&](IndexType cellIdx, Orient2DType orient) {
-#ifdef MULTI_SYM_GROUP
-    return _pl(plIdx(cellIdx, orient));
-#else
-    if (orient == Orient2DType::NONE) {
-      return base_type::_defaultSymAxis;
-    }
-    return base_type::_pl(base_type::plIdx(cellIdx, orient));
-#endif
-  };
-
-  auto getFenceAlphaFunc = alpha_trait::fenceGetAlphaFunc(*_alpha);
-  auto getFenceLambdaFunc = mult_trait::fenceGetLambdaFunc(*_multiplier);
-  auto getOvlAlphaFunc = alpha_trait::fenceGetAlphaFunc(*_alpha);
-  auto getOvlLambdaFunc = mult_trait::fenceGetLambdaFunc(*_multiplier);
-
-  if (not _hasInitFirstOrderOuterProblem) {
-    // Before init first order outer problem
-    // The alpha, lambda have not been constructed
-    // Just use naive values
-    getFenceAlphaFunc = [&]() { return 1.0; };
-    getFenceLambdaFunc = [&]() { return  1.0; };
-    getOvlAlphaFunc = [&](){ return 1.0; };
-    getOvlLambdaFunc = [&]() { return  1.0; };
-
-  }
-
-  // Pair-wise well-to-cell overlapping
-  if (_useWellCellOvl) {
-    for (IndexType wellIdx = 0; wellIdx < base_type::_db.vWells().size();
-         ++wellIdx) {
-      const auto &well = base_type::_db.vWells().at(wellIdx);
-      std::vector<Box<typename base_type::nlp_coordinate_type>>
-          boxes; // Splited polygon
-      std::vector<Box<LocType>> boxesUnScaled;
-      if (not klib::convertPolygon2Rects(well.shape().outer(), boxesUnScaled)) {
-        ERR("NlpGPlacer:: cannot split well polygon! \n");
-        Assert(false);
-      }
-      for (const auto &box : boxesUnScaled) {
-        boxes.emplace_back(
-            Box<typename base_type::nlp_coordinate_type>(
-            (box.xLo()  - box.xLen() / 2)* base_type::_scale, (box.yLo() - box.yLen() / 2)* base_type::_scale,
-            (box.xHi()  + box.xLen() / 2)* base_type::_scale, (box.yHi() + box.yLen() / 2)* base_type::_scale));
-      }
-      for (IndexType cellIdx = 0; cellIdx < base_type::_db.numCells();
-           ++cellIdx) {
-        if (well.sCellIds().find(cellIdx) == well.sCellIds().end()) {
-          const auto cellBBox = base_type::_db.cell(cellIdx).cellBBox();
-          for (const auto &wellBox : boxes) {
-            base_type::_ovlOps.emplace_back(
-                nlp_ovl_type(cellIdx, cellBBox.xLen() * base_type::_scale,
-                             cellBBox.yLen() * base_type::_scale,
-                             666666, // Doesn't matter
-                             wellBox.xLen(), wellBox.yLen(), getOvlAlphaFunc,
-                             getOvlLambdaFunc));
-            base_type::_ovlOps.back().configConsiderOnlyOneCell(wellBox.xLo(),
-                                                                wellBox.yLo());
-            base_type::_ovlOps.back().setGetVarFunc(getVarFunc);
-            base_type::_ovlOps.back().setWeight(base_type::_db.parameters().defaultWellWeight());
-          }
-        }
-      }
-    }
-  }
-  for (const auto &well : base_type::_db.vWells()) {
-    for (IndexType cellIdx : well.sCellIds()) {
-      base_type::_fenceOps.emplace_back(
-          _nlp_details::construct_fence_type_trait<nlp_fence_type>::
-              constructFenceOperator(cellIdx, base_type::_scale,
-                                     base_type::_db.cell(cellIdx), well,
-                                     getFenceAlphaFunc, getFenceLambdaFunc));
-      base_type::_fenceOps.back().setGetVarFunc(getVarFunc);
-      base_type::_fenceOps.back().setWeight(
-          base_type::_db.parameters().defaultWellWeight());
-    }
-  }
-
-  // Re-construct tasks
-  clearTasks();
-  constructTasks();
+  _nlp_details::reinit_well_trait<nlp_fence_type>::reinit_well_operators(*this);
 }
 
 template <typename nlp_settings>
