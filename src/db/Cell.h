@@ -52,6 +52,20 @@ public:
     return _shape == w._shape and _sCellIds == w._sCellIds;
   }
 
+  Box<LocType> boundingBox() const {
+    LocType xmin = LOC_TYPE_MAX;
+    LocType ymin = LOC_TYPE_MAX;
+    LocType xmax = LOC_TYPE_MIN;
+    LocType ymax = LOC_TYPE_MIN;
+    for (const auto& pt : _shape.outer()) {
+      xmin = std::min(pt.x(), xmin);
+      xmax = std::max(pt.x(), xmax);
+      ymin = std::min(pt.y(), ymin);
+      ymax = std::max(pt.y(), ymax);
+    }
+    return Box<LocType>(xmin, ymin, xmax, ymax);
+  }
+
   // debug
   void printInfo() const {
     std::cout << "WELL " << _idx << " " << _name << " ";

@@ -24,5 +24,6 @@ void initGPlacerApi(py::module &m) {
       .def("meetStopCondition", &GP::meetStopCondition, "Whether the GPlacer meet its stop condition")
       .def("openUseWellCellOvl", &GP::openUseWellCellOvl, "Open cell to well overlap cost")
       .def("closeUseWellCellOvl", &GP::closeUseWellCellOvl, "close cell to well overlap cost")
+      .def("debug", &GP::debug)
       ;
 }

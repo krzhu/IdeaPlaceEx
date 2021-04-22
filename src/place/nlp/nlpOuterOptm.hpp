@@ -166,6 +166,7 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
         return false;
       }
     }
+#if 0
     // Check whether out of fence region area is smaller than threshold
     CoordType outFenceArea = 0.0;
     CoordType inWellCellArea = 0.0;
@@ -180,6 +181,7 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
 #endif
       return false;
     }
+#endif
 
 #ifdef DEBUG_GR
     DBG("ovl area %f target %f \n oob area %f target %f \n asym dist %f target "

@@ -33,7 +33,6 @@ void WellLegalizer::legalizeCellEdgeSpacing() {
     Assert(polyVec.size() == 1);
     well.setShape(polyVec[0].outer());
   }
-  _db.drawCellBlocks("./debug/well.gds");
 }
 
 PROJECT_NAMESPACE_END

@@ -79,7 +79,7 @@ struct converge_criteria_trait<converge_criteria_max_iter<max_iter>> {
 
 template <typename nlp_numerical_type> struct converge_grad_norm_by_init {
   nlp_numerical_type confidenceRatio =
-      0.1; ///< stop if the norm reduce to this ratio of the init
+      1e-7; ///< stop if the norm reduce to this ratio of the init
   nlp_numerical_type initNorm = -1.0;
 };
 

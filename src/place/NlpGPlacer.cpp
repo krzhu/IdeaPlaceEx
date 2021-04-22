@@ -674,9 +674,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize() {
 
   initFirstOrderOuterProblem();
 
-  IntType iter = 0;
   do {
-    INF("First order NLP: iter %d \n", iter);
+    INF("First order NLP: iter %d \n", _iter);
 
     optm_trait::optimize(*this, _optm);
     mult_trait::update(*this, *_multiplier);
@@ -694,7 +693,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::optimize() {
     this->drawCurrentLayout("debug/debug_gp.gds");
 #endif
 #endif
-    ++iter;
+    ++_iter;
   } while (not base_type::stop_condition_trait::stopPlaceCondition(
       *this, this->_stopCondition));
   this->writeLocs();
@@ -709,6 +708,11 @@ void NlpGPlacerFirstOrder<nlp_settings>::stepOptmIter() {
   mult_trait::recordRaw(*this, *_multiplier);
   mult_adjust_trait::update(*this, *_multiplier, *_multAdjuster);
   alpha_update_trait::update(*this, *_alpha, *_alphaUpdate);
+  DBG("%s New iter %d\n", __FUNCTION__, _iter);
+  if (_iter == 5) {
+    assert(0);
+  }
+  ++_iter;
 }
 
 template <typename nlp_settings>

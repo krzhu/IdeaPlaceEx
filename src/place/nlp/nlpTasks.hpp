@@ -124,7 +124,7 @@ class CalculateOperatorPartialTask;
 template <typename nlp_op_type, typename eigen_vector_type>
 class UpdateGradientFromPartialTask {
   typedef typename nlp_op_type::numerical_type nlp_numerical_type;
-  typedef typename nlp_op_type::coordinate_type nlp_coordiante_type;
+  typedef typename nlp_op_type::coordinate_type nlp_coordinate_type;
   typedef eigen_vector_type EigenVector;
 
 public:
@@ -235,7 +235,7 @@ template <typename op_type, typename eigen_vector_type>
 class CalculateOperatorPartialTask {
   typedef op_type nlp_op_type;
   typedef typename nlp_op_type::numerical_type nlp_numerical_type;
-  typedef typename nlp_op_type::coordinate_type nlp_coordiante_type;
+  typedef typename nlp_op_type::coordinate_type nlp_coordinate_type;
   typedef eigen_vector_type EigenVector;
   friend UpdateGradientFromPartialTask<nlp_op_type, eigen_vector_type>;
   friend calc_operator_partial_build_cellmap_trait<nlp_op_type>;
@@ -501,6 +501,30 @@ struct calc_operator_partial_build_cellmap_trait<
   }
 };
 
+template <typename nlp_numerical_type, typename nlp_coordinate_type>
+struct calc_operator_partial_build_cellmap_trait<
+    diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
+                                                     nlp_coordinate_type>> {
+  typedef diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
+                                                           nlp_coordinate_type>
+      nlp_op_type;
+  template <typename calc_type>
+  static void build(nlp_op_type &op, calc_type &calc) {
+    const IndexType numInCells = op._inFenceCellIdx.size(); 
+    const IndexType numOutCells = op._outFenceCellIdx.size(); 
+    calc._numCells = numInCells + numOutCells; 
+    calc._inverseCellMap.resize(calc._numCells);
+    for (IndexType idx = 0; idx < numInCells; ++idx) {
+      calc._cellMap[op._inFenceCellIdx[idx]] = idx;
+      calc._inverseCellMap[idx] = op._inFenceCellIdx[idx];
+    }
+    for (IndexType idx = 0; idx < numOutCells; ++idx) {
+      calc._cellMap[op._outFenceCellIdx[idx]] = idx + numInCells;
+      calc._inverseCellMap[idx + numInCells] = op._outFenceCellIdx[idx];
+    }
+  }
+};
+
 } // namespace nt
 
 namespace nt {
@@ -510,7 +534,7 @@ template <typename op_type, typename hessian_type, typename Matrix,
 class CalculateOperatorHessianTask {
   typedef op_type nlp_op_type;
   typedef typename nlp_op_type::numerical_type nlp_numerical_type;
-  typedef typename nlp_op_type::coordinate_type nlp_coordiante_type;
+  typedef typename nlp_op_type::coordinate_type nlp_coordinate_type;
   friend calc_operator_partial_build_cellmap_trait<nlp_op_type>;
   static constexpr IntType MAX_NUM_CELLS = IDEAPLACE_DEFAULT_MAX_NUM_CELLS;
 

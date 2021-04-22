@@ -19,9 +19,9 @@ template <typename optm_type> struct optm_trait {};
 namespace first_order {
 /// @brief Naive gradient descent. It will stop if maxIter reaches or the
 /// improvement
-template <typename converge_criteria_type> struct naive_gradient_descent {
+template <typename converge_criteria_type, typename nlp_numerical_type> struct naive_gradient_descent {
   typedef converge_criteria_type converge_type;
-  static constexpr RealType _stepSize = 0.001;
+  static constexpr nlp_numerical_type _stepSize = 0.0003;
   converge_criteria_type _converge;
 };
 /// @brief adam
@@ -29,7 +29,7 @@ template <typename converge_criteria_type, typename nlp_numerical_type>
 struct adam {
   typedef converge_criteria_type converge_type;
   converge_criteria_type _converge;
-  static constexpr nlp_numerical_type alpha = 0.003;
+  static constexpr nlp_numerical_type alpha = 0.0003;
   static constexpr nlp_numerical_type beta1 = 0.9;
   static constexpr nlp_numerical_type beta2 = 0.999;
   static constexpr nlp_numerical_type epsilon = 1e-8;
@@ -44,9 +44,9 @@ struct nesterov {
   static constexpr nlp_numerical_type eta = 0.003;
 };
 } // namespace first_order
-template <typename converge_criteria_type>
-struct optm_trait<first_order::naive_gradient_descent<converge_criteria_type>> {
-  typedef first_order::naive_gradient_descent<converge_criteria_type> optm_type;
+template <typename converge_criteria_type, typename nlp_numerical_type>
+struct optm_trait<first_order::naive_gradient_descent<converge_criteria_type, nlp_numerical_type>> {
+  typedef first_order::naive_gradient_descent<converge_criteria_type, nlp_numerical_type> optm_type;
   typedef typename optm_type::converge_type converge_type;
   typedef nlp::converge::converge_criteria_trait<converge_type> converge_trait;
   template <typename nlp_type,
@@ -87,7 +87,7 @@ struct optm_trait<
     v.resize(numVars);
     v.setZero();
     IndexType iter = 0;
-    IndexType targetIter = 100;
+    IndexType targetIter = 99999999;
     if (n._db.parameters().isFastMode()) {
       targetIter = 30;
     }
@@ -101,24 +101,26 @@ struct optm_trait<
       auto mt = m / (1 - pow(o.beta1, iter));
       auto vt = v / (1 - pow(o.beta2, iter));
       auto bot = vt.array().sqrt() + o.epsilon;
-      if (iter > targetIter) {
+      if (iter < targetIter) {
         n._pl = n._pl - o.alpha * (mt.array() / bot).matrix();
       } else {
         n._pl -= optm_type::naiveGradientDescentStepSize * n._grad;
       }
 
       // n.calcObj();
-      // DBG("norm %f \n", n._grad.norm());
+      if (iter == 1) {
+         DBG(" init norm %f \n", n._grad.norm());
+      }
       // DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj,
       // n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
     } while (!converge_trait::stopCriteria(n, o, o._converge));
     n.calcObj();
-#ifdef DEBUG_GR
-    DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj, n._objHpwl,
-        n._objCos, n._objOvl, n._objOob, n._objAsym);
+//#ifdef DEBUG_GR
+    DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f fence %f \n", n._obj, n._objHpwl,
+        n._objCos, n._objOvl, n._objOob, n._objAsym, n._objFence);
     DBG("gradient norm %f \n", n._grad.norm());
     DBG("converge at iter %d \n", iter);
-#endif
+//#endif
   }
 };
 

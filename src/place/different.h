@@ -9,6 +9,9 @@
 #define IDEAPLACE_DIFFERENT_H_
 
 #include "db/Database.h"
+#include "well_approximation.hpp"
+
+#include <complex>
 
 PROJECT_NAMESPACE_BEGIN
 
@@ -83,6 +86,18 @@ template <typename LhsType, typename _RhsType>
 constexpr LhsType conv(_RhsType rhs) {
   return _conv_details::_conv_t<
       LhsType, _RhsType, std::is_same<LhsType, _RhsType>::value>::_conv(rhs);
+}
+
+inline double realerf(double in) {
+  return std::erf(in);
+}
+
+
+inline double realerf(std::complex<double> in) {
+  return std::erf(std::real(in));
+}
+inline float realerf(std::complex<float> in) {
+  return std::erf(std::real(in));
 }
 }; // namespace op
 
@@ -1341,12 +1356,12 @@ template <typename op_type> struct place_fence_trait {
   static coordinate_type outFenceRegionArea(op_type &fence);
 };
 
-template <typename nlp_numerical_type, typename nlp_coordiante_type>
+template <typename nlp_numerical_type, typename nlp_coordinate_type>
 struct place_fence_trait<FenceReciprocalOverlapSumBoxDifferentiable<
-    nlp_numerical_type, nlp_coordiante_type>> {
-  typedef nlp_coordiante_type coordinate_type;
+    nlp_numerical_type, nlp_coordinate_type>> {
+  typedef nlp_coordinate_type coordinate_type;
   typedef FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type,
-                                                     nlp_coordiante_type>
+                                                     nlp_coordinate_type>
       op_type;
   static coordinate_type outFenceRegionArea(op_type &fence) {
     const coordinate_type cellWidth = fence._cellWidth;
@@ -1375,6 +1390,147 @@ struct place_fence_trait<FenceReciprocalOverlapSumBoxDifferentiable<
                         // each splitted box
   }
 };
+
+
+/// @brief Model fence region penalty as a.
+/// it first slices the polygon into rectangles, and
+/// the cost is overlapping the sum of overlapping area of the cell and each
+/// rectangle
+template <typename NumType, typename CoordType>
+struct FenceBivariateGaussianDifferentiable {
+  typedef NumType numerical_type;
+  typedef CoordType coordinate_type;
+
+  FenceBivariateGaussianDifferentiable(
+      const std::vector<IndexType> &inFenceCellIdx,
+      const std::vector<IndexType> &outFenceCellIdx,
+      const std::vector<CoordType> &inFenceCellWidths,
+      const std::vector<CoordType> &inFenceCellHeights,
+      const std::vector<CoordType> &outFenceCellWidths,
+      const std::vector<CoordType> &outFenceCellHeights,
+      const std::function<NumType(void)> &getLambdaFunc) 
+  : _inFenceCellIdx(inFenceCellIdx),_outFenceCellIdx(outFenceCellIdx),  
+  _inFenceCellWidths(inFenceCellWidths), _inFenceCellHeights(inFenceCellHeights),
+  _outFenceCellWidths(outFenceCellWidths), _outFenceCellHeights(outFenceCellHeights),
+  _getLambdaFunc(getLambdaFunc) {
+    _getLambdaFunc = getLambdaFunc;
+    Assert(inFenceCellIdx.size() == inFenceCellWidths.size());
+    Assert(inFenceCellIdx.size() == inFenceCellHeights.size());
+    Assert(outFenceCellIdx.size() == outFenceCellWidths.size());
+    Assert(outFenceCellIdx.size() == outFenceCellHeights.size());
+  }
+
+  void setGetVarFunc(
+      const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) {
+    _getVarFunc = getVarFunc;
+  }
+  void setAccumulateGradFunc(
+      const std::function<void(NumType, IndexType, Orient2DType)> &func) {
+    _accumulateGradFunc = func;
+  }
+  void setGetAlphaFunc(const std::function<NumType(void)> &) {
+    // Intentionally left blank
+  }
+
+  NumType evaluate() const;
+  void accumlateGradient() const;
+
+
+  std::vector<BivariateGaussianParameters<NumType>> _gaussianParameters;
+  std::vector<IndexType> _inFenceCellIdx;
+  std::vector<IndexType> _outFenceCellIdx;
+  std::vector<CoordType> _inFenceCellWidths;
+  std::vector<CoordType> _inFenceCellHeights;
+  std::vector<CoordType> _outFenceCellWidths;
+  std::vector<CoordType> _outFenceCellHeights;
+  std::function<NumType(void)>
+      _getLambdaFunc; ///< A function to get the current lambda multiplier
+  std::function<CoordType(IndexType cellIdx, Orient2DType orient)>
+      _getVarFunc; ///< A function to get current variable value
+  std::function<void(NumType, IndexType, Orient2DType)>
+      _accumulateGradFunc; ///< A function to update partial
+  static constexpr NumType tol = 1.0; ///< In fence use tol - integral(PDF) as cost
+  BoolType _considerOutFenceCells = false; ///< Wether calculate the cost for out of the fence cost
+  static constexpr NumType sqrt2 = 1.41421356237;
+  NumType _weight = 1.0;
+};
+
+template <typename NumType, typename CoordType>
+inline NumType
+FenceBivariateGaussianDifferentiable<NumType, CoordType>::evaluate()
+    const {
+      std::vector<NumType> costOut;
+      costOut.resize(_inFenceCellIdx.size(), 0);
+      const NumType lambda = _getLambdaFunc();
+#pragma omp parallel for schedule(static)
+      for (IndexType idx = 0; idx < _inFenceCellIdx.size(); ++idx) {
+        IndexType cellIdx = _inFenceCellIdx[idx];
+        const NumType xLo =
+            op::conv<NumType>(_getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+        const NumType width = op::conv<NumType>(_inFenceCellWidths[idx]);
+        const NumType yLo =
+            op::conv<NumType>(_getVarFunc(cellIdx, Orient2DType::VERTICAL));
+        const NumType height = op::conv<NumType>(_inFenceCellHeights[idx]);
+        for (IndexType gauIdx = 0; gauIdx < _gaussianParameters.size(); ++gauIdx) {
+          const NumType muX = _gaussianParameters[gauIdx].muX;
+          const NumType muY = _gaussianParameters[gauIdx].muY;
+          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX;
+          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
+          const NumType normalize =_gaussianParameters[gauIdx].normalize;
+          // Calculate cost
+          std::complex<NumType> complexCost = (normalize*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
+          complexCost /= (width * height);
+
+          costOut[idx] += lambda * (tol  - std::real(complexCost) ) * _weight;
+        }
+      }
+      if (not _considerOutFenceCells) {
+        return std::accumulate(costOut.begin(), costOut.end(), 0.0);
+      }
+      Assert(false);
+      return 0.0;
+  }
+
+template <typename NumType, typename CoordType>
+inline void
+FenceBivariateGaussianDifferentiable<NumType, CoordType>::accumlateGradient()
+     const {
+       std::vector<NumType> gradInHor, gradInVer;
+       gradInHor.resize(_inFenceCellIdx.size(), 0);
+       gradInVer.resize(_inFenceCellIdx.size(), 0);
+      const NumType lambda = _getLambdaFunc();
+#pragma omp parallel for schedule(static)
+      for (IndexType idx = 0; idx < _inFenceCellIdx.size(); ++idx) {
+        IndexType cellIdx = _inFenceCellIdx[idx];
+        const NumType xLo =
+            op::conv<NumType>(_getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+        const NumType width = op::conv<NumType>(_inFenceCellWidths[idx]);
+        const NumType yLo =
+            op::conv<NumType>(_getVarFunc(cellIdx, Orient2DType::VERTICAL));
+        const NumType height = op::conv<NumType>(_inFenceCellHeights[idx]);
+        for (IndexType gauIdx = 0; gauIdx < _gaussianParameters.size(); ++gauIdx) {
+          const NumType muX = _gaussianParameters[gauIdx].muX;
+          const NumType muY = _gaussianParameters[gauIdx].muY;
+          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX;
+          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
+          const NumType normalize = _gaussianParameters[gauIdx].normalize;
+          // Calculate cost
+          std::complex<NumType> diffx = (normalize*(sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(muX-xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX))-sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(-muX+width+xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*-2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);        
+          std::complex<NumType> diffy = (normalize*(sqrt(2.0)*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0))-sqrt(std::complex<NumType>(2.0))*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0)))*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
+          gradInHor[idx] += - lambda * normalize * std::real(diffx / (width * height)) *_weight;
+          gradInVer[idx] += -lambda * normalize * std::real(diffy / (width * height)) * _weight;
+        }
+      }
+      for (IndexType idx  = 0; idx < _inFenceCellIdx.size(); ++idx) {
+        IndexType cellIdx = _inFenceCellIdx[idx];
+        _accumulateGradFunc(gradInHor[idx], cellIdx, Orient2DType::HORIZONTAL);
+        _accumulateGradFunc(gradInVer[idx], cellIdx, Orient2DType::VERTICAL);
+      }
+      if (not _considerOutFenceCells) {
+        return;
+      }
+      Assert(false);
+  }
 
 } // namespace diff
 

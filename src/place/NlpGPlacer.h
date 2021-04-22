@@ -59,7 +59,7 @@ struct nlp_default_types {
   typedef diff::CurrentFlowDifferentiable<nlp_numerical_type,
                                           nlp_coordinate_type>
       nlp_crf_type;
-  typedef diff::FenceReciprocalOverlapSumBoxDifferentiable<nlp_numerical_type,
+  typedef diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
                                                            nlp_coordinate_type>
       nlp_fence_type;
 };
@@ -89,15 +89,13 @@ struct nlp_default_first_order_algorithms {
   typedef converge::converge_list<
       converge::converge_grad_norm_by_init<
           nlp_default_types::nlp_numerical_type>,
-      converge::converge_criteria_max_iter<3000>,
+      converge::converge_criteria_max_iter<50000>,
       converge::converge_criteria_enable_if_fast_mode<
-          converge::converge_criteria_max_iter<200>>,
-      converge::converge_criteria_stop_when_large_variable_changes<nlp_default_types::nlp_numerical_type, nlp_default_types::EigenVector>>
+          converge::converge_criteria_max_iter<200>>>
+      //converge::converge_criteria_stop_when_large_variable_changes<nlp_default_types::nlp_numerical_type, nlp_default_types::EigenVector>>
       converge_type;
-  // typedef optm::first_order::naive_gradient_descent<converge_type> optm_type;
-  typedef optm::first_order::adam<converge_type,
-                                  nlp_default_types::nlp_numerical_type>
-      optm_type;
+   //typedef optm::first_order::naive_gradient_descent<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
+  typedef optm::first_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
   // typedef optm::first_order::nesterov<converge_type,
   // nlp_default_types::nlp_numerical_type> optm_type;
 
@@ -247,6 +245,86 @@ struct construct_fence_type_trait<
     }
 };
 
+template <typename nlp_numerical_type, typename nlp_coordinate_type>
+struct construct_fence_type_trait<
+    diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
+                                                     nlp_coordinate_type>> {
+  typedef diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
+                                                          nlp_coordinate_type> 
+                                                            op_type;
+  static void generateDistributionParameters(std::vector<BivariateGaussianParameters<nlp_numerical_type>> & result, const Database &db, nlp_numerical_type scale) {
+#if 0
+    std::vector<std::vector<Box<nlp_coordinate_type>>> boxes; // Splited polygon
+    std::vector<std::vector<Box<LocType>>> boxesUnScaled;
+    boxes.resize(db.vWells().size());
+    boxesUnScaled.resize(db.vWells().size());
+    for (IndexType wellIdx = 0; wellIdx < db.vWells().size(); ++wellIdx) {
+      if (not klib::convertPolygon2Rects(db.well(wellIdx).shape().outer(), boxesUnScaled[wellIdx])) {
+        ERR("NlpGPlacer:: cannot split well polygon! \n");
+        Assert(false);
+      }
+      for (const auto &box : boxesUnScaled[wellIdx]) {
+        boxes[wellIdx].emplace_back(
+            Box<nlp_coordinate_type>(box.xLo() * scale, box.yLo() * scale,
+                                     box.xHi() * scale, box.yHi() * scale));
+      }
+    }
+#else
+    std::vector<std::vector<Box<nlp_coordinate_type>>> boxes;
+    boxes.resize(db.vWells().size());
+    for (IndexType wellIdx = 0; wellIdx < db.vWells().size(); ++wellIdx) {
+      auto box = db.well(wellIdx).boundingBox();
+      boxes[wellIdx].emplace_back(
+            Box<nlp_coordinate_type>(box.xLo() * scale, box.yLo() * scale,
+                                     box.xHi() * scale, box.yHi() * scale));
+    }
+#endif
+    auto getNumWells = [&]() { return db.vWells().size(); };
+    auto getNumRects = [&](IndexType wellIdx) { return boxes.at(wellIdx).size(); };
+    auto getRect = [&](IndexType wellIdx, IndexType rectIdx) {  return &boxes.at(wellIdx).at(rectIdx); };
+    BivariateGaussianWellApproximationGenerator<nlp_numerical_type> gen(getNumWells, getNumRects, getRect);
+    gen.generate(result);
+  }
+
+  template<typename nlp_type>
+    static void construct_operators(nlp_type &nlp,
+      const std::function<nlp_numerical_type(void)> &,
+      const std::function<nlp_numerical_type(void)> &getLambdaFunc,
+      const std::function<nlp_coordinate_type(IndexType, Orient2DType)> getVarFunc
+      ) {
+      const Database &db = nlp._db;
+      std::vector<IndexType> inFenceCellIdx;
+      std::vector<nlp_coordinate_type> inWidths;
+      std::vector<nlp_coordinate_type> inHeights;
+      std::vector<IndexType> outFenceCellIdx;
+      std::vector<nlp_coordinate_type> outWidths;
+      std::vector<nlp_coordinate_type> outHeights;
+      for (IndexType cellIdx = 0; cellIdx < db.numCells(); ++cellIdx) {
+        const auto &cell = db.cell(cellIdx);
+        nlp_coordinate_type width = cell.cellBBox().width() * nlp._scale;
+        nlp_coordinate_type height = cell.cellBBox().height() * nlp._scale;
+        if (db.cell(cellIdx).needWell()) {
+          inFenceCellIdx.emplace_back(cellIdx);
+          inWidths.emplace_back(width);
+          inHeights.emplace_back(height);
+        }
+        else {
+          outFenceCellIdx.emplace_back(cellIdx);
+          outWidths.emplace_back(width);
+          outHeights.emplace_back(height);
+        }
+      }
+      nlp._fenceOps.emplace_back(op_type(inFenceCellIdx, outFenceCellIdx,
+            inWidths, inHeights,
+            outWidths, outHeights,
+             getLambdaFunc));
+      nlp._fenceOps.back().setGetVarFunc(getVarFunc);
+      nlp._fenceOps.back()._weight = db.parameters().defaultWellWeight();
+      generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, db, nlp._scale);
+    }
+};
+
+
 template<typename fence_type> struct reinit_well_trait {};
 
 template <typename nlp_numerical_type, typename nlp_coordinate_type>
@@ -341,6 +419,18 @@ struct reinit_well_trait<
         nlp.constructTasks();
       }
 };
+template <typename nlp_numerical_type, typename nlp_coordinate_type>
+struct reinit_well_trait<
+    diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
+    nlp_coordinate_type>> {
+      typedef diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
+    nlp_coordinate_type> op_type;
+
+    template<typename nlp_type> 
+      static void reinit_well_operators(nlp_type &nlp) {
+        construct_fence_type_trait<op_type>::generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, nlp._db, nlp._scale);
+      }
+};
 } // namespace _nlp_details
 
 /// @brief non-linear programming-based analog global placement
@@ -406,6 +496,73 @@ public:
   /* Well-related initialization */
   virtual void reinitWellOperators();
 
+  void debug() {
+    double xmin =99999;
+    double xmax =-99999;
+    double ymin = 99999;
+    double ymax = - 999999;
+    DBG("PRINT Stats \n");
+    for (IndexType cellIdx = 0; cellIdx <  _db.numCells(); ++cellIdx) {
+      DBG("Cell %d x %f y %f \n", cellIdx, _pl(plIdx(cellIdx, Orient2DType::HORIZONTAL)), _pl(plIdx(cellIdx, Orient2DType::VERTICAL)));
+      xmin = std::min(xmin, _pl(plIdx(cellIdx, Orient2DType::HORIZONTAL)));
+      xmax = std::max(xmax, _pl(plIdx(cellIdx, Orient2DType::HORIZONTAL)));
+      ymin = std::min(ymin, _pl(plIdx(cellIdx, Orient2DType::VERTICAL)));
+      ymax = std::max(ymax, _pl(plIdx(cellIdx, Orient2DType::VERTICAL)));
+    }
+    for (IndexType wellIdx = 0; wellIdx < _db.vWells().size(); ++wellIdx) {
+      DBG("Well %d \n", wellIdx);
+      _db.well(wellIdx).printInfo();
+    }
+    DBG("_scale %f \n", _scale);
+    DBG("xmin %f xmax %f, ymin %f ymax %f \n", xmin, xmax, ymin, ymax);
+    std::string normal_distr = "./debug/gaussian.txt";
+    std::string cost_in = "./debug/cost_in.txt";
+    std::string grad_in = "./debug/grad_in.txt";
+    std::ofstream fGaussian, fCostIn, fGradIn;
+    fGaussian.open(normal_distr);
+    fCostIn.open(cost_in);
+    fGradIn.open(grad_in);
+    const std::vector<BivariateGaussianParameters<nlp_numerical_type>> &paras = _fenceOps.back()._gaussianParameters;
+    for (IndexType gauIdx  = 0; gauIdx < paras.size(); ++gauIdx) {
+      const auto muX = paras[gauIdx].muX;
+      const auto muY = paras[gauIdx].muY;
+      const auto sigmaX = paras[gauIdx].sigmaX;
+      const auto sigmaY = paras[gauIdx].sigmaY;
+      const auto normalize = paras[gauIdx].normalize;
+      fGaussian<< muX << " "<< sigmaX << " "<< muY << " "<< sigmaY <<  " "  << normalize << "\n";
+    }
+    fGaussian.close();
+    double width = (xmax - xmin) / 100;
+    double height = (ymax - ymin) / 100;
+    double size = std::max(width, height);
+    for (int xStep = 0; xStep < 100; ++xStep) {
+      double xLo = xmin + size * xStep;
+      for (int yStep = 0; yStep < 100; ++yStep) {
+        double yLo = ymin + size * yStep;
+        double cost = 0;
+        double xDiff = 0;
+        double yDiff = 0;
+        for (IndexType gauIdx  = 0; gauIdx < paras.size(); ++gauIdx) {
+          const auto muX = paras[gauIdx].muX;
+          const auto muY = paras[gauIdx].muY;
+          const auto sigmaX = paras[gauIdx].sigmaX;
+          const auto sigmaY = paras[gauIdx].sigmaY;
+          std::complex<double> complexCost = ((diff::op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+diff::op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(diff::op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<double>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0)))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+diff::op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<double>(-1.0)))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*2.5E-1*sqrt(std::complex<double>(-1.0)))/(sigmaX*sigmaY);
+          cost += std::real(complexCost);
+          std::complex<double> diffx = ((sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(muX-xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX))-sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(-muX+width+xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(diff::op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<double>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0)))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+diff::op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<double>(-1.0)))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*-2.5E-1*sqrt(std::complex<double>(-1.0)))/(sigmaX*sigmaY);        
+          std::complex<double> diffy = ((sqrt(2.0)*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<double>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<double>(-1.0))-sqrt(std::complex<double>(2.0))*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<double>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<double>(-1.0)))*(diff::op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+diff::op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*2.5E-1*sqrt(std::complex<double>(-1.0)))/(sigmaX*sigmaY);
+          xDiff += std::real(diffx);
+          yDiff += std::real(diffy);
+        }
+        fCostIn << xStep << " " << yStep << " "<< xLo <<" "<< yLo <<" "<< cost << "\n";
+        if (xStep % 10 == 0 and yStep % 10 == 0) {
+          fGradIn << xStep << " " << yStep << " "<< xLo <<" "<< yLo <<" "<< xDiff << " "<< yDiff << "\n";
+        }
+      }
+    }
+    fCostIn.close();
+    fGradIn.close();
+  }
 protected:
 
   /* construct tasks */
@@ -694,7 +851,6 @@ public:
       overlapArea += diff::place_overlap_trait<
           typename base_type::nlp_ovl_type>::overlapArea(op);
       }
-    DBG("%s: ratio : %f\n", __FUNCTION__,  overlapArea / base_type::_totalCellArea);
     return overlapArea / base_type::_totalCellArea;
   }
 protected:
@@ -844,6 +1000,7 @@ protected:
   BoolType _useWellCellOvl = false; ///<
   /* Misc. */
   BoolType _hasInitFirstOrderOuterProblem = false; ///< Whether has init multiplier, alpha, etc.
+  IndexType _iter = 0;
 };
 
 //// @brief some helper function for NlpGPlacerSecondOrder
@@ -1075,14 +1232,12 @@ protected:
     alpha_trait::init(*this, alpha);
     alpha_update_type alphaUpdate = alpha_update_trait::construct(*this, alpha);
     alpha_update_trait::init(*this, alpha, alphaUpdate);
-    DBG("np \n");
     std::cout << "nlp address " << this << std::endl;
 
     IntType iter = 0;
     do {
       std::string debugGdsFilename = "./debug/";
       debugGdsFilename += "gp_iter_" + std::to_string(iter) + ".gds";
-      DBG("iter %d \n", iter);
       optm_trait::optimize(*this, optm);
       mult_trait::update(*this, multiplier);
       mult_trait::recordRaw(*this, multiplier);
@@ -1258,7 +1413,6 @@ protected:
 template <typename nlp_settings>
 inline void NlpGPlacerSecondOrder<nlp_settings>::initSecondOrder() {
   const IntType size = this->_numVariables;
-  DBG("resize hessian to %d \n", size);
   hpwl_hessian_diagonal_selector::resize(_hessianHpwl, size);
   ovl_hessian_diagonal_selector::resize(_hessianOvl, size);
   oob_hessian_diagonal_selector::resize(_hessianOob, size);
