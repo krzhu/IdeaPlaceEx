@@ -188,6 +188,7 @@ void initIdeaPlaceExAPI(py::module &m) {
            "Get the time used for detailed placement")
       .def("logScreenOn", &PROJECT_NAMESPACE::IdeaPlaceEx::logScreenOn)
       .def("logScreenOff", &PROJECT_NAMESPACE::IdeaPlaceEx::logScreenOff)
+      .def("hpwl", &PROJECT_NAMESPACE::IdeaPlaceEx::hpwl, "Get HPWL")
       // Well
       .def("allocateWell", &PROJECT_NAMESPACE::IdeaPlaceEx::allocateWell,
            "Allocate a new well")

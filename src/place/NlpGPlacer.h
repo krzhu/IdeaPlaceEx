@@ -66,10 +66,10 @@ struct nlp_default_types {
 
 struct nlp_default_zero_order_algorithms {
   typedef outer_stop_condition::stop_condition_list<
-      outer_stop_condition::stop_after_violate_small,
-      outer_stop_condition::stop_after_num_outer_iterations<300>,
-      outer_stop_condition::stop_enable_if_fast_mode<
-          outer_stop_condition::stop_after_num_outer_iterations<50>>>
+      outer_stop_condition::stop_after_violate_small>
+      //outer_stop_condition::stop_after_num_outer_iterations<300>,
+      //outer_stop_condition::stop_enable_if_fast_mode<
+      //    outer_stop_condition::stop_after_num_outer_iterations<50>>>
       stop_condition_type;
   typedef init_place::init_random_placement_with_normal_distribution_near_center
       init_place_type;
@@ -89,10 +89,10 @@ struct nlp_default_first_order_algorithms {
   typedef converge::converge_list<
       converge::converge_grad_norm_by_init<
           nlp_default_types::nlp_numerical_type>,
-      converge::converge_criteria_max_iter<50000>,
+      converge::converge_criteria_max_iter<30000>,
       converge::converge_criteria_enable_if_fast_mode<
-          converge::converge_criteria_max_iter<200>>>
-      //converge::converge_criteria_stop_when_large_variable_changes<nlp_default_types::nlp_numerical_type, nlp_default_types::EigenVector>>
+          converge::converge_criteria_max_iter<200>>,
+      converge::converge_criteria_stop_when_large_variable_changes<nlp_default_types::nlp_numerical_type, nlp_default_types::EigenVector>>
       converge_type;
    //typedef optm::first_order::naive_gradient_descent<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
   typedef optm::first_order::adam<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
@@ -1001,6 +1001,7 @@ protected:
   /* Misc. */
   BoolType _hasInitFirstOrderOuterProblem = false; ///< Whether has init multiplier, alpha, etc.
   IndexType _iter = 0;
+  BoolType _convergeWithLargeVariableChange = false;
 };
 
 //// @brief some helper function for NlpGPlacerSecondOrder

@@ -81,6 +81,7 @@ template <typename nlp_numerical_type> struct converge_grad_norm_by_init {
   nlp_numerical_type confidenceRatio =
       1e-7; ///< stop if the norm reduce to this ratio of the init
   nlp_numerical_type initNorm = -1.0;
+  nlp_numerical_type normTarget = 1e-5;
 };
 
 template <typename nlp_numerical_type>
@@ -95,7 +96,7 @@ struct converge_criteria_trait<converge_grad_norm_by_init<nlp_numerical_type>> {
       c.initNorm = n._grad.norm();
       return false;
     }
-    if (n._grad.norm() < c.confidenceRatio * c.initNorm) {
+    if (n._grad.norm() < c.confidenceRatio * c.initNorm or n._grad.norm() < c.normTarget) {
       clear(c);
       return true;
     }
@@ -136,7 +137,7 @@ struct converge_criteria_trait<
 
 template<typename nlp_numerical_type, typename eigen_vector_type>
 struct converge_criteria_stop_when_large_variable_changes {
-  static constexpr nlp_numerical_type _l1Threshold = 1.0;
+  static constexpr nlp_numerical_type _l1Threshold = 3.0;
   bool _init = false;
   eigen_vector_type _vec;
 };
@@ -153,9 +154,11 @@ struct converge_criteria_trait<
     if (not c._init) {
       c._init = true;
       c._vec = n._pl;
+      n._convergeWithLargeVariableChange = false;
     }
-    nlp_numerical_type l1 = (n._pl - c._vec).cwiseAbs().sum();
+    nlp_numerical_type l1 = (n._pl - c._vec).cwiseAbs().maxCoeff() ;
     if (l1 > converge_type::_l1Threshold) {
+      n._convergeWithLargeVariableChange = true;
       c._vec = n._pl;
       return true;
     }

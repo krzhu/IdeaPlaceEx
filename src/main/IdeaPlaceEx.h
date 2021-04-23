@@ -393,6 +393,7 @@ public:
   /*------------------------------*/
   void logScreenOn() { MsgPrinter::screenOn(); }
   void logScreenOff() { MsgPrinter::screenOff(); }
+  LocType hpwl() const { return _db.hpwl(); }
 
   /*------------------------------*/
   /* Well                         */

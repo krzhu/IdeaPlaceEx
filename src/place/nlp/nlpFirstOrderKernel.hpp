@@ -88,6 +88,7 @@ struct optm_trait<
     v.setZero();
     IndexType iter = 0;
     IndexType targetIter = 99999999;
+    double initNorm = 1;
     if (n._db.parameters().isFastMode()) {
       targetIter = 30;
     }
@@ -109,7 +110,8 @@ struct optm_trait<
 
       // n.calcObj();
       if (iter == 1) {
-         DBG(" init norm %f \n", n._grad.norm());
+        initNorm = n._grad.norm();
+         DBG(" init norm %f \n", initNorm);
       }
       // DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj,
       // n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
@@ -118,7 +120,7 @@ struct optm_trait<
 //#ifdef DEBUG_GR
     DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f fence %f \n", n._obj, n._objHpwl,
         n._objCos, n._objOvl, n._objOob, n._objAsym, n._objFence);
-    DBG("gradient norm %f \n", n._grad.norm());
+    DBG("gradient norm %f, ratio %f \n", n._grad.norm(), n._grad.norm() / initNorm);
     DBG("converge at iter %d \n", iter);
 //#endif
   }

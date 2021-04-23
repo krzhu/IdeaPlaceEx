@@ -264,6 +264,8 @@ struct CellPairOverlapPenaltyDifferentiable {
     _cellHeightJ = cellHeightJ;
     _getAlphaFunc = getAlphaFunc;
     _getLambdaFunc = getLambdaFunc;
+    _normal = op::conv<NumType>( _cellWidthI * _cellHeightI + _cellWidthJ * _cellHeightJ);
+    _normal = 1.0 / std::sqrt(_normal);
   }
 
   void setGetVarFunc(
@@ -304,7 +306,7 @@ struct CellPairOverlapPenaltyDifferentiable {
             1) *
         log(1 / (exp(-(wi + xi - xj) / alpha) + exp(-(wj - xi + xj) / alpha)) +
             1);
-    return lambda * ovl * _weight;
+    return lambda * ovl * _weight ;
   }
 
   void accumlateGradient() const {
@@ -443,6 +445,7 @@ struct CellPairOverlapPenaltyDifferentiable {
   CoordType _cellJXLo; ///< Valid only when _considerOnlyOneCell = true
   CoordType _cellJYLo; ///< Valid only when _consdierOnlyOneCell = true
   NumType _weight = 1.0;
+  NumType _normal = 1.0; ///< Normalize between different cells
 };
 
 template <typename op_type> struct place_overlap_trait {

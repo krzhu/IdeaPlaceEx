@@ -704,13 +704,12 @@ template <typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::stepOptmIter() {
   initFirstOrderOuterProblem(); // Will skip if already initialized
   optm_trait::optimize(*this, _optm);
-  mult_trait::update(*this, *_multiplier);
-  mult_trait::recordRaw(*this, *_multiplier);
-  mult_adjust_trait::update(*this, *_multiplier, *_multAdjuster);
-  alpha_update_trait::update(*this, *_alpha, *_alphaUpdate);
-  DBG("%s New iter %d\n", __FUNCTION__, _iter);
-  if (_iter == 5) {
-    assert(0);
+  if (not _convergeWithLargeVariableChange) {
+    // Only update multiplier when it is normally converged
+    mult_trait::update(*this, *_multiplier);
+    mult_trait::recordRaw(*this, *_multiplier);
+    mult_adjust_trait::update(*this, *_multiplier, *_multAdjuster);
+    alpha_update_trait::update(*this, *_alpha, *_alphaUpdate);
   }
   ++_iter;
 }
