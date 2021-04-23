@@ -107,6 +107,15 @@ struct optm_trait<
       } else {
         n._pl -= optm_type::naiveGradientDescentStepSize * n._grad;
       }
+      for (int i = 0; i < n._pl.size(); ++i) {
+        if (std::isnan(n._pl(i))) {
+          std::cout<<"hpwl "<< n._gradHpwl<<std::endl;
+          std::cout<<"ovl "<< n._gradOvl<<std::endl;
+          std::cout<<"asyn "<< n._gradAsym<<std::endl;
+          std::cout<<"fence "<< n._gradFence<<std::endl;
+          assert(false);
+        }
+      }
 
       // n.calcObj();
       if (iter == 1) {

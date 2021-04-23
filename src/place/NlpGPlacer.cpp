@@ -231,19 +231,22 @@ void NlpGPlacerBase<nlp_settings>::initOperators() {
   // Asym
   for (IndexType symGrpIdx = 0; symGrpIdx < _db.numSymGroups(); ++symGrpIdx) {
     const auto &symGrp = _db.symGroup(symGrpIdx);
-    _asymOps.emplace_back(nlp_asym_type(symGrpIdx, getLambdaFunc));
     for (const auto &symPair : symGrp.vSymPairs()) {
       IndexType cellIdxI = symPair.firstCell();
       IndexType cellIdxJ = symPair.secondCell();
       RealType widthI = _db.cell(cellIdxI).cellBBox().xLen() * _scale;
+      _asymOps.emplace_back(nlp_asym_type(symGrpIdx, getLambdaFunc));
       _asymOps.back().addSymPair(cellIdxI, cellIdxJ, widthI);
+      _asymOps.back().setGetVarFunc(getVarFunc);
+      _asymOps.back().setWeight(_db.parameters().defaultSymWeight());
     }
     for (const auto &ssCellIdx : symGrp.vSelfSyms()) {
       RealType width = _db.cell(ssCellIdx).cellBBox().xLen() * _scale;
+      _asymOps.emplace_back(nlp_asym_type(symGrpIdx, getLambdaFunc));
       _asymOps.back().addSelfSym(ssCellIdx, width);
+      _asymOps.back().setGetVarFunc(getVarFunc);
+      _asymOps.back().setWeight(_db.parameters().defaultSymWeight());
     }
-    _asymOps.back().setGetVarFunc(getVarFunc);
-    _asymOps.back().setWeight(_db.parameters().defaultSymWeight());
   }
   // Signal path
   SigPathMgr pathMgr(_db);
@@ -579,6 +582,7 @@ void NlpGPlacerBase<nlp_settings>::constructSumObjTasks() {
     _obj += _objCos;
     _obj += _objPowerWl;
     _obj += _objCrf;
+    
     _obj += _objFence;
   };
   _sumObjAllTask = Task<FuncTask>(FuncTask(all));

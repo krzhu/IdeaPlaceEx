@@ -13,11 +13,11 @@ Parameters::Parameters() {
   _layoutOffset = 1000;      ///< The default offset for the placement
   _defaultAspectRatio = 1.2;
   _maxWhiteSpace = 2;
-  _defaultSymWeight = 15;
+  _defaultSymWeight = 8;
   _defaultSignalFlowWeight = 3;
   _defaultCurrentFlowWeight = 0.5;
   _defaultRelativeRatioOfPowerNet = 0.2;
-  _defaultWellWeight = 50;
+  _defaultWellWeight = 1;
   _fastMode = false;
   _CellToWellEdgeSpacing = 0;
 }

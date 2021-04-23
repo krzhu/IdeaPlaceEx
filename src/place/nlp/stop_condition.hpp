@@ -97,11 +97,13 @@ struct stop_condition_trait<stop_enable_if_fast_mode<stop_slave_type>> {
 /// @brief stop after violating is small enough
 struct stop_after_violate_small {
   static constexpr RealType overlapRatio =
-      0.03; ///< with respect to total cell area
+      0.1; ///< with respect to total cell area
+
   static constexpr RealType outOfBoundaryRatio =
       0.1; ///< with respect to boundary
   static constexpr RealType asymRatio =
-      0.02; ///< with respect to sqrt(total cell area)
+      1; ///< with respect to sym cell width
+
   static constexpr RealType outFenceRatio =
       1; ///< With respect to total cell area needs well
   IntType curIter = 0;
@@ -132,17 +134,31 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
     }
 
     // check whether overlapping is small than threshold
-    CoordType ovlArea = 0;
-    const CoordType ovlThreshold = stop.overlapRatio * n._totalCellArea;
-    for (auto &op : n._ovlOps) {
-      ovlArea += diff::place_overlap_trait<
+    CoordType totalOvlArea = 0;
+    bool passOvl = true;
+    std::vector<IndexType> failedCells;
+    for (IndexType idx = 0; idx <  n._ovlOps.size(); ++idx) {
+      auto &op = n._ovlOps.at(idx);
+      const CoordType ovlArea = diff::place_overlap_trait<
           typename NlpType::nlp_ovl_type>::overlapArea(op);
+      totalOvlArea += ovlArea;
+      const CoordType cellArea = diff::place_overlap_trait<
+          typename NlpType::nlp_ovl_type>::smallCellArea(op); // Two cells
+      if (ovlArea / cellArea > stop.overlapRatio) {
+        passOvl = false;
+        failedCells.emplace_back(idx);
+      }
     }
-    if (ovlArea > ovlThreshold) {
-      return false;
+    if (not passOvl) {
+      if ( n._ovlOps.size()  / failedCells.size() > 3 ) {
+        for (auto idx : failedCells) {
+          n._ovlOps.at(idx).penalize();
+        }
+      }
     }
     // Check whether out of boundary is smaller than threshold
     CoordType oobArea = 0;
+    BoolType passOob = true;
     const CoordType oobThreshold = stop.outOfBoundaryRatio * n._boundary.area();
     for (auto &op : n._oobOps) {
       oobArea += diff::place_out_of_boundary_trait<
@@ -151,22 +167,36 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
 #ifdef DEBUG_GR
         DBG("fail on oob \n");
 #endif
-        return false;
+        passOob = false;
       }
     }
     // Check whether asymmetry distance is smaller than threshold
-    CoordType asymDist = 0;
-    const CoordType asymThreshold =
-        stop.asymRatio * std::sqrt(n._totalCellArea);
-    for (auto &op : n._asymOps) {
-      asymDist += diff::place_asym_trait<
+    bool passAsym = true;
+    failedCells.clear();
+    for (IndexType idx = 0; idx <  n._asymOps.size(); ++idx) {
+      auto &op = n._asymOps.at(idx);
+      const auto asymDist = diff::place_asym_trait<
           typename NlpType::nlp_asym_type>::asymDistanceNormalized(op);
-      if (asymDist > asymThreshold) {
+      const auto sumWidth = diff::place_asym_trait<
+          typename NlpType::nlp_asym_type>::cellWidthSum(op);
+
+      if (asymDist / sumWidth > stop.asymRatio) {
 #ifdef DEBUG_GR
         DBG("fail on asym \n");
 #endif
-        return false;
+        failedCells.emplace_back(idx);
+        passAsym = false;
       }
+    }
+    if (not passAsym) {
+      if ( n._asymOps.size()  / failedCells.size() > 3 ) {
+        for (auto idx : failedCells) {
+          n._asymOps.at(idx).penalize();
+        }
+      }
+    }
+    if (not passOvl or not passOob or not passAsym) {
+      return false;
     }
 #if 0
     // Check whether out of fence region area is smaller than threshold
@@ -185,11 +215,6 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
     }
 #endif
 
-#ifdef DEBUG_GR
-    DBG("ovl area %f target %f \n oob area %f target %f \n asym dist %f target "
-        "%f \n",
-        ovlArea, ovlThreshold, oobArea, oobThreshold, asymDist, asymThreshold);
-#endif
     return true;
   }
 };

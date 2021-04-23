@@ -220,6 +220,7 @@ template <typename NumType, typename CoordType> struct LseHpwlDifferentiable {
     }
   }
 
+
   IntType _validVirtualPin = 0;
   CoordType _virtualPinX = 0;
   CoordType _virtualPinY = 0;
@@ -427,6 +428,10 @@ struct CellPairOverlapPenaltyDifferentiable {
   
   void setWeight(NumType weight) { _weight  = weight; }
 
+  void penalize() {
+    _weight += scale;
+  }
+
   IndexType _cellIdxI;
   CoordType _cellWidthI;
   CoordType _cellHeightI;
@@ -446,6 +451,7 @@ struct CellPairOverlapPenaltyDifferentiable {
   CoordType _cellJYLo; ///< Valid only when _consdierOnlyOneCell = true
   NumType _weight = 1.0;
   NumType _normal = 1.0; ///< Normalize between different cells
+  static constexpr NumType scale = 1.1;  // Penalize this operator
 };
 
 template <typename op_type> struct place_overlap_trait {
@@ -476,6 +482,20 @@ template <typename op_type> struct place_overlap_trait {
         std::max(std::min(yi + hi, yj + hj) - std::max(yi, yj),
                  op::conv<coordinate_type>(0.0));
     return overlapX * overlapY;
+  }
+  static coordinate_type cellArea(op_type &ovl) {
+    const coordinate_type wi = ovl._cellWidthI;
+    const coordinate_type hi = ovl._cellHeightI;
+    const coordinate_type wj = ovl._cellWidthJ;
+    const coordinate_type hj = ovl._cellHeightJ;
+    return wi * hi + wj * hj;
+  }
+  static coordinate_type smallCellArea(op_type &ovl) {
+    const coordinate_type wi = ovl._cellWidthI;
+    const coordinate_type hi = ovl._cellHeightI;
+    const coordinate_type wj = ovl._cellWidthJ;
+    const coordinate_type hj = ovl._cellHeightJ;
+    return std::min(wi * hi, wj * hj);
   }
 };
 
@@ -568,6 +588,7 @@ struct CellOutOfBoundaryPenaltyDifferentiable {
       _getVarFunc; ///< A function to get current variable value
   std::function<void(NumType, IndexType, Orient2DType)>
       _accumulateGradFunc; ///< A function to update partial
+
 };
 
 template <typename NumType, typename CoordType>
@@ -704,12 +725,15 @@ template <typename NumType, typename CoordType> struct AsymmetryDifferentiable {
 
   void setWeight(NumType weight) { _weight = weight; }
 
+  void penalize() { _weight += _penalizeScale; }
+
   IndexType _symGrpIdx;
   std::vector<std::array<IndexType, 2>> _pairCells;
   std::vector<NumType> _pairWidths;
   std::vector<IndexType> _selfSymCells;
   std::vector<NumType> _selfSymWidths;
   NumType _weight = 1.0;
+  NumType _penalizeScale = 3.0;
   std::function<NumType(void)> _getLambdaFunc;
   std::function<CoordType(IndexType cellIdx, Orient2DType orient)>
       _getVarFunc; ///< A function to get current variable value
@@ -755,6 +779,18 @@ template <typename op_type> struct place_asym_trait {
   static coordinate_type asymDistanceNormalized(op_type &asym) {
     return asymDistance(asym) /
            (asym._pairCells.size() + asym._selfSymCells.size());
+  }
+  static coordinate_type cellWidthSum(op_type &asym) {
+    coordinate_type sum = 0;
+    for (IndexType symPairIdx = 0; symPairIdx < asym._pairCells.size();
+         ++symPairIdx) {
+      sum +=  asym._pairWidths[symPairIdx];
+
+    }
+    for (IndexType ssIdx = 0; ssIdx < asym._selfSymCells.size(); ++ssIdx) {
+      sum += asym._selfSymWidths[ssIdx];
+    }
+    return sum;
   }
 };
 
@@ -1462,9 +1498,9 @@ template <typename NumType, typename CoordType>
 inline NumType
 FenceBivariateGaussianDifferentiable<NumType, CoordType>::evaluate()
     const {
-      std::vector<NumType> costOut;
-      costOut.resize(_inFenceCellIdx.size(), 0);
       const NumType lambda = _getLambdaFunc();
+      std::vector<NumType> costOut;
+      costOut.resize(_inFenceCellIdx.size() + _outFenceCellIdx.size(), 0);
 #pragma omp parallel for schedule(static)
       for (IndexType idx = 0; idx < _inFenceCellIdx.size(); ++idx) {
         IndexType cellIdx = _inFenceCellIdx[idx];
@@ -1490,8 +1526,29 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType>::evaluate()
       if (not _considerOutFenceCells) {
         return std::accumulate(costOut.begin(), costOut.end(), 0.0);
       }
-      Assert(false);
-      return 0.0;
+#pragma omp parallel for schedule(static)
+      for (IndexType idx = 0; idx < _outFenceCellIdx.size(); ++idx) {
+        IndexType cellIdx = _outFenceCellIdx[idx];
+        const NumType xLo =
+            op::conv<NumType>(_getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+        const NumType width = op::conv<NumType>(_outFenceCellWidths[idx]);
+        const NumType yLo =
+            op::conv<NumType>(_getVarFunc(cellIdx, Orient2DType::VERTICAL));
+        const NumType height = op::conv<NumType>(_outFenceCellHeights[idx]);
+        for (IndexType gauIdx = 0; gauIdx < _gaussianParameters.size(); ++gauIdx) {
+          const NumType muX = _gaussianParameters[gauIdx].muX;
+          const NumType muY = _gaussianParameters[gauIdx].muY;
+          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX;
+          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
+          const NumType normalize =_gaussianParameters[gauIdx].normalize;
+          // Calculate cost
+          std::complex<NumType> complexCost = (normalize*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
+          complexCost /= (width * height);
+
+          costOut[idx + _inFenceCellIdx.size()] += lambda * ( std::real(complexCost) ) * _weight;
+        }
+      }
+      return std::accumulate(costOut.begin(), costOut.end(), 0.0);
   }
 
 template <typename NumType, typename CoordType>
@@ -1532,7 +1589,36 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType>::accumlateGradient()
       if (not _considerOutFenceCells) {
         return;
       }
-      Assert(false);
+       std::vector<NumType> gradOutHor, gradOutVer;
+       gradOutHor.resize(_outFenceCellIdx.size(), 0);
+       gradOutVer.resize(_outFenceCellIdx.size(), 0);
+#pragma omp parallel for schedule(static)
+      for (IndexType idx = 0; idx < _outFenceCellIdx.size(); ++idx) {
+        IndexType cellIdx = _outFenceCellIdx[idx];
+        const NumType xLo =
+            op::conv<NumType>(_getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+        const NumType width = op::conv<NumType>(_outFenceCellWidths[idx]);
+        const NumType yLo =
+            op::conv<NumType>(_getVarFunc(cellIdx, Orient2DType::VERTICAL));
+        const NumType height = op::conv<NumType>(_outFenceCellHeights[idx]);
+        for (IndexType gauIdx = 0; gauIdx < _gaussianParameters.size(); ++gauIdx) {
+          const NumType muX = _gaussianParameters[gauIdx].muX;
+          const NumType muY = _gaussianParameters[gauIdx].muY;
+          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX;
+          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
+          const NumType normalize = _gaussianParameters[gauIdx].normalize;
+          // Calculate cost
+          std::complex<NumType> diffx = (normalize*(sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(muX-xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX))-sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(-muX+width+xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*-2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);        
+          std::complex<NumType> diffy = (normalize*(sqrt(2.0)*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0))-sqrt(std::complex<NumType>(2.0))*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0)))*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
+          gradOutHor[idx] +=  lambda * normalize * std::real(diffx / (width * height)) *_weight;
+          gradOutVer[idx] += lambda * normalize * std::real(diffy / (width * height)) * _weight;
+        }
+      }
+      for (IndexType idx  = 0; idx < _outFenceCellIdx.size(); ++idx) {
+        IndexType cellIdx = _outFenceCellIdx[idx];
+        _accumulateGradFunc(gradOutHor[idx], cellIdx, Orient2DType::HORIZONTAL);
+        _accumulateGradFunc(gradOutVer[idx], cellIdx, Orient2DType::VERTICAL);
+      }
   }
 
 } // namespace diff

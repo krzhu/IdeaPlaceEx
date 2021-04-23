@@ -413,6 +413,7 @@ struct reinit_well_trait<
                 nlp._db.parameters().defaultWellWeight());
           }
         }
+        nlp._fenceOps.back()._considerOutFenceCells = nlp._useWellCellOvl;
 
         // Re-construct tasks
         nlp.clearTasks();
@@ -429,6 +430,7 @@ struct reinit_well_trait<
     template<typename nlp_type> 
       static void reinit_well_operators(nlp_type &nlp) {
         construct_fence_type_trait<op_type>::generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, nlp._db, nlp._scale);
+        nlp._fenceOps.back()._considerOutFenceCells = nlp._useWellCellOvl;
       }
 };
 } // namespace _nlp_details
