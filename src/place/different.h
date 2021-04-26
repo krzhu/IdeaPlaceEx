@@ -1431,10 +1431,9 @@ struct place_fence_trait<FenceReciprocalOverlapSumBoxDifferentiable<
 };
 
 
-/// @brief Model fence region penalty as a.
-/// it first slices the polygon into rectangles, and
-/// the cost is overlapping the sum of overlapping area of the cell and each
-/// rectangle
+/// @brief Model fence region penalty as the sum of a set of Gaussian distribution.
+/// it transformed the well bounding box into a Gaussian and the cost is the integral
+// of the cost over cell area
 template <typename NumType, typename CoordType>
 struct FenceBivariateGaussianDifferentiable {
   typedef NumType numerical_type;
@@ -1467,8 +1466,8 @@ struct FenceBivariateGaussianDifferentiable {
       const std::function<void(NumType, IndexType, Orient2DType)> &func) {
     _accumulateGradFunc = func;
   }
-  void setGetAlphaFunc(const std::function<NumType(void)> &) {
-    // Intentionally left blank
+  void setGetAlphaFunc(const std::function<NumType(void)> &alphaFunc) {
+    _getAlphaFunc = alphaFunc;
   }
 
   NumType evaluate() const;
@@ -1490,8 +1489,8 @@ struct FenceBivariateGaussianDifferentiable {
       _accumulateGradFunc; ///< A function to update partial
   static constexpr NumType tol = 1.0; ///< In fence use tol - integral(PDF) as cost
   BoolType _considerOutFenceCells = false; ///< Wether calculate the cost for out of the fence cost
-  static constexpr NumType sqrt2 = 1.41421356237;
   NumType _weight = 1.0;
+  std::function<NumType(void)> _getAlphaFunc;
 };
 
 template <typename NumType, typename CoordType>
@@ -1577,14 +1576,9 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType>::accumlateGradient()
           // Calculate cost
           std::complex<NumType> diffx = (normalize*(sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(muX-xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX))-sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(-muX+width+xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*-2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);        
           std::complex<NumType> diffy = (normalize*(sqrt(2.0)*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0))-sqrt(std::complex<NumType>(2.0))*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0)))*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
-          gradInHor[idx] += - lambda * normalize * std::real(diffx / (width * height)) *_weight;
-          gradInVer[idx] += -lambda * normalize * std::real(diffy / (width * height)) * _weight;
+          _accumulateGradFunc( - lambda * normalize * std::real(diffx / (width * height)) *_weight, cellIdx, Orient2DType::HORIZONTAL);
+          _accumulateGradFunc( - lambda * normalize * std::real(diffy / (width * height)) * _weight, cellIdx, Orient2DType::VERTICAL);
         }
-      }
-      for (IndexType idx  = 0; idx < _inFenceCellIdx.size(); ++idx) {
-        IndexType cellIdx = _inFenceCellIdx[idx];
-        _accumulateGradFunc(gradInHor[idx], cellIdx, Orient2DType::HORIZONTAL);
-        _accumulateGradFunc(gradInVer[idx], cellIdx, Orient2DType::VERTICAL);
       }
       if (not _considerOutFenceCells) {
         return;
@@ -1610,14 +1604,9 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType>::accumlateGradient()
           // Calculate cost
           std::complex<NumType> diffx = (normalize*(sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(muX-xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX))-sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(-muX+width+xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*-2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);        
           std::complex<NumType> diffy = (normalize*(sqrt(2.0)*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0))-sqrt(std::complex<NumType>(2.0))*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0)))*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
-          gradOutHor[idx] +=  lambda * normalize * std::real(diffx / (width * height)) *_weight;
-          gradOutVer[idx] += lambda * normalize * std::real(diffy / (width * height)) * _weight;
+          _accumulateGradFunc(lambda * normalize * std::real(diffx / (width * height)) *_weight, cellIdx, Orient2DType::HORIZONTAL);
+          _accumulateGradFunc(lambda * normalize * std::real(diffy / (width * height)) * _weight, cellIdx, Orient2DType::VERTICAL);
         }
-      }
-      for (IndexType idx  = 0; idx < _outFenceCellIdx.size(); ++idx) {
-        IndexType cellIdx = _outFenceCellIdx[idx];
-        _accumulateGradFunc(gradOutHor[idx], cellIdx, Orient2DType::HORIZONTAL);
-        _accumulateGradFunc(gradOutVer[idx], cellIdx, Orient2DType::VERTICAL);
       }
   }
 

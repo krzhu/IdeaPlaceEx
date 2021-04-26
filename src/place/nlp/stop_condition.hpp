@@ -11,6 +11,8 @@
 #include "nlpTypes.hpp"
 #include "place/different.h"
 
+#include <boost/geometry/index/rtree.hpp>
+
 PROJECT_NAMESPACE_BEGIN
 
 namespace nlp {
@@ -127,7 +129,6 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
   static BoolType stopPlaceCondition(NlpType &n, stop_type &stop) {
     using CoordType = typename NlpType::nlp_coordinate_type;
 
-
     ++stop.curIter;
     if (stop.curIter < stop.minIter) {
       return false;
@@ -195,28 +196,57 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
         }
       }
     }
-    if (not passOvl or not passOob or not passAsym) {
-      return false;
-    }
-#if 0
     // Check whether out of fence region area is smaller than threshold
-    CoordType outFenceArea = 0.0;
-    CoordType inWellCellArea = 0.0;
-    for (auto &op : n._fenceOps) {
-      outFenceArea += diff::place_fence_trait<
-          typename NlpType::nlp_fence_type>::outFenceRegionArea(op);
-      inWellCellArea += op._cellWidth * op._cellHeight;
+    bool passFence = true;
+    CoordType outFenceArea = fenceAreaMismatch(n);
+    DBG("Outfence area %f \n", outFenceArea);
+    if (outFenceArea / n._totalCellArea > stop.outFenceRatio) {
+      return passFence;
     }
-    if (outFenceArea / inWellCellArea > stop.outFenceRatio) {
-#ifdef DEBUG_GR
-      DBG("fail on fence \n");
-#endif
+
+    if (not passOvl or not passOob or not passAsym or not passFence) {
       return false;
     }
-#endif
-
     return true;
   }
+
+   template<typename NlpType>
+     static typename NlpType::nlp_coordinate_type fenceAreaMismatch(NlpType &nlp) {
+       const Database &db = nlp._db;
+       typename NlpType::nlp_coordinate_type inFenceFailedArea = 0;
+       typename NlpType::nlp_coordinate_type outFenceFailedArea = 0;
+       // Build well shape tree
+       using rtree_type  = boost::geometry::index::rtree<Box<LocType>, boost::geometry::index::linear<16, 4>>;
+       rtree_type rtree;
+       IndexType rectIdx = 0;
+       for (const auto &well : db.vWells()) {
+         for (const auto &rect : well.rects()) {
+           rtree.insert(rect);
+           ++rectIdx;
+         }
+       }
+       // Calculate area
+       for (IndexType cellIdx = 0; cellIdx < db.numCells(); ++cellIdx) {
+         const auto &cell = db.cell(cellIdx);
+         LocType xLo = nlp._pl(nlp.plIdx(cellIdx, Orient2DType::HORIZONTAL)) / nlp._scale;
+         LocType yLo = nlp._pl(nlp.plIdx(cellIdx, Orient2DType::VERTICAL)) / nlp._scale;
+         std::vector<Box<LocType>> queryResults;
+         const Box<LocType> query(xLo, yLo, xLo + cell.cellBBox().xLen(), yLo + cell.cellBBox().yLen());
+         rtree.query(boost::geometry::index::intersects(query), std::back_inserter(queryResults));
+         LocType overlapArea = 0;
+         for (const auto &rect : queryResults) {
+           overlapArea += Box<LocType>::overlapArea(rect, query);
+         }
+         if (not cell.needWell()) {
+           inFenceFailedArea += overlapArea * nlp._scale * nlp._scale;
+         }
+         else {
+           outFenceFailedArea += (query.area() - overlapArea) * nlp._scale * nlp._scale;
+           Assert(query.area() - overlapArea >= 0);
+         }
+       }
+       return (inFenceFailedArea + outFenceFailedArea);
+     }
 };
 /// @brief a convenient wrapper for combining different types of stop_condition
 /// condition. the list in the template will be check one by one and return
