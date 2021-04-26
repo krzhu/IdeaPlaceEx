@@ -6,6 +6,75 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+
+enum class Relation {
+  RIGHT, LEFT, TOP, BOTTOM, // overlap or parallel run,
+  TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT // Completely disjoined
+};
+
+Relation determineBoxRelation(const Box<LocType> &box1, const Box<LocType> &box2) {
+  if (box1.xHi() <= box2.xLo()) {
+    if (box1.yHi() <= box2.yLo()) {
+      return Relation::TOP_RIGHT;
+    }
+    else if (box1.yLo() >= box2.yHi()) {
+      return Relation::BOTTOM_RIGHT;
+    }
+    else {
+      // Parallel run on y
+      return Relation::RIGHT;
+    }
+  }
+  else if (box1.xLo() >= box2.xHi()) {
+    if (box1.yHi() <= box2.yLo()) {
+      return Relation::TOP_LEFT;
+    }
+    else if (box1.yLo() >= box2.yHi()) {
+      return Relation::BOTTOM_LEFT;
+    }
+    else {
+      // Parallel run on y
+      return Relation::LEFT;
+    }
+  }
+  else {
+    // parallel run on x
+    if (box1.yHi() <= box2.yLo()) {
+      return Relation::TOP;
+    }
+    else if (box1.yLo() >= box2.yHi()) {
+      return Relation::BOTTOM;
+    }
+    // overlap
+    bool left, bottom;
+    LocType overlapX, overlapY;
+    if (box1.xLo() <= box2.xLo()) {
+      left = false;
+      overlapX = box1.xHi() - box2.xLo();
+    }
+    else {
+      left = true;
+      overlapX = box2.xHi() - box1.xLo();
+    }
+    if (box1.yLo() <= box2.yLo()) {
+      bottom = false;
+      overlapY = box1.yHi() - box2.yLo();
+    }
+    else {
+      bottom = true;
+      overlapY = box2.yHi() - box1.yLo();
+    }
+    if (overlapX < overlapY) {
+      if (left) { return Relation::LEFT; }
+      else { return Relation::RIGHT; }
+    }
+    else {
+      if (bottom) { return Relation::BOTTOM; }
+      else { return Relation::TOP; }
+    }
+  }
+}
+
 void CGLegalizer::legalizeWells() {
   WellLegalizer wellLegalizer(_db);
   wellLegalizer.legalize();
@@ -77,12 +146,8 @@ void CGLegalizer::generateHorConstraints() {
     }
     const auto box1 = getCellOrWellBBoc(cellIdx1);
     const auto box2 = getCellOrWellBBoc(cellIdx2);
-    auto overlapX = Box<LocType>::overlapX(box1, box2);
-    auto overlapY = Box<LocType>::overlapY(box1, box2);
-    if (overlapX <= 0 or overlapY <= 0) {
-      return false;
-    }
-    if (overlapY < overlapX) {
+    const auto relation = determineBoxRelation(box1, box2);
+    if (relation == Relation::TOP or relation == Relation::BOTTOM) {
       return true;
     }
     return false;
@@ -117,61 +182,81 @@ void CGLegalizer::generateVerConstraints() {
 
 
 BoolType CGLegalizer::areaDrivenCompaction() {
-  this->generateHorConstraints();
-  INF("CG legalizer: area-driven legalize horizontal LP...\n");
-  auto horSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
-  if (horSolver.solve()) {
-    horSolver.exportSolution();
-  } else {
-    Assert(false);
-    return false;
-  }
-  this->generateVerConstraints();
-
-  INF("CG legalizer: area-driven legalize vertical LP...\n");
-  auto verSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
-  if (verSolver.solve()) {
-    verSolver.exportSolution();
-  } else {
-    Assert(false);
-    return false;
-  }
+  auto area = _db.area();
+  auto lastArea = area;
+  IndexType iter = 0;
+  do {
+    lastArea = area;
+    // Horizontal
+    if (iter % 2 == 0 ) {
+      this->generateHorConstraints();
+      INF("CG legalizer: area-driven legalize horizontal LP...\n");
+      auto horSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
+      bool horpass = horSolver.solve();
+      if (horpass) {
+        horSolver.exportSolution();
+      } else {
+        Assert(false);
+        return false;
+      }
+    }
+    else {
+      // Vertical
+      this->generateVerConstraints();
+      INF("CG legalizer: area-driven legalize vertical LP...\n");
+      auto verSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
+      bool verpass = verSolver.solve();
+      if (verpass) {
+        verSolver.exportSolution();
+      } else {
+        Assert(false);
+        return false;
+      }
+    }
+    ++iter;
+    area = _db.area();
+  } while (lastArea != area);
   return true;
 }
 
 BoolType CGLegalizer::wirelengthDrivenCompaction() {
   LocType hpwl = _db.hpwl();
   LocType lastHpwl = LOC_TYPE_MAX;
+  IndexType iter = 0;
+  // Find the fixed boundary for this step
+  findCellBoundary();
   do {
     lastHpwl = hpwl;
-    // Find the fixed boundary for this step
-    findCellBoundary();
     // Horizontal
-    this->generateHorConstraints();
-    INF("CG legalizer: wirelength-driven detailed placement horizontal LP...\n");
-    auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
+    if (iter % 2 == 0) {
+      this->generateHorConstraints();
+      INF("CG legalizer: wirelength-driven detailed placement horizontal LP...\n");
+      auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
 #ifdef DEBUG_LEGALIZE
-    DBG("wstar for width %f \n", _wStar);
+      DBG("wstar for width %f \n", _wStar);
 #endif
-    horSolver.setBoundary(_wStar);
-    bool horpass = horSolver.solve();
-    if (horpass) {
-      horSolver.exportSolution();
-    } else {
-      return false;
+      horSolver.setBoundary(_wStar);
+      bool horpass = horSolver.solve();
+      if (horpass) {
+        horSolver.exportSolution();
+      } else {
+        return false;
+      }
     }
-
-    // Vertical
-    this->generateVerConstraints();
-    INF("CG legalizer:  wirelength-driven detailed placement vertical LP...\n");
-    auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
-    verSolver.setBoundary(_hStar);
-    bool verpass = verSolver.solve();
-    if (verpass) {
-      verSolver.exportSolution();
-    } else {
-      return false;
+    else {
+      // Vertical
+      this->generateVerConstraints();
+      INF("CG legalizer:  wirelength-driven detailed placement vertical LP...\n");
+      auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
+      verSolver.setBoundary(_hStar);
+      bool verpass = verSolver.solve();
+      if (verpass) {
+        verSolver.exportSolution();
+      } else {
+        return false;
+      }
     }
+    ++iter;
     hpwl = _db.hpwl();
   } while (lastHpwl != hpwl);
 
@@ -204,75 +289,6 @@ BoolType CGLegalizer::preserveRelationCompaction() {
 
   return true;
 }
-
-enum class Relation {
-  RIGHT, LEFT, TOP, BOTTOM, // overlap or parallel run,
-  TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT // Completely disjoined
-};
-
-Relation determineBoxRelation(const Box<LocType> &box1, const Box<LocType> &box2) {
-  if (box1.xHi() <= box2.xLo()) {
-    if (box1.yHi() <= box2.yLo()) {
-      return Relation::TOP_RIGHT;
-    }
-    else if (box1.yLo() >= box2.yHi()) {
-      return Relation::BOTTOM_RIGHT;
-    }
-    else {
-      // Parallel run on y
-      return Relation::RIGHT;
-    }
-  }
-  else if (box1.xLo() >= box2.xHi()) {
-    if (box1.yHi() <= box2.yLo()) {
-      return Relation::TOP_LEFT;
-    }
-    else if (box1.yLo() >= box2.yHi()) {
-      return Relation::BOTTOM_LEFT;
-    }
-    else {
-      // Parallel run on y
-      return Relation::LEFT;
-    }
-  }
-  else {
-    // parallel run on x
-    if (box1.yHi() <= box2.yLo()) {
-      return Relation::TOP;
-    }
-    else if (box1.yLo() >= box2.yHi()) {
-      return Relation::BOTTOM;
-    }
-    // overlap
-    bool left, bottom;
-    LocType overlapX, overlapY;
-    if (box1.xLo() <= box2.xLo()) {
-      left = false;
-      overlapX = box1.xHi() - box2.xLo();
-    }
-    else {
-      left = true;
-      overlapX = box2.xHi() - box1.xLo();
-    }
-    if (box1.yLo() <= box2.yLo()) {
-      bottom = false;
-      overlapY = box1.yHi() - box2.yLo();
-    }
-    else {
-      bottom = true;
-      overlapY = box2.yHi() - box1.yLo();
-    }
-    if (overlapX < overlapY) {
-      if (left) { return Relation::LEFT; }
-      else { return Relation::RIGHT; }
-    }
-    else {
-      if (bottom) { return Relation::BOTTOM; }
-      else { return Relation::TOP; }
-    }
-  }
-}
-
 void CGLegalizer::generateRedundantConstraintGraph() {
   _hConstraints.clear();
   _vConstraints.clear();

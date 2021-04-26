@@ -290,6 +290,7 @@ public:
       cell.forceExtendToGrid(gridSize);
     }
   }
+  std::uint64_t area() const;
   bool checkSym();
   LocType findSymAxis();
   /// @brief Move the layout so that everything is located >= 0

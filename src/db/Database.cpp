@@ -18,6 +18,24 @@ bool Database::initCell(IndexType cellIdx) {
   return true;
 }
 
+
+std::uint64_t Database::area() const {
+    LocType xMax = LOC_TYPE_MIN;
+    LocType xMin = LOC_TYPE_MAX;
+    LocType yMax = LOC_TYPE_MIN;
+    LocType yMin = LOC_TYPE_MAX;
+    for (const auto &cell : _cellArray) {
+      const auto box = cell.cellBBoxOff();
+      xMax = std::max(xMax, box.xh());
+      xMin = std::min(xMin, box.xl());
+      yMax = std::max(yMax, box.yh());
+      yMin = std::min(yMin, box.yl());
+    }
+    std::uint64_t area = xMax - xMin;
+    area *= (yMax - yMin);
+    return area;
+}
+
 LocType Database::hpwl() const {
   LocType hpwl = 0;
   for (const auto &net : _netArray) {
