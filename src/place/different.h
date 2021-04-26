@@ -1430,11 +1430,39 @@ struct place_fence_trait<FenceReciprocalOverlapSumBoxDifferentiable<
   }
 };
 
+struct FENCE_GAUSSIAN_INTEGRAL_COST {};
+struct FENCE_SIGMOID_COST {};
+
+namespace _fence_bivariate_gaussian_details {
+  template<typename CostType> struct calc_trait{};
+
+  template<>
+    struct calc_trait<FENCE_GAUSSIAN_INTEGRAL_COST> {
+      template<typename numerical_type>
+        static numerical_type calcCost(
+            numerical_type muX,
+            numerical_type muY,
+            numerical_type sigmaX,
+            numerical_type sigmaY,
+            numerical_type xLo,
+            numerical_type yLo,
+            numerical_type width,
+            numerical_type height,
+            numerical_type ,
+            numerical_type normalize
+            ) {
+          using NumType = numerical_type;
+              std::complex<NumType> complexCost = (normalize*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
+              complexCost /= (width * height);
+              return std::real(complexCost);
+        }
+    };
+} //namespace _fence_bivariate_gaussian_details
 
 /// @brief Model fence region penalty as the sum of a set of Gaussian distribution.
 /// it transformed the well bounding box into a Gaussian and the cost is the integral
 // of the cost over cell area
-template <typename NumType, typename CoordType>
+template <typename NumType, typename CoordType, typename CostType=FENCE_GAUSSIAN_INTEGRAL_COST>
 struct FenceBivariateGaussianDifferentiable {
   typedef NumType numerical_type;
   typedef CoordType coordinate_type;
@@ -1456,6 +1484,7 @@ struct FenceBivariateGaussianDifferentiable {
     Assert(inFenceCellIdx.size() == inFenceCellHeights.size());
     Assert(outFenceCellIdx.size() == outFenceCellWidths.size());
     Assert(outFenceCellIdx.size() == outFenceCellHeights.size());
+    _getAlphaFunc = [](){ return 1.0; };
   }
 
   void setGetVarFunc(
@@ -1493,11 +1522,12 @@ struct FenceBivariateGaussianDifferentiable {
   std::function<NumType(void)> _getAlphaFunc;
 };
 
-template <typename NumType, typename CoordType>
+template <typename NumType, typename CoordType, typename CostType>
 inline NumType
-FenceBivariateGaussianDifferentiable<NumType, CoordType>::evaluate()
+FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::evaluate()
     const {
       const NumType lambda = _getLambdaFunc();
+      const NumType alpha = _getAlphaFunc();
       std::vector<NumType> costOut;
       costOut.resize(_inFenceCellIdx.size() + _outFenceCellIdx.size(), 0);
 #pragma omp parallel for schedule(static)
@@ -1516,10 +1546,10 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType>::evaluate()
           const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
           const NumType normalize =_gaussianParameters[gauIdx].normalize;
           // Calculate cost
-          std::complex<NumType> complexCost = (normalize*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
-          complexCost /= (width * height);
-
-          costOut[idx] += lambda * (tol  - std::real(complexCost) ) * _weight;
+          const auto cost = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcCost(
+              muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
+              );
+          costOut[idx] += lambda * (tol  - cost ) * _weight;
         }
       }
       if (not _considerOutFenceCells) {
@@ -1541,22 +1571,20 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType>::evaluate()
           const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
           const NumType normalize =_gaussianParameters[gauIdx].normalize;
           // Calculate cost
-          std::complex<NumType> complexCost = (normalize*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
-          complexCost /= (width * height);
+          const auto cost = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcCost(
+              muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
+              );
 
-          costOut[idx + _inFenceCellIdx.size()] += lambda * ( std::real(complexCost) ) * _weight;
+          costOut[idx + _inFenceCellIdx.size()] += lambda * cost * _weight;
         }
       }
       return std::accumulate(costOut.begin(), costOut.end(), 0.0);
   }
 
-template <typename NumType, typename CoordType>
+template <typename NumType, typename CoordType, typename CostType>
 inline void
-FenceBivariateGaussianDifferentiable<NumType, CoordType>::accumlateGradient()
+FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGradient()
      const {
-       std::vector<NumType> gradInHor, gradInVer;
-       gradInHor.resize(_inFenceCellIdx.size(), 0);
-       gradInVer.resize(_inFenceCellIdx.size(), 0);
       const NumType lambda = _getLambdaFunc();
 #pragma omp parallel for schedule(static)
       for (IndexType idx = 0; idx < _inFenceCellIdx.size(); ++idx) {
@@ -1583,9 +1611,6 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType>::accumlateGradient()
       if (not _considerOutFenceCells) {
         return;
       }
-       std::vector<NumType> gradOutHor, gradOutVer;
-       gradOutHor.resize(_outFenceCellIdx.size(), 0);
-       gradOutVer.resize(_outFenceCellIdx.size(), 0);
 #pragma omp parallel for schedule(static)
       for (IndexType idx = 0; idx < _outFenceCellIdx.size(); ++idx) {
         IndexType cellIdx = _outFenceCellIdx[idx];
