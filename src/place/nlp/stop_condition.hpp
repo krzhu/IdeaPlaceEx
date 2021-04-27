@@ -107,7 +107,7 @@ struct stop_after_violate_small {
       1; ///< with respect to sym cell width
 
   static constexpr RealType outFenceRatio =
-      1; ///< With respect to total cell area needs well
+      0.1; ///< With respect to total cell area needs well
   IntType curIter = 0;
   static constexpr IntType minIter = 0;
 };
@@ -198,10 +198,12 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
     }
     // Check whether out of fence region area is smaller than threshold
     bool passFence = true;
-    CoordType outFenceArea = fenceAreaMismatch(n);
-    DBG("Outfence area %f \n", outFenceArea);
-    if (outFenceArea / n._totalCellArea > stop.outFenceRatio) {
-      return passFence;
+    if (n._db.vWells().size() > 0) {
+      CoordType outFenceArea = fenceAreaMismatch(n);
+      DBG("Outfence area %f / %f = %f \n", outFenceArea, n._totalCellArea, outFenceArea / n._totalCellArea);
+      if (outFenceArea / n._totalCellArea > stop.outFenceRatio) {
+        passFence = false;
+      }
     }
 
     if (not passOvl or not passOob or not passAsym or not passFence) {

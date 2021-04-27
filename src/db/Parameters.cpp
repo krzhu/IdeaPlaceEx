@@ -17,7 +17,7 @@ Parameters::Parameters() {
   _defaultSignalFlowWeight = 3;
   _defaultCurrentFlowWeight = 0.5;
   _defaultRelativeRatioOfPowerNet = 0.2;
-  _defaultWellWeight = 1;
+  _defaultWellWeight = 5;
   _fastMode = false;
   _CellToWellEdgeSpacing = 0;
 }

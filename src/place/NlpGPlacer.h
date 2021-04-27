@@ -872,16 +872,34 @@ protected:
   void constructWrapCalcGradTask();
   /* optimization */
   virtual void optimize() override;
-  /* Build the computational graph */
-#ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
-  void regCalcHpwlGradTaskFlow(tf::Taskflow &tfFlow);
-  void regCalcOvlGradTaskFlow(tf::Taskflow &tfFlow);
-  void regCalcOobGradTaskFlow(tf::Taskflow &tfFlow);
-  void regCalcAsymGradTaskFlow(tf::Taskflow &tfFlow);
-  void regCalcCosGradTaskFlow(tf::Taskflow &tfFlow);
-  void regCalcAllGradTaskFlow(tf::Taskflow &tfFlow);
-  void regCalcGradForLoop(tf::Taskflow &tfFlow);
-#endif
+  void printGradNorm() {
+      DBG("grad hpwl %f, ovl %f, oob %f, asym %f, cos %f, pwl %f, crf %f, fence %f \n",
+            _gradHpwl.norm(), _gradOvl.norm(), _gradOob.norm(), _gradAsym.norm(), _gradCos.norm(),
+            _gradPowerWl.norm(), _gradCrf.norm(), _gradFence.norm());
+      auto &grad = _gradOvl;
+      double sumgrad = 0;
+      std::cout<<"Grad X: ";
+      for (IndexType cellIdx = 0; cellIdx < this->_db.numCells();++cellIdx) {
+        sumgrad +=grad(this->plIdx(cellIdx, Orient2DType::HORIZONTAL));
+        std::cout<<std::to_string(cellIdx)<< ": "<<grad(this->plIdx(cellIdx, Orient2DType::HORIZONTAL));
+        std::cout<<". ";
+        if (cellIdx %5 == 0) {
+          std::cout<<"\n";
+        }
+      }
+      std::cout<<"\n\nSum: "<< sumgrad<<"\n\n";
+      std::cout<<"Grad Y: ";
+      sumgrad = 0;
+      for (IndexType cellIdx = 0; cellIdx < this->_db.numCells();++cellIdx) {
+        sumgrad +=grad(this->plIdx(cellIdx, Orient2DType::VERTICAL));
+        //std::cout<<std::to_string(cellIdx)<< ": "<<grad(this->plIdx(cellIdx, Orient2DType::VERTICAL));
+        //std::cout<<". ";
+        //if (cellIdx %5 == 0) {
+        //  std::cout<<"\n";
+        //}
+      }
+      //std::cout<<"\n\nSum: "<<sumgrad<<"\n\n"<<std::endl;
+  }
 
 private:
   void initFirstOrderOuterProblem() {

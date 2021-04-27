@@ -414,8 +414,8 @@ struct CellPairOverlapPenaltyDifferentiable {
     _accumulateGradFunc(dxi * _weight, _cellIdxI, Orient2DType::HORIZONTAL);
     _accumulateGradFunc(dyi * _weight, _cellIdxI, Orient2DType::VERTICAL);
     if (not _considerOnlyOneCell) {
-      _accumulateGradFunc(dyj + 1e-6, _cellIdxJ, Orient2DType::VERTICAL);
-      _accumulateGradFunc(dxj + 1e-6, _cellIdxJ, Orient2DType::HORIZONTAL);
+      _accumulateGradFunc(dxj * _weight , _cellIdxJ, Orient2DType::HORIZONTAL);
+      _accumulateGradFunc(dyj * _weight , _cellIdxJ, Orient2DType::VERTICAL);
     }
   }
 
@@ -1453,8 +1453,44 @@ namespace _fence_bivariate_gaussian_details {
             ) {
           using NumType = numerical_type;
               std::complex<NumType> complexCost = (normalize*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
-              complexCost /= (width * height);
-              return std::real(complexCost);
+          complexCost /= (width * height);
+          return std::real(complexCost);
+        }
+      template<typename numerical_type>
+        static numerical_type calcDiffX(
+            numerical_type muX,
+            numerical_type muY,
+            numerical_type sigmaX,
+            numerical_type sigmaY,
+            numerical_type xLo,
+            numerical_type yLo,
+            numerical_type width,
+            numerical_type height,
+            numerical_type ,
+            numerical_type normalize
+            ) {
+          using NumType = numerical_type;
+          std::complex<NumType> diff = (normalize*(sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(muX-xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX))-sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(-muX+width+xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*-2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);        
+          diff /= (width * height);
+          return std::real(diff);
+        }
+      template<typename numerical_type>
+        static numerical_type calcDiffY(
+            numerical_type muX,
+            numerical_type muY,
+            numerical_type sigmaX,
+            numerical_type sigmaY,
+            numerical_type xLo,
+            numerical_type yLo,
+            numerical_type width,
+            numerical_type height,
+            numerical_type ,
+            numerical_type normalize
+            ) {
+          using NumType = numerical_type;
+          std::complex<NumType> diff = (normalize*(sqrt(2.0)*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0))-sqrt(std::complex<NumType>(2.0))*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0)))*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
+          diff /= (width * height);
+          return std::real(diff);
         }
     };
 } //namespace _fence_bivariate_gaussian_details
@@ -1586,6 +1622,7 @@ inline void
 FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGradient()
      const {
       const NumType lambda = _getLambdaFunc();
+      const NumType alpha = _getAlphaFunc();
 #pragma omp parallel for schedule(static)
       for (IndexType idx = 0; idx < _inFenceCellIdx.size(); ++idx) {
         IndexType cellIdx = _inFenceCellIdx[idx];
@@ -1601,11 +1638,15 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGra
           const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX;
           const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
           const NumType normalize = _gaussianParameters[gauIdx].normalize;
-          // Calculate cost
-          std::complex<NumType> diffx = (normalize*(sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(muX-xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX))-sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(-muX+width+xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*-2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);        
-          std::complex<NumType> diffy = (normalize*(sqrt(2.0)*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0))-sqrt(std::complex<NumType>(2.0))*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0)))*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
-          _accumulateGradFunc( - lambda * normalize * std::real(diffx / (width * height)) *_weight, cellIdx, Orient2DType::HORIZONTAL);
-          _accumulateGradFunc( - lambda * normalize * std::real(diffy / (width * height)) * _weight, cellIdx, Orient2DType::VERTICAL);
+          // Calculate derivative
+          const auto diffx = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffX(
+              muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
+              );
+          const auto diffy = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffY(
+              muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
+              );
+          _accumulateGradFunc( - lambda * diffx *_weight, cellIdx, Orient2DType::HORIZONTAL);
+          _accumulateGradFunc( - lambda * diffy * _weight, cellIdx, Orient2DType::VERTICAL);
         }
       }
       if (not _considerOutFenceCells) {
@@ -1627,10 +1668,14 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGra
           const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
           const NumType normalize = _gaussianParameters[gauIdx].normalize;
           // Calculate cost
-          std::complex<NumType> diffx = (normalize*(sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(muX-xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX))-sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(-muX+width+xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*-2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);        
-          std::complex<NumType> diffy = (normalize*(sqrt(2.0)*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<NumType>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0))-sqrt(std::complex<NumType>(2.0))*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<NumType>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<NumType>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<NumType>(-1.0)))*(op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<NumType>(-1.0/(sigmaY*sigmaY)))*2.5E-1*sqrt(std::complex<NumType>(-1.0)))/(sigmaX*sigmaY);
-          _accumulateGradFunc(lambda * normalize * std::real(diffx / (width * height)) *_weight, cellIdx, Orient2DType::HORIZONTAL);
-          _accumulateGradFunc(lambda * normalize * std::real(diffy / (width * height)) * _weight, cellIdx, Orient2DType::VERTICAL);
+          const auto diffx = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffX(
+              muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
+              );
+          const auto diffy = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffY(
+              muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
+              );
+          _accumulateGradFunc(lambda * diffx *_weight, cellIdx, Orient2DType::HORIZONTAL);
+          _accumulateGradFunc(lambda * diffy * _weight, cellIdx, Orient2DType::VERTICAL);
         }
       }
   }

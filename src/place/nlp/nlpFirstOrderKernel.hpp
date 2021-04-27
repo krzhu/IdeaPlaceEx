@@ -87,41 +87,38 @@ struct optm_trait<
     v.resize(numVars);
     v.setZero();
     IndexType iter = 0;
-    IndexType targetIter = 99999999;
     double initNorm = 1;
-    if (n._db.parameters().isFastMode()) {
-      targetIter = 30;
-    }
     do {
-      ++iter;
       n.calcGrad();
 
 
       m = o.beta1 * m + (1 - o.beta1) * n._grad;
       v = o.beta2 * v + (1 - o.beta2) * n._grad.cwiseProduct(n._grad);
-      auto mt = m / (1 - pow(o.beta1, iter));
-      auto vt = v / (1 - pow(o.beta2, iter));
+      auto mt = m / (1 - pow(o.beta1, iter+1));
+      auto vt = v / (1 - pow(o.beta2, iter+1));
       auto bot = vt.array().sqrt() + o.epsilon;
-      if (iter < targetIter) {
-        n._pl = n._pl - o.alpha * (mt.array() / bot).matrix();
-      } else {
-        n._pl -= optm_type::naiveGradientDescentStepSize * n._grad;
-      }
+      n._pl = n._pl - o.alpha * (mt.array() / bot).matrix();
+#if 0
       for (int i = 0; i < n._pl.size(); ++i) {
         if (std::isnan(n._pl(i))) {
-          std::cout<<"hpwl "<< n._gradHpwl<<std::endl;
-          std::cout<<"ovl "<< n._gradOvl<<std::endl;
-          std::cout<<"asyn "<< n._gradAsym<<std::endl;
-          std::cout<<"fence "<< n._gradFence<<std::endl;
+          std::cout<<"\n\n\nNAN!!!\n\n\n";
+          //std::cout<<"hpwl "<< n._gradHpwl<<std::endl;
+          //std::cout<<"ovl "<< n._gradOvl<<std::endl;
+          //std::cout<<"asyn "<< n._gradAsym<<std::endl;
+          //std::cout<<"fence "<< n._gradFence<<std::endl;
+          //std::cout<<"grad" <<n._grad<<std::endl;
+          std::cout<< "pl"<<n._pl<<std::endl;
           assert(false);
         }
       }
+#endif
 
       // n.calcObj();
-      if (iter == 1) {
+      if (iter == 0) {
         initNorm = n._grad.norm();
          DBG(" init norm %f \n", initNorm);
       }
+      ++iter;
       // DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f \n", n._obj,
       // n._objHpwl, n._objCos, n._objOvl, n._objOob, n._objAsym);
     } while (!converge_trait::stopCriteria(n, o, o._converge));
@@ -131,6 +128,7 @@ struct optm_trait<
         n._objCos, n._objOvl, n._objOob, n._objAsym, n._objFence);
     DBG("gradient norm %f, ratio %f \n", n._grad.norm(), n._grad.norm() / initNorm);
     DBG("converge at iter %d \n", iter);
+    DBG("fence norm %f \n", n._gradFence.norm());
 //#endif
   }
 };
