@@ -648,7 +648,7 @@ void NlpGPlacerBase<nlp_settings>::constructWrapObjTask() {
   };
   _wrapObjCrfTask = Task<FuncTask>(FuncTask(crf));
   auto fence = [&]() {
-#pragma omp parallel for schedule(static)
+//#pragma omp parallel for schedule(static)
     for (IndexType idx = 0; idx < _evaFenceTasks.size(); ++idx) {
       _evaFenceTasks[idx].run();
     }
@@ -715,6 +715,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::stepOptmIter() {
     mult_adjust_trait::update(*this, *_multiplier, *_multAdjuster);
     alpha_update_trait::update(*this, *_alpha, *_alphaUpdate);
   }
+  DBG("%s: Iter %d \n", __FUNCTION__,  _iter);
   ++_iter;
 }
 
@@ -955,56 +956,95 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask() {
     _clearPowerWlGradTask.run();
     _clearCrfGradTask.run();
     _clearFenceGradTask.run();
+    const IndexType numParallelTasks = 
+      _calcHpwlPartialTasks.size()
+      + _calcOvlPartialTasks.size()
+      + _calcOobPartialTasks.size()
+      + _calcAsymPartialTasks.size()
+      + _calcCosPartialTasks.size()
+      + _calcPowerWlPartialTasks.size()
+      + _calcCrfPartialTasks.size()
+      ;
+    const IndexType numParallelTypes = 7;
+    auto taskIdx = [&](IndexType i) {
+      if (i < _calcHpwlPartialTasks.size()) {
+        _calcHpwlPartialTasks[i].run();
+        return std::make_pair(0, i);
+      }
+      i -= _calcHpwlPartialTasks.size();
+      if (i < _calcOvlPartialTasks.size()) {
+        return std::make_pair(1, i);
+      }
+      i -= _calcOvlPartialTasks.size();
+      if (i < _calcOobPartialTasks.size()) {
+        return std::make_pair(2, i);
+      }
+      i -= _calcOobPartialTasks.size();
+      if (i < _calcAsymPartialTasks.size()) {
+        return std::make_pair(3, i);
+      }
+      i -= _calcAsymPartialTasks.size();
+      if (i < _calcCosPartialTasks.size()) {
+        return std::make_pair(4, i);
+      }
+      i -= _calcCosPartialTasks.size();
+      if (i < _calcPowerWlPartialTasks.size()) {
+        return std::make_pair(5, i);
+      }
+      i -= _calcPowerWlPartialTasks.size();
+      return std::make_pair(6, i);
+    };
 #pragma omp parallel for schedule(static)
-    for (IndexType i = 0; i < _calcHpwlPartialTasks.size(); ++i) {
-      _calcHpwlPartialTasks[i].run();
+    for (IndexType i = 0; i < numParallelTasks; ++i) {
+      auto pair = taskIdx(i);
+      switch(pair.first) {
+        case 0: _calcHpwlPartialTasks[pair.second].run(); break;
+        case 1: _calcOvlPartialTasks[pair.second].run(); break;
+        case 2: _calcOobPartialTasks[pair.second].run(); break;
+        case 3: _calcAsymPartialTasks[pair.second].run(); break;
+        case 4: _calcCosPartialTasks[pair.second].run(); break;
+        case 5: _calcPowerWlPartialTasks[pair.second].run(); break;
+        default: _calcCrfPartialTasks[pair.second].run(); break;
+      }
     }
-    for (IndexType i = 0; i < _updateHpwlPartialTasks.size(); ++i) {
-      _updateHpwlPartialTasks[i].run();
+//#pragma omp parallel for schedule(dynamic)
+    for (IndexType i = 0; i < numParallelTypes; ++i) {
+      if (i == 0) {
+        for (IndexType i = 0; i < _updateHpwlPartialTasks.size(); ++i) {
+          _updateHpwlPartialTasks[i].run();
+        }
+      }
+      else if (i == 1) {
+        for (IndexType i = 0; i < _updateOvlPartialTasks.size(); ++i) {
+          _updateOvlPartialTasks[i].run();
+        }
+      }
+      else if (i == 2) {
+        for (IndexType i = 0; i < _updateOobPartialTasks.size(); ++i) {
+          _updateOobPartialTasks[i].run();
+        }
+      }
+      else if (i == 3) {
+        for (IndexType i = 0; i < _updateAsymPartialTasks.size(); ++i) {
+          _updateAsymPartialTasks[i].run();
+        }
+      }
+      else if (i == 4) {
+        for (IndexType i = 0; i < _updateCosPartialTasks.size(); ++i) {
+          _updateCosPartialTasks[i].run();
+        }
+      }
+      else if (i == 5) {
+        for (IndexType i = 0; i < _updatePowerWlPartialTasks.size(); ++i) {
+          _updatePowerWlPartialTasks[i].run();
+        }
+      }
+      else if (i == 6) {
+        for (IndexType i = 0; i < _updateCrfPartialTasks.size(); ++i) {
+          _updateCrfPartialTasks[i].run();
+        }
+      }
     }
-#pragma omp parallel for schedule(static)
-    for (IndexType i = 0; i < _calcOvlPartialTasks.size(); ++i) {
-      _calcOvlPartialTasks[i].run();
-    }
-    for (IndexType i = 0; i < _updateOvlPartialTasks.size(); ++i) {
-      _updateOvlPartialTasks[i].run();
-    }
-#pragma omp parallel for schedule(static)
-    for (IndexType i = 0; i < _calcOobPartialTasks.size(); ++i) {
-      _calcOobPartialTasks[i].run();
-    }
-    for (IndexType i = 0; i < _updateOobPartialTasks.size(); ++i) {
-      _updateOobPartialTasks[i].run();
-    }
-#pragma omp parallel for schedule(static)
-    for (IndexType i = 0; i < _calcAsymPartialTasks.size(); ++i) {
-      _calcAsymPartialTasks[i].run();
-    }
-    for (IndexType i = 0; i < _updateAsymPartialTasks.size(); ++i) {
-      _updateAsymPartialTasks[i].run();
-    }
-#pragma omp parallel for schedule(static)
-    for (IndexType i = 0; i < _calcCosPartialTasks.size(); ++i) {
-      _calcCosPartialTasks[i].run();
-    }
-    for (IndexType i = 0; i < _updateCosPartialTasks.size(); ++i) {
-      _updateCosPartialTasks[i].run();
-    }
-#pragma omp parallel for schedule(static)
-    for (IndexType i = 0; i < _calcPowerWlPartialTasks.size(); ++i) {
-      _calcPowerWlPartialTasks[i].run();
-    }
-    for (IndexType i = 0; i < _updatePowerWlPartialTasks.size(); ++i) {
-      _updatePowerWlPartialTasks[i].run();
-    }
-#pragma omp parallel for schedule(static)
-    for (IndexType i = 0; i < _calcCrfPartialTasks.size(); ++i) {
-      _calcCrfPartialTasks[i].run();
-    }
-    for (IndexType i = 0; i < _updateCrfPartialTasks.size(); ++i) {
-      _updateCrfPartialTasks[i].run();
-    }
-#pragma omp parallel for schedule(static)
     for (IndexType i = 0; i < _calcFencePartialTasks.size(); ++i) {
       _calcFencePartialTasks[i].run();
     }

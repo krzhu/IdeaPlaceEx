@@ -221,6 +221,10 @@ LocType IdeaPlaceEx::endPlace() {
   // Restore proxmity group
   _proximityMgr.restore();
 
+  if (_db.parameters().gridStep() > 0) {
+    alignToGrid(_db.parameters().gridStep());
+  }
+
   INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
   INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins());
 

@@ -12,7 +12,7 @@ Parameters::Parameters() {
   _virtualPinInterval = 400; ///< The interval between each virtual pin
   _layoutOffset = 1000;      ///< The default offset for the placement
   _defaultAspectRatio = 1.2;
-  _maxWhiteSpace = 2;
+  _maxWhiteSpace = 1.2;
   _defaultSymWeight = 8;
   _defaultSignalFlowWeight = 3;
   _defaultCurrentFlowWeight = 0.5;

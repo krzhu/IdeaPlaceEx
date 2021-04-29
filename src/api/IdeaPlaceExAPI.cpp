@@ -26,6 +26,7 @@ void initIdeaPlaceExAPI(py::module &m) {
            "Align the placement to grid")
       .def("numThreads", &PROJECT_NAMESPACE::IdeaPlaceEx::setNumThreads,
            "Set number of threads")
+      .def("setGridStep", &PROJECT_NAMESPACE::IdeaPlaceEx::setGridStep, "Set the grid step" )
       .def("readTechSimpleFile",
            &PROJECT_NAMESPACE::IdeaPlaceEx::readTechSimpleFile,
            "Internal usage: Read in the techsimple file")
@@ -203,6 +204,8 @@ void initIdeaPlaceExAPI(py::module &m) {
       .def("flagCellAsNeedWell", &PROJECT_NAMESPACE::IdeaPlaceEx::flagCellAsNeedWell, "Flag a cell as it need well")
       .def("assignCellToWell", &PROJECT_NAMESPACE::IdeaPlaceEx::assignCellToWell, "Assign cells to wells")
       .def("splitWells", &PROJECT_NAMESPACE::IdeaPlaceEx::splitWells, "Split the wells into rectangles")
+      .def("numWellRects", &PROJECT_NAMESPACE::IdeaPlaceEx::numWellRects, "Get the number of well rects")
+      .def("wellRect", &PROJECT_NAMESPACE::IdeaPlaceEx::wellRect, "Get one rect from the well")
 #ifdef DEBUG_DRAW
       .def("debugDraw", &PROJECT_NAMESPACE::IdeaPlaceEx::drawDebug, "Draw the debug layout")
 #endif // ifdef DEBUG_DRAW
@@ -226,4 +229,17 @@ void initPointAPI(py::module &m) {
       .def("rotate180", &PROJECT_NAMESPACE::Point<int>::rotate180)
       .def("flipX", &PROJECT_NAMESPACE::Point<int>::flipX)
       .def("flipY", &PROJECT_NAMESPACE::Point<int>::flipY);
+}
+
+
+void initBoxAPI(py::module &m) {
+  using LocType = PROJECT_NAMESPACE::LocType;
+  using BOX = PROJECT_NAMESPACE::Box<LocType>;
+  py::class_<BOX>(m, "Box")
+      .def(py::init<LocType, LocType, LocType, LocType>())
+      .def("xLo", &BOX::xLo)
+      .def("xHi", &BOX::xHi)
+      .def("yLo", &BOX::yLo)
+      .def("yHi", &BOX::yHi)
+      ;
 }

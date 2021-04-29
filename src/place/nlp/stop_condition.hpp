@@ -198,6 +198,7 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
     }
     // Check whether out of fence region area is smaller than threshold
     bool passFence = true;
+#if 0
     if (n._db.vWells().size() > 0) {
       CoordType outFenceArea = fenceAreaMismatch(n);
       DBG("Outfence area %f / %f = %f \n", outFenceArea, n._totalCellArea, outFenceArea / n._totalCellArea);
@@ -205,13 +206,66 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
         passFence = false;
       }
     }
+#else
+    if (n._db.vWells().size() > 0) {
+      bool passA = true;
+      bool passB = true;
+      CoordType outFenceArea = fenceAreaMismatch(n);
+      if (outFenceArea / n._totalCellArea > stop.outFenceRatio) {
+        passA = false;
+      }
+      IndexType outNum = numCenterViolateFence(n);
+      if (outNum > 0) {
+        passB = false;
+      }
+      passFence = passA or passB;
+    }
+#endif
 
     if (not passOvl or not passOob or not passAsym or not passFence) {
+      DBG("Pass: ovl %d oob %d asym %d fence %d \n", passOvl, passOob, passAsym, passFence);
       return false;
     }
     return true;
   }
 
+   template<typename NlpType>
+     static IndexType numCenterViolateFence(NlpType &nlp) {
+       const Database &db = nlp._db;
+       IndexType numViolate = 0;
+       // Build well shape tree
+       using rtree_type  = boost::geometry::index::rtree<Box<LocType>, boost::geometry::index::linear<16, 4>>;
+       rtree_type rtree;
+       IndexType rectIdx = 0;
+       for (const auto &well : db.vWells()) {
+         for (const auto &rect : well.rects()) {
+           rtree.insert(rect);
+           ++rectIdx;
+         }
+       }
+       // Calculate area
+       for (IndexType cellIdx = 0; cellIdx < db.numCells(); ++cellIdx) {
+         const auto &cell = db.cell(cellIdx);
+         LocType xLo = nlp._pl(nlp.plIdx(cellIdx, Orient2DType::HORIZONTAL)) / nlp._scale;
+         LocType yLo = nlp._pl(nlp.plIdx(cellIdx, Orient2DType::VERTICAL)) / nlp._scale;
+         LocType xMid = xLo + cell.cellBBox().xLen() / 2;
+         LocType yMid = yLo + cell.cellBBox().yLen() / 2;
+         std::vector<Box<LocType>> queryResults;
+         const Box<LocType> query(xMid - 1, yMid - 1, xMid + 1, yMid + 1);
+         rtree.query(boost::geometry::index::intersects(query), std::back_inserter(queryResults));
+         if (cell.needWell()) {
+           if (queryResults.size() == 0) {
+             numViolate++;
+           }
+         }
+         else {
+           if (queryResults.size() != 0) {
+             numViolate++;
+           }
+         }
+       }
+       return numViolate;
+     }
    template<typename NlpType>
      static typename NlpType::nlp_coordinate_type fenceAreaMismatch(NlpType &nlp) {
        const Database &db = nlp._db;
@@ -240,10 +294,10 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
            overlapArea += Box<LocType>::overlapArea(rect, query);
          }
          if (not cell.needWell()) {
-           inFenceFailedArea += overlapArea * nlp._scale * nlp._scale;
+           outFenceFailedArea += overlapArea * nlp._scale * nlp._scale;
          }
          else {
-           outFenceFailedArea += (query.area() - overlapArea) * nlp._scale * nlp._scale;
+           inFenceFailedArea += (query.area() - overlapArea) * nlp._scale * nlp._scale;
            Assert(query.area() - overlapArea >= 0);
          }
        }

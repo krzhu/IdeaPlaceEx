@@ -31,7 +31,8 @@ public:
   /// @brief LP-based detailed placement. For optimizing wire length
   BoolType wirelengthDrivenCompaction();
   /// @brief compaction and preserve current coordinate relation
-  BoolType preserveRelationCompaction(); 
+  /// @param Extra spacing to add to the legalization
+  BoolType preserveRelationCompaction(LocType extraSpacing = -1); 
   /// @brief legalzie with-in well 
   void legalizeWells();
   /// @brief close the well-aware functionality

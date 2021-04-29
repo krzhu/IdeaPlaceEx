@@ -444,6 +444,9 @@ namespace _lp_legalize_details {
           }
           LocType spacing = cell_loc_trait<typename lp_type::is_hor_type>::getSpacing(lp._db, sourceIdx, targetIdx);
           LocType cellLen = cell_loc_trait<typename lp_type::is_hor_type>::getLen(lp._db, sourceIdx);
+          if (lp._extraSpacing > 0) {
+            spacing +=  lp._extraSpacing;
+          }
           // Add the constraint
           // x_i + w_i + spacing <= x_j
           lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(sourceIdx) - lp._locs.at(targetIdx) <=
@@ -556,6 +559,10 @@ namespace lp_legalize {
       }
     }
 
+    void setExtraSpacing(LocType spacing) {
+      _extraSpacing = spacing;
+    }
+
     protected:
     void addLocVars() {
       // _locs are x or y, depending on is_hor_type
@@ -598,6 +605,7 @@ namespace lp_legalize {
     lp_solver_type _solver; ///<  LP sovler
     lp_expr_type _obj;      ///< The objective function of the LP model
     std::vector<lp_variable_type> _locs; ///< The location variables of the LP model
+    LocType _extraSpacing = -1; ///< Apply extra spacing
   };
 
 

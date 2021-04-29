@@ -148,6 +148,9 @@ file(GLOB STATIC_LIB
     ${LIMBO_ROOT_DIR}/lib/libgzstream.a
     )
 
+# Python
+find_package(PythonLibs REQUIRED)
+
 #pybind11
 if (PYBIND11_DIR)
     set(PYBIND11_ROOT_DIR ${PYBIND11_DIR})
@@ -159,8 +162,6 @@ endif()
 unset(PYBIND11_DIR CACHE)
 add_subdirectory(${PYBIND11_ROOT_DIR} "./pybind11")
 
-# Python
-find_package(PythonLibs REQUIRED)
 
 
 #Gurobi

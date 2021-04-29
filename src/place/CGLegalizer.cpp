@@ -185,6 +185,8 @@ BoolType CGLegalizer::areaDrivenCompaction() {
   auto area = _db.area();
   auto lastArea = area;
   IndexType iter = 0;
+  bool legalizedHor = false;
+  bool legalizedVer = false;
   do {
     lastArea = area;
     // Horizontal
@@ -194,9 +196,14 @@ BoolType CGLegalizer::areaDrivenCompaction() {
       auto horSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
       bool horpass = horSolver.solve();
       if (horpass) {
+        legalizedHor = true;
         horSolver.exportSolution();
       } else {
-        Assert(false);
+        if (legalizedHor and legalizedVer) {
+          INF("CG legalizer: LP failed, but valid solution exists. Exit \n");
+          return true;
+        }
+        INF("CG legalizer: LP failed! No valid solution \n");
         return false;
       }
     }
@@ -207,9 +214,14 @@ BoolType CGLegalizer::areaDrivenCompaction() {
       auto verSolver = lp_legalize::LpLegalizeArea<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
       bool verpass = verSolver.solve();
       if (verpass) {
+        legalizedVer = true;
         verSolver.exportSolution();
       } else {
-        Assert(false);
+        if (legalizedHor and legalizedVer) {
+          INF("CG legalizer: LP failed, but valid solution exists. Exit \n");
+          return true;
+        }
+        INF("CG legalizer: LP failed! No valid solution \n");
         return false;
       }
     }
@@ -268,10 +280,11 @@ BoolType CGLegalizer::wirelengthDrivenCompaction() {
   return true;
 }
 
-BoolType CGLegalizer::preserveRelationCompaction() {
+BoolType CGLegalizer::preserveRelationCompaction(LocType extraSpacing) {
   generateRedundantConstraintGraph();
   INF("CG legalizer: Prerserve relational coodinate horizontal LP...\n");
   auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
+  horSolver.setExtraSpacing(extraSpacing);
   if (horSolver.solve()) {
     horSolver.exportSolution();
   }
@@ -280,6 +293,7 @@ BoolType CGLegalizer::preserveRelationCompaction() {
   }
   INF("CG legalizer: Prerserve relational coodinate vetical LP...\n");
   auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
+  verSolver.setExtraSpacing(extraSpacing);
   if (verSolver.solve()) {
     verSolver.exportSolution();
   }

@@ -416,6 +416,13 @@ public:
   void clearWells() { _db.clearWells(); }
   void assignCellToWell() { _db.assignCellToWellAndRemoveUnusedWell(); }
   void splitWells() { _db.splitWells(); }
+  IndexType numWellRects() const {
+    return _db.numWellRects();
+  }
+  const Box<LocType> &wellRect(IndexType idx) const {
+    auto rectIdx = _db.getWellRectIdx(idx);
+    return _db.well(rectIdx.first).rects().at(rectIdx.second);
+  }
   /* Debug */
 #ifdef DEBUG_DRAW
   void drawDebug(const std::string &filename) {

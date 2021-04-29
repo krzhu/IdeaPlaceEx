@@ -14,6 +14,7 @@ namespace py = pybind11;
 void initIdeaPlaceExAPI(py::module &);
 void initGPlacerApi(py::module &);
 void initPointAPI(py::module &);
+void initBoxAPI(py::module &);
 void initLegalizerApi(py::module &);
 
 PYBIND11_MAKE_OPAQUE(std::vector<PROJECT_NAMESPACE::IndexType>);
@@ -24,5 +25,6 @@ PYBIND11_MODULE(IdeaPlaceExPy, m) {
   initGPlacerApi(m);
   initIdeaPlaceExAPI(m);
   initPointAPI(m);
+  initBoxAPI(m);
   initLegalizerApi(m);
 }

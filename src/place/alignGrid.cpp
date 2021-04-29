@@ -4,14 +4,14 @@
 
 PROJECT_NAMESPACE_BEGIN
 
-template <typename T> T floorDif(T n, T stepSize) {
+template <typename T> T floorDif(T, T ) {
   throw std::invalid_argument("Unsupport argument types. Need to be integer");
 }
 template <> IntType floorDif(IntType n, IntType stepSize) {
   return n % stepSize;
 }
 
-template <typename T> T ceilDif(T n, T stepSize) {
+template <typename T> T ceilDif(T , T ) {
   throw std::invalid_argument("Unsupport argument types. Need to be integer");
 }
 template <> IntType ceilDif(IntType n, IntType stepSize) {
@@ -24,8 +24,8 @@ void GridAligner::align(LocType stepSize) {
 #ifdef MULTI_SYM_GROUP
   Assert(0);
 #else
-  // naiveAlign();
-  bettherThanNaiveAlign();
+  naiveAlign();
+  //bettherThanNaiveAlign();
 #endif
   // adjustOffset(XY<LocType>(0, 0));
   INF("Ideaplace: finished alignment\n");
@@ -107,8 +107,8 @@ void GridAligner::adjustSymPair(const SymPair &symPair, LocType symAxis) {
   _db.cell(rightCellIdx)
       .setXLoc(_db.cell(rightCellIdx).xLoc() + rightXLo -
                _db.cell(rightCellIdx).xLo());
-  assert(_db.cell(leftCellIdx).xLo() % _stepSize == 0);
-  assert(_db.cell(rightCellIdx).xLo() % _stepSize == 0);
+  AssertMsg(_db.cell(leftCellIdx).xLo() % _stepSize == 0, "Left %s Right %s", _db.cell(leftCellIdx).cellBBoxOff().toStr().c_str(), _db.cell(rightCellIdx).cellBBoxOff().toStr().c_str());
+  AssertMsg(_db.cell(rightCellIdx).xLo() % _stepSize == 0, "Left %s Right %s", _db.cell(leftCellIdx).cellBBoxOff().toStr().c_str(), _db.cell(rightCellIdx).cellBBoxOff().toStr().c_str());
 }
 
 void GridAligner::adjustSelfSym(IndexType cellIdx, LocType symAxis) {

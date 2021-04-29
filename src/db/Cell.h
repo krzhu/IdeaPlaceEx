@@ -201,6 +201,9 @@ public:
           this->name().c_str(), _cellBBox.toStr().c_str(), gridStep);
       LocType xDif = gridStep - (_cellBBox.xLen() % gridStep);
       _cellBBox.setXLo(_cellBBox.xLo() - xDif / 2);
+      if (xDif %2 == 1) {
+        xDif += 1;
+      }
       _cellBBox.setXHi(_cellBBox.xHi() + xDif / 2);
     }
     if (_cellBBox.yLen() % gridStep != 0) {
@@ -208,12 +211,16 @@ public:
           this->name().c_str(), _cellBBox.toStr().c_str(), gridStep);
       LocType yDif = gridStep - (_cellBBox.yLen() % gridStep);
       _cellBBox.setYLo(_cellBBox.yLo() - yDif / 2);
+      if (yDif %2 == 1) {
+        yDif += 1;
+      }
       _cellBBox.setYHi(_cellBBox.yHi() + yDif / 2);
     }
     AssertMsg(_cellBBox.xLen() % gridStep == 0, "%s \n",
               _cellBBox.toStr().c_str());
     AssertMsg(_cellBBox.yLen() % gridStep == 0, "%s \n",
               _cellBBox.toStr().c_str());
+    return;
     // Force to be odd * gridStep
     if ((_cellBBox.xLen()) % (2 * gridStep) == 0) {
       LocType center = _cellBBox.center().x();
