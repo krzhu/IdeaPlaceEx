@@ -52,6 +52,12 @@ void initIdeaPlaceExAPI(py::module &m) {
       .def("finishAddingGdsLayer",
            &PROJECT_NAMESPACE::IdeaPlaceEx::finishAddingGdsLayer,
            "Finish the gds layer adding, trigger a init function")
+      .def("setIntraLayerSpacing",
+          &PROJECT_NAMESPACE::IdeaPlaceEx::setIntraLayerSpacing)
+      .def("setInterLayerSpacing",
+          &PROJECT_NAMESPACE::IdeaPlaceEx::setInterLayerSpacing)
+      .def("setNwellLayerIdx",
+          &PROJECT_NAMESPACE::IdeaPlaceEx::setNwellLayerIdx)
       .def("allocateCell", &PROJECT_NAMESPACE::IdeaPlaceEx::allocateCell,
            "Allocate a new cell, return the index of the cell")
       .def("setCellName", &PROJECT_NAMESPACE::IdeaPlaceEx::setCellName,

@@ -62,6 +62,9 @@ public:
   /// @brief set the dbu/ database unit
   /// @param the databse unit
   void setDbu(LocType dbu) { _dbu = dbu; }
+  /// @brief Set the n-well layer index
+  /// @param The layer index of the N-well layer
+  void setNwellLayerIdx(IndexType nwellLayerIdx) { _nwellLayerIdx = nwellLayerIdx; } 
   /*------------------------------*/
   /* Query the tech               */
   /*------------------------------*/
@@ -97,32 +100,17 @@ public:
     Assert(this->hasAreaRule(layerIdx));
     return _areaRule.at(layerIdx);
   }
-  /// @brief get whether there is intra spacing rules. The intralayer version
-  /// @param first: the layer index
-  /// @return whether there is spacing rule defined
-  bool hasSpacingRule(IndexType layerIdxFirst) const {
-    return _spacingRule.at(layerIdxFirst, layerIdxFirst) != -1;
-  }
   /// @brief get the spacing rule of intra-layer
   /// @param the layer index
   /// @return the intra-layer spacing rule
   LocType spacingRule(IndexType layerIdx) const {
-    Assert(this->hasSpacingRule(layerIdx));
     return _spacingRule.at(layerIdx, layerIdx);
-  }
-  /// @brief get whether there is intra spacing rules. The interlayer version
-  /// @param first: the first layer index
-  /// @param second: the second layer index
-  /// @return whether there is spacing rule defined
-  bool hasSpacingRule(IndexType layerIdxFirst, IndexType layerIdxSecond) const {
-    return _spacingRule.at(layerIdxFirst, layerIdxSecond) != -1;
   }
   /// @brief get the inter-spacing rule
   /// @param first: the first layer index
   /// @param second: the second layer index
   /// @return the spacing rule defined
   LocType spacingRule(IndexType layerIdxFirst, IndexType layerIdxSecond) const {
-    Assert(this->hasSpacingRule(layerIdxFirst, layerIdxSecond));
     return _spacingRule.at(layerIdxFirst, layerIdxSecond);
   }
   /// @brief get the database unit
@@ -144,6 +132,10 @@ public:
   std::unordered_map<IndexType, IndexType> &layerIdxMap() {
     return _layerIdxMap;
   }
+  /// @brief Get if the nwell layer index is set
+  bool isNwellLayerSet() const { return _nwellLayerIdx != INDEX_TYPE_MAX; }
+  /// @brief Get the n-well layer index
+  IndexType nwellLayerIdx() const { return _nwellLayerIdx; }
 
 private:
   LocType _dbu = 1000; ///< 1 um = _dbu database units
@@ -159,13 +151,14 @@ private:
       _spacingRule; ///< The intra/inter-layer spacing rules.
                     ///< _spacingRule[layer1][layer2] = spacing rules btween
                     ///< shapes of layer 1 and layer 2.
+  IndexType _nwellLayerIdx = INDEX_TYPE_MAX;
 };
 
 inline void Tech::initRuleDataStructure() {
   IndexType numLayers = _gdsLayerIdxArray.size();
   _widthRule.resize(numLayers, -1);
   _areaRule.resize(numLayers, -1);
-  _spacingRule.resize(numLayers, numLayers, -1);
+  _spacingRule.resize(numLayers, numLayers, 0);
 }
 
 PROJECT_NAMESPACE_END

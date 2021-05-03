@@ -275,6 +275,8 @@ public:
   /// @return A box object representing the spacing requirements. xyLo for cell
   /// 1 is left and bottm. xyHi for ... 2...
   Box<LocType> cellSpacing(IndexType cellIdx1, IndexType cellIdx2) const;
+  /// @brief calculate the spacing between cells
+  void calculateCellSpacings();
   /*------------------------------*/
   /* Supporting functions         */
   /*------------------------------*/
@@ -327,58 +329,122 @@ inline RealType Database::calculateTotalCellArea() const {
   return area;
 }
 
+inline void Database::calculateCellSpacings() {
+  for (IndexType cellIdx  = 0; cellIdx < numCells(); ++cellIdx) {
+    // Each cell only record the spacing for the cells after in index, size numCells() - cellIdx - 1
+    // The last one is against N-well
+    // In total: numCells() - cellIdx
+    _cellArray.at(cellIdx).spacingToCells().resize(numCells() - cellIdx);
+  }
+  for (IndexType cellIdx1 = 0; cellIdx1 < numCells(); ++cellIdx1) {
+    auto &cell1 = _cellArray.at(cellIdx1);
+    for (IndexType cellIdx2 = cellIdx1 + 1; cellIdx2 < numCells(); ++cellIdx2) {
+      auto &cell2 = _cellArray.at(cellIdx2);
+      auto &spacings = cell1.spacingToCells().at(cellIdx2 - cellIdx1 - 1);
+      spacings = Box<LocType>(0, 0, 0, 0);
+      for (IndexType layer1 = 0; layer1 < _tech.numLayers(); ++layer1) {
+        for (IndexType layer2 = 0; layer2 < _tech.numLayers(); ++layer2) {
+          // Check spacing for layer1 in cell1 against layer2 in cell2
+          bool cell1HasLayer = cell1.layerHasShape(layer1);
+          bool cell2HasLayer = cell2.layerHasShape(layer2);
+          if (!(cell1HasLayer && cell2HasLayer)) {
+            continue;
+          }
+          LocType spacingRule = _tech.spacingRule(layer1, layer2);
+          // Calculate the layer shape to the cell boundry
+          LocType cell1ToBoundXLo =
+              cell1.bbox(layer1).xLo() - cell1.cellBBox().xLo();
+          LocType cell1ToBoundXHi =
+              cell1.cellBBox().xHi() - cell1.bbox(layer1).xHi();
+          LocType cell1ToBoundYLo =
+              cell1.bbox(layer1).yLo() - cell1.cellBBox().yLo();
+          LocType cell1ToBoundYHi =
+              cell1.cellBBox().yHi() - cell1.bbox(layer1).yHi();
+          LocType cell2ToBoundXLo =
+              cell2.bbox(layer2).xLo() - cell2.cellBBox().xLo();
+          LocType cell2ToBoundXHi =
+              cell2.cellBBox().xHi() - cell2.bbox(layer2).xHi();
+          LocType cell2ToBoundYLo =
+              cell2.bbox(layer2).yLo() - cell2.cellBBox().yLo();
+          LocType cell2ToBoundYHi =
+              cell2.cellBBox().yHi() - cell2.bbox(layer2).yHi();
+          // cell 1 is left
+          LocType xLo = -cell1ToBoundXHi + spacingRule - cell2ToBoundXLo;
+          // cell 1 is lower
+          LocType yLo = -cell1ToBoundYHi + spacingRule - cell2ToBoundYLo;
+          // cell 1 is right
+          LocType xHi = -cell1ToBoundXLo + spacingRule - cell2ToBoundXHi;
+          // cell 1 is higher
+          LocType yHi = -cell1ToBoundYLo + spacingRule - cell2ToBoundYHi;
+          // Update the cell-wise spacing
+          spacings.setXLo(std::max(spacings.xLo(), xLo));
+          spacings.setYLo(std::max(spacings.yLo(), yLo));
+          spacings.setXHi(std::max(spacings.xHi(), xHi));
+          spacings.setYHi(std::max(spacings.yHi(), yHi));
+        }
+      }
+    }
+  }
+  // Finally, calculate the spacing for each cell against nwell
+  for (IndexType cellIdx = 0; cellIdx < numCells(); ++cellIdx) {
+    auto &cell1 = this->cell(cellIdx);
+    auto &spacings = cell1.spacingToCells().back(); // Record in the last one
+    spacings = Box<LocType>(0, 0, 0, 0);
+    if (not _tech.isNwellLayerSet()) {
+      continue;
+    }
+    for (IndexType layerIdx = 0; layerIdx < _tech.numLayers(); ++layerIdx) {
+      bool cell1HasLayer = cell1.layerHasShape(layerIdx);
+      if (!(cell1HasLayer)) {
+        continue;
+      }
+      LocType spacingRule = _tech.spacingRule(layerIdx, _tech.nwellLayerIdx());
+      // Calculate the layer shape to the cell boundry
+      LocType cell1ToBoundXLo =
+          cell1.bbox(layerIdx).xLo() - cell1.cellBBox().xLo();
+      LocType cell1ToBoundXHi =
+          cell1.cellBBox().xHi() - cell1.bbox(layerIdx).xHi();
+      LocType cell1ToBoundYLo =
+          cell1.bbox(layerIdx).yLo() - cell1.cellBBox().yLo();
+      LocType cell1ToBoundYHi =
+          cell1.cellBBox().yHi() - cell1.bbox(layerIdx).yHi();
+      // cell 1 is left
+      LocType xLo = -cell1ToBoundXHi + spacingRule;
+      // cell 1 is lower
+      LocType yLo = -cell1ToBoundYHi + spacingRule;
+      // cell 1 is right
+      LocType xHi = -cell1ToBoundXLo + spacingRule;
+      // cell 1 is higher
+      LocType yHi = -cell1ToBoundYLo + spacingRule;
+      // Update the cell-wise spacing
+      spacings.setXLo(std::max(spacings.xLo(), xLo));
+      spacings.setYLo(std::max(spacings.yLo(), yLo));
+      spacings.setXHi(std::max(spacings.xHi(), xHi));
+      spacings.setYHi(std::max(spacings.yHi(), yHi));
+    }
+  }
+}
+
 inline Box<LocType> Database::cellSpacing(IndexType cellIdx1,
                                           IndexType cellIdx2) const {
-  if (cellIdx1 >= numCells() or cellIdx2 >= numCells()) {
-    // FIXME: use well-well or well-cell spacing
-    return 0;
+  if (cellIdx1 > cellIdx2) {
+    std::swap(cellIdx1, cellIdx2);
   }
-  const auto &cell1 = this->cell(cellIdx1);
-  const auto &cell2 = this->cell(cellIdx2);
-  Box<LocType> spacings = Box<LocType>(0, 0, 0, 0);
-  for (IndexType layerIdx = 0; layerIdx < _tech.numLayers(); ++layerIdx) {
-    bool cell1HasLayer = cell1.layerHasShape(layerIdx);
-    bool cell2HasLayer = cell2.layerHasShape(layerIdx);
-    if (!(cell1HasLayer && cell2HasLayer)) {
-      continue;
+  if (cellIdx1 >= numCells() and cellIdx2 >= numCells()) {
+    // They are both referring to NW
+    if (not _tech.isNwellLayerSet()) {
+      return Box<LocType>(0, 0, 0, 0);
     }
-    bool layerHasSpacingRule = _tech.hasSpacingRule(layerIdx);
-    if (!layerHasSpacingRule) {
-      continue;
-    }
-    LocType spacingRule = _tech.spacingRule(layerIdx);
-    // Calculate the layer shape to the cell boundry
-    LocType cell1ToBoundXLo =
-        cell1.bbox(layerIdx).xLo() - cell1.cellBBox().xLo();
-    LocType cell1ToBoundXHi =
-        cell1.cellBBox().xHi() - cell1.bbox(layerIdx).xHi();
-    LocType cell1ToBoundYLo =
-        cell1.bbox(layerIdx).yLo() - cell1.cellBBox().yLo();
-    LocType cell1ToBoundYHi =
-        cell1.cellBBox().yHi() - cell1.bbox(layerIdx).yHi();
-    LocType cell2ToBoundXLo =
-        cell2.bbox(layerIdx).xLo() - cell2.cellBBox().xLo();
-    LocType cell2ToBoundXHi =
-        cell2.cellBBox().xHi() - cell2.bbox(layerIdx).xHi();
-    LocType cell2ToBoundYLo =
-        cell2.bbox(layerIdx).yLo() - cell2.cellBBox().yLo();
-    LocType cell2ToBoundYHi =
-        cell2.cellBBox().yHi() - cell2.bbox(layerIdx).yHi();
-    // cell 1 is left
-    LocType xLo = cell1ToBoundXHi + spacingRule + cell2ToBoundXLo;
-    // cell 1 is lower
-    LocType yLo = cell1ToBoundYHi + spacingRule + cell2ToBoundYLo;
-    // cell 1 is right
-    LocType xHi = cell1ToBoundXLo + spacingRule + cell2ToBoundXHi;
-    // cell 1 is higher
-    LocType yHi = cell1ToBoundYLo + spacingRule + cell2ToBoundYHi;
-    // Update the cell-wise spacing
-    spacings.setXLo(std::max(spacings.xLo(), xLo));
-    spacings.setYLo(std::max(spacings.yLo(), yLo));
-    spacings.setXHi(std::max(spacings.xHi(), xHi));
-    spacings.setYHi(std::max(spacings.yHi(), yHi));
+    LocType spacing = _tech.spacingRule(_tech.nwellLayerIdx());
+    return Box<LocType>(spacing, spacing, spacing, spacing);
   }
-  return spacings;
+  else if (cellIdx2 >= numCells()) {
+    // idx1 refer to a cell, idx2 refer to nwell
+    return cell(cellIdx1).spacingToCells().back();
+  }
+  else {
+    return cell(cellIdx1).spacingToCells().at(cellIdx2 - cellIdx1 - 1);
+  }
 }
 
 PROJECT_NAMESPACE_END

@@ -114,6 +114,22 @@ public:
   }
   /// @brief finish adding gds layers
   void finishAddingGdsLayer() { _db.tech().initRuleDataStructure(); }
+  /// @brief Set a same layer spacing rules
+  void setIntraLayerSpacing(IndexType layerIdx, LocType spacing) {
+    _db.tech().setSpacingRule(layerIdx, spacing);
+  }
+  /// @brief Set a inter-layer spacing rules
+  /// @param first: first layer. The order of layers does not matter.
+  /// @param second: second layer. The order of layers does not matter.
+  /// @param third: spacing requirement
+  void setInterLayerSpacing(IndexType firstLayer, IndexType secondLayer, LocType spacing) {
+    _db.tech().setSpacingRule(firstLayer, secondLayer, spacing);
+  }
+  /// @brief Set the N-well layer index
+  void setNwellLayerIdx(IndexType layerIdx) {
+    _db.tech().setNwellLayerIdx(layerIdx);
+  }
+
   /*------------------------------*/
   /* Standard input interface     */
   /*------------------------------*/

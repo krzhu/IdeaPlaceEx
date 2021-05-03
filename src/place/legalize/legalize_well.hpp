@@ -18,6 +18,8 @@ public:
 private:
   /// @brief add cell-edge spacing
   void legalizeCellEdgeSpacing();
+  /// @brief legalize the NW spacing via patches for min step
+  void legalizeMinStep();
 private:
     Database &_db;
 };

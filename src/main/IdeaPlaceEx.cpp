@@ -159,6 +159,8 @@ void IdeaPlaceEx::prepareGp() {
     _db.expandCellToGridSize(_db.parameters().gridStep());
   }
 
+  _db.calculateCellSpacings();
+
   // Set proximity group
   _proximityMgr = ProximityMgr(&_db);
   _proximityMgr.applyProximityWithDummyNets();

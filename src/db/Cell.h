@@ -234,6 +234,12 @@ public:
     AssertMsg(_cellBBox.yLen() % gridStep == 0, "%s \n",
               _cellBBox.toStr().c_str());
   }
+  const std::vector<Box<LocType>> & spacingToCells() const {
+    return _spacingToCells;
+  }
+  std::vector<Box<LocType>> & spacingToCells() {
+    return _spacingToCells;
+  }
   /*------------------------------*/
   /* Supporting functions         */
   /*------------------------------*/
@@ -286,6 +292,8 @@ private:
 
   IndexType _wellIdx = INDEX_TYPE_MAX;
   BoolType _needWell = false; ///< Wehther this cell need a well
+  std::vector<Box<LocType>> _spacingToCells; ///< Required spacing to other cells. Only record the number of cells after this cell in index
+  ///< The last one is against individual N-well
 };
 
 PROJECT_NAMESPACE_END

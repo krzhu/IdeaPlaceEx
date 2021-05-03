@@ -227,7 +227,7 @@ BoolType CGLegalizer::areaDrivenCompaction() {
     }
     ++iter;
     area = _db.area();
-  } while (lastArea != area);
+  } while (lastArea != area or iter <= 2);
   return true;
 }
 
@@ -270,7 +270,7 @@ BoolType CGLegalizer::wirelengthDrivenCompaction() {
     }
     ++iter;
     hpwl = _db.hpwl();
-  } while (lastHpwl != hpwl);
+  } while (lastHpwl != hpwl or iter <= 2);
 
 #ifdef DEBUG_LEGALIZE
 #ifdef DEBUG_DRAW
