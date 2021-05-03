@@ -58,6 +58,8 @@ void initIdeaPlaceExAPI(py::module &m) {
           &PROJECT_NAMESPACE::IdeaPlaceEx::setInterLayerSpacing)
       .def("setNwellLayerIdx",
           &PROJECT_NAMESPACE::IdeaPlaceEx::setNwellLayerIdx)
+      .def("setCellToNwellEdgeSpacing",
+          &PROJECT_NAMESPACE::IdeaPlaceEx::setCellToNwellEdgeSpacing)
       .def("allocateCell", &PROJECT_NAMESPACE::IdeaPlaceEx::allocateCell,
            "Allocate a new cell, return the index of the cell")
       .def("setCellName", &PROJECT_NAMESPACE::IdeaPlaceEx::setCellName,

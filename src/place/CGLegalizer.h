@@ -35,6 +35,8 @@ public:
   BoolType preserveRelationCompaction(LocType extraSpacing = -1); 
   /// @brief legalzie with-in well 
   void legalizeWells();
+  /// @brief Generate individual wells and legalize
+  void generateIndividualWells();
   /// @brief close the well-aware functionality
   void closeWellAware() {
     _wellAware = false;

@@ -25,6 +25,7 @@
 
 #include "global/global.h"
 #include "util/point.hpp"
+#include "util/box.hpp"
 #include <vector>
 
 PROJECT_NAMESPACE_BEGIN
@@ -93,6 +94,13 @@ public:
   // std::vector<std::vector<Point<CoordType>>>& inners) : _outer(outer),
   //_inners(inners)
   //{}
+  
+  Polygon(const Box<CoordType> &box) {
+    _outer.emplace_back(Point<CoordType>(box.xLo(), box.yLo()));
+    _outer.emplace_back(Point<CoordType>(box.xHi(), box.yLo()));
+    _outer.emplace_back(Point<CoordType>(box.xHi(), box.yHi()));
+    _outer.emplace_back(Point<CoordType>(box.xLo(), box.yHi()));
+  }
 
   void clear() {
     _outer.clear();

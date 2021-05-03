@@ -129,6 +129,10 @@ public:
   void setNwellLayerIdx(IndexType layerIdx) {
     _db.tech().setNwellLayerIdx(layerIdx);
   }
+  /// @brief Set the required spacing from cell to n-well edge
+  void setCellToNwellEdgeSpacing(LocType spacing) {
+    _db.tech().setCellToNwellEdgeSpacing(spacing);
+  }
 
   /*------------------------------*/
   /* Standard input interface     */

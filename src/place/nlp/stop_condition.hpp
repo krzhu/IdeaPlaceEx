@@ -104,7 +104,7 @@ struct stop_after_violate_small {
   static constexpr RealType outOfBoundaryRatio =
       0.1; ///< with respect to boundary
   static constexpr RealType asymRatio =
-      0.1; ///< with respect to sym cell width
+      0.5; ///< with respect to sym cell width
 
   static constexpr RealType outFenceRatio =
       0.1; ///< With respect to total cell area needs well

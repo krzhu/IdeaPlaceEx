@@ -701,12 +701,12 @@ template <typename NumType, typename CoordType> struct AsymmetryDifferentiable {
       const NumType yj =
           op::conv<NumType>(_getVarFunc(cellJ, Orient2DType::VERTICAL));
 
-      NumType partialX = 2.0 * (xi + xj + w - 2 * symAxis) * lambda;
+      NumType partialX = 2.0 * (xi + xj + w - 2 * symAxis) * lambda * _weight;
       _accumulateGradFunc(partialX, cellI, Orient2DType::HORIZONTAL);
       _accumulateGradFunc(partialX, cellJ, Orient2DType::HORIZONTAL);
       _accumulateGradFunc(-2 * partialX, _symGrpIdx, Orient2DType::NONE);
 
-      NumType partialYI = 2.0 * (yi - yj) * lambda;
+      NumType partialYI = 2.0 * (yi - yj) * lambda * _weight;
       _accumulateGradFunc(partialYI, cellI, Orient2DType::VERTICAL);
       _accumulateGradFunc(-partialYI, cellJ, Orient2DType::VERTICAL);
     }
@@ -725,7 +725,7 @@ template <typename NumType, typename CoordType> struct AsymmetryDifferentiable {
 
   void setWeight(NumType weight) { _weight = weight; }
 
-  void penalize() { _weight += _penalizeScale; }
+  void penalize() { _weight += _penalizeScale;  }
 
   IndexType _symGrpIdx;
   std::vector<std::array<IndexType, 2>> _pairCells;

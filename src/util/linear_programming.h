@@ -21,7 +21,7 @@ template <int rank> struct lp_rank {
   typedef linear_programming_trait<_undefined> LpTrait;
 };
 
-template <> struct lp_rank<1> {
+template <> struct lp_rank<0> {
 #ifndef LP_NOT_USE_GUROBI
   static const bool if_enable = true;
   typedef LimboLpGurobi LpModel;
@@ -31,7 +31,7 @@ template <> struct lp_rank<1> {
 #endif
 };
 
-template <> struct lp_rank<0> {
+template <> struct lp_rank<1> {
 #ifndef LP_NOT_USE_LPSOLVE
   static const bool if_enable = true;
   typedef LimboLpsolve LpModel;

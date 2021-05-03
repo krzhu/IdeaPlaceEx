@@ -65,6 +65,10 @@ public:
   /// @brief Set the n-well layer index
   /// @param The layer index of the N-well layer
   void setNwellLayerIdx(IndexType nwellLayerIdx) { _nwellLayerIdx = nwellLayerIdx; } 
+  /// @brief Set the required spacing from cell edge to N-well boundary
+  void setCellToNwellEdgeSpacing(LocType spacing) { _cellToNwellEdgeSpacing = spacing; }
+  /// @brief Get the required spacing from cell edge to N-well boundary
+  LocType cellToNwellEdgeSpacing() const { return _cellToNwellEdgeSpacing; }
   /*------------------------------*/
   /* Query the tech               */
   /*------------------------------*/
@@ -152,6 +156,7 @@ private:
                     ///< _spacingRule[layer1][layer2] = spacing rules btween
                     ///< shapes of layer 1 and layer 2.
   IndexType _nwellLayerIdx = INDEX_TYPE_MAX;
+  LocType _cellToNwellEdgeSpacing = 0;
 };
 
 inline void Tech::initRuleDataStructure() {

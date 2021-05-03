@@ -198,6 +198,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep) {
 
   INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
   INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins());
+  INF("IdeaPlaceEx:: area %d \n", _db.area());
 
   _db.checkSym();
 
@@ -229,6 +230,7 @@ LocType IdeaPlaceEx::endPlace() {
 
   INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
   INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins());
+  INF("IdeaPlaceEx:: area %d \n", _db.area() / 1e6);
 
 
   return _db.findSymAxis();

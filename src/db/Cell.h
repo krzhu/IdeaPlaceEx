@@ -73,6 +73,10 @@ public:
       std::cout << p;
     }
     std::cout << std::endl;
+    std::cout<<"Rect "<<std::endl;
+    for (const auto &rect:_splitedRects) {
+      std::cout<<rect.toStr() <<std::endl;
+    }
   }
   // Convert/split to rectanlge
   void splitIntoRects();

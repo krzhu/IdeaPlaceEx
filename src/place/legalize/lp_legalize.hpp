@@ -583,6 +583,13 @@ namespace lp_legalize {
         ERR("LP legalization solver: LP unbounded. \n");
         return false;
       } else if (lp_trait::isOptimal(_solver)) {
+        for (IndexType idx = 0; idx < _db.numCells(); ++idx) {
+          auto var = lp_trait::solution(_solver, _locs.at(idx));
+          if (::klib::autoRound<LocType>(var) < 0) { // Gurobi sometimes report OPTIMAL while having everything messed up
+            ERR("LP legalization solver: LP infeasible. \n");
+            return false;
+          }
+        }
         INF("LP legalization solver: LP optimal \n");
         return true;
       } else if (lp_trait::isInfeasible(_solver)) {

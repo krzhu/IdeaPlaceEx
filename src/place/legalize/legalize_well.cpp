@@ -235,8 +235,26 @@ void WellLegalizer::legalizeMinStep() {
   }
 }
 
+void WellLegalizer::generateIndividualWells() {
+  _db.clearWells();
+  const LocType cellToWellEdgeSpacing = _db.tech().cellToNwellEdgeSpacing();
+  for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
+    auto &cell = _db.cell(cellIdx);
+    if (not cell.needWell()) {
+      continue;
+    }
+    auto cellBox = cell.cellBBoxOff();
+    cellBox.expand(cellToWellEdgeSpacing);
+    auto wellIdx = _db.allocateWell();
+    auto &well = _db.well(wellIdx);
+    well.setShape(Polygon<LocType>(cellBox).outer());
+    cell.setWellIdx(wellIdx);
+    well.addCellIdx(cellIdx);
+  }
+}
+
 void WellLegalizer::legalizeCellEdgeSpacing() {
-  const LocType cellToWellEdgeSpacing = _db.parameters().cellToWellEdgeSpacing();
+  const LocType cellToWellEdgeSpacing = _db.tech().cellToNwellEdgeSpacing();
   for (IndexType wellIdx = 0; wellIdx < _db.vWells().size(); ++wellIdx) {
     auto &well = _db.well(wellIdx);
     // Here we generate a rectangle for each cell that satisfying the spacing

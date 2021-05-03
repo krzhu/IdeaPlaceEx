@@ -15,6 +15,7 @@ class WellLegalizer {
 public:
   explicit WellLegalizer(Database &db) : _db(db) {}
   BoolType legalize();
+  void generateIndividualWells();
 private:
   /// @brief add cell-edge spacing
   void legalizeCellEdgeSpacing();

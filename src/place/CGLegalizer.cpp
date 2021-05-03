@@ -12,7 +12,24 @@ enum class Relation {
   TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT // Completely disjoined
 };
 
-Relation determineBoxRelation(const Box<LocType> &box1, const Box<LocType> &box2) {
+Relation determineBoxRelation(const Box<LocType> &box1, const Box<LocType> &box2, bool isSymPair=false, bool isSelfSym=false) {
+  Assert(not (isSymPair and isSelfSym));
+  if (isSymPair) {
+    if (box1.xLo() < box2.xLo()) {
+      return Relation::RIGHT;
+    }
+    else {
+      return Relation::LEFT;
+    }
+  }
+  if (isSelfSym) {
+    if (box1.yLo() < box2.yLo()) {
+      return Relation::TOP;
+    }
+    else {
+      return Relation::BOTTOM;
+    }
+  }
   if (box1.xHi() <= box2.xLo()) {
     if (box1.yHi() <= box2.yLo()) {
       return Relation::TOP_RIGHT;
@@ -78,6 +95,12 @@ Relation determineBoxRelation(const Box<LocType> &box1, const Box<LocType> &box2
 void CGLegalizer::legalizeWells() {
   WellLegalizer wellLegalizer(_db);
   wellLegalizer.legalize();
+  _db.splitWells();
+}
+
+void CGLegalizer::generateIndividualWells(){
+  WellLegalizer wellLegalizer(_db);
+  wellLegalizer.generateIndividualWells();
   _db.splitWells();
 }
 
@@ -309,8 +332,10 @@ void CGLegalizer::generateRedundantConstraintGraph() {
   for (IndexType ci1 = 0; ci1 < _db.numCells(); ++ci1) {
     const Box<LocType> box1 = _db.cell(ci1).cellBBoxOff();
     for (IndexType ci2 = ci1 + 1; ci2 < _db.numCells(); ++ci2) {
+      bool isSymPair = _db.cell(ci1).hasSymPair() and _db.cell(ci1).symNetIdx() == ci2;
+      bool bothIsSelfSym = _db.cell(ci1).isSelfSym() and _db.cell(ci2).isSelfSym();
       const Box<LocType> box2 = _db.cell(ci2).cellBBoxOff();
-      auto relation = determineBoxRelation(box1, box2);
+      auto relation = determineBoxRelation(box1, box2, isSymPair, bothIsSelfSym);
       if (relation == Relation::LEFT) {
         _hConstraints.addConstraintEdge(ci2, ci1);
       }
