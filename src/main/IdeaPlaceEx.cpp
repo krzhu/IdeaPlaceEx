@@ -228,9 +228,9 @@ LocType IdeaPlaceEx::endPlace() {
     alignToGrid(_db.parameters().gridStep());
   }
 
-  INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
-  INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins());
-  INF("IdeaPlaceEx:: area %d \n", _db.area() / 1e6);
+  INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl() / 1000);
+  INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins() / 1000);
+  INF("IdeaPlaceEx:: area %d \n", _db.area() );
 
 
   return _db.findSymAxis();

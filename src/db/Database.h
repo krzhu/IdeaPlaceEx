@@ -435,6 +435,14 @@ inline Box<LocType> Database::cellSpacing(IndexType cellIdx1,
     if (not _tech.isNwellLayerSet()) {
       return Box<LocType>(0, 0, 0, 0);
     }
+    // If they are in the same well
+    const auto rectIdx1 = getWellRectIdx(cellIdx1 - numCells());
+    const auto rectIdx2 = getWellRectIdx(cellIdx2 - numCells());
+    if (rectIdx1.first == rectIdx2.first) {
+      return Box<LocType>(0, 0, 0, 0);
+    }
+    // If they are in the different wells
+    
     LocType spacing = _tech.spacingRule(_tech.nwellLayerIdx());
     return Box<LocType>(spacing, spacing, spacing, spacing);
   }

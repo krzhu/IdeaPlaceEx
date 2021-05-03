@@ -31,9 +31,18 @@ std::uint64_t Database::area() const {
       yMax = std::max(yMax, box.yh());
       yMin = std::min(yMin, box.yl());
     }
+    for (const auto &well : _wellArray) {
+      for (const auto &pt : well.shape().outer()) {
+        xMax = std::max(xMax, pt.x());
+        yMax = std::max(yMax, pt.y());
+        xMin = std::min(xMin, pt.x());
+        yMin = std::min(yMin, pt.y());
+      }
+    }
     std::uint64_t area = xMax - xMin;
     area *= (yMax - yMin);
-    return area;
+    DBG("Area %d * %d = %d \n", yMax-yMin, xMax-xMin, area);
+    return area / 1e6;
 }
 
 LocType Database::hpwl() const {

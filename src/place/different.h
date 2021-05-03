@@ -1437,6 +1437,63 @@ namespace _fence_bivariate_gaussian_details {
   template<typename CostType> struct calc_trait{};
 
   template<>
+    struct calc_trait<FENCE_SIGMOID_COST> {
+      template<typename numerical_type>
+        static numerical_type calcCost(
+            numerical_type muX,
+            numerical_type muY,
+            numerical_type sigmaX,
+            numerical_type sigmaY,
+            numerical_type xLo,
+            numerical_type yLo,
+            numerical_type width,
+            numerical_type height,
+            numerical_type alpha,
+            numerical_type 
+            ) {
+          using NumType = numerical_type;
+          const NumType x = xLo + width / 2;
+          const NumType y = yLo + height / 2;
+          return .0/((std::exp(-alpha*(muX+sigmaX-x))+1.0)*(std::exp(-alpha*(-muX+sigmaX+x))+1.0)*(std::exp(-alpha*(muY+sigmaY-y))+1.0)*(std::exp(-alpha*(-muY+sigmaY+y))+1.0));;
+        }
+      template<typename numerical_type>
+        static numerical_type calcDiffX(
+            numerical_type muX,
+            numerical_type muY,
+            numerical_type sigmaX,
+            numerical_type sigmaY,
+            numerical_type xLo,
+            numerical_type yLo,
+            numerical_type width,
+            numerical_type height,
+            numerical_type alpha,
+            numerical_type 
+            ) {
+          using NumType = numerical_type;
+          const NumType x = xLo + width / 2;
+          const NumType y = yLo + height / 2;
+          return -(alpha*std::exp(-alpha*(muX+sigmaX-x))*1.0/pow(std::exp(-alpha*(muX+sigmaX-x))+1.0,2.0))/((std::exp(-alpha*(-muX+sigmaX+x))+1.0)*(std::exp(-alpha*(muY+sigmaY-y))+1.0)*(std::exp(-alpha*(-muY+sigmaY+y))+1.0))+(alpha*std::exp(-alpha*(-muX+sigmaX+x))*1.0/pow(std::exp(-alpha*(-muX+sigmaX+x))+1.0,2.0))/((std::exp(-alpha*(muX+sigmaX-x))+1.0)*(std::exp(-alpha*(muY+sigmaY-y))+1.0)*(std::exp(-alpha*(-muY+sigmaY+y))+1.0));
+        }
+      template<typename numerical_type>
+        static numerical_type calcDiffY(
+            numerical_type muX,
+            numerical_type muY,
+            numerical_type sigmaX,
+            numerical_type sigmaY,
+            numerical_type xLo,
+            numerical_type yLo,
+            numerical_type width,
+            numerical_type height,
+            numerical_type alpha,
+            numerical_type 
+            ) {
+          using NumType = numerical_type;
+          const NumType x = xLo + width / 2;
+          const NumType y = yLo + height / 2;
+          return -(alpha*std::exp(-alpha*(muY+sigmaY-y))*1.0/pow(std::exp(-alpha*(muY+sigmaY-y))+1.0,2.0))/((std::exp(-alpha*(muX+sigmaX-x))+1.0)*(std::exp(-alpha*(-muX+sigmaX+x))+1.0)*(std::exp(-alpha*(-muY+sigmaY+y))+1.0))+(alpha*std::exp(-alpha*(-muY+sigmaY+y))*1.0/pow(std::exp(-alpha*(-muY+sigmaY+y))+1.0,2.0))/((std::exp(-alpha*(muX+sigmaX-x))+1.0)*(std::exp(-alpha*(-muX+sigmaX+x))+1.0)*(std::exp(-alpha*(muY+sigmaY-y))+1.0));
+        }
+    };
+  template<>
     struct calc_trait<FENCE_GAUSSIAN_INTEGRAL_COST> {
       template<typename numerical_type>
         static numerical_type calcCost(
@@ -1498,7 +1555,7 @@ namespace _fence_bivariate_gaussian_details {
 /// @brief Model fence region penalty as the sum of a set of Gaussian distribution.
 /// it transformed the well bounding box into a Gaussian and the cost is the integral
 // of the cost over cell area
-template <typename NumType, typename CoordType, typename CostType=FENCE_GAUSSIAN_INTEGRAL_COST>
+template <typename NumType, typename CoordType, typename CostType=FENCE_SIGMOID_COST>
 struct FenceBivariateGaussianDifferentiable {
   typedef NumType numerical_type;
   typedef CoordType coordinate_type;
