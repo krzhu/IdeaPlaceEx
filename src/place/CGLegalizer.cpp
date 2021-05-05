@@ -95,13 +95,11 @@ Relation determineBoxRelation(const Box<LocType> &box1, const Box<LocType> &box2
 void CGLegalizer::legalizeWells() {
   WellLegalizer wellLegalizer(_db);
   wellLegalizer.legalize();
-  _db.splitWells();
 }
 
 void CGLegalizer::generateIndividualWells(){
   WellLegalizer wellLegalizer(_db);
   wellLegalizer.generateIndividualWells();
-  _db.splitWells();
 }
 
 bool CGLegalizer::legalize() {
@@ -140,6 +138,14 @@ void CGLegalizer::findCellBoundary() {
     yMin = std::min(yMin, cell.yLo());
     yMax = std::max(yMax, cell.yHi());
   }
+    for (const auto &well : _db.vWells()) {
+      for (const auto &pt : well.shape().outer()) {
+        xMax = std::max(xMax, pt.x());
+        yMax = std::max(yMax, pt.y());
+        xMin = std::min(xMin, pt.x());
+        yMin = std::min(yMin, pt.y());
+      }
+    }
   _wStar = std::max(0.0, static_cast<RealType>(xMax - xMin)) + 10;
   _hStar = std::max(0.0, static_cast<RealType>(yMax - yMin)) + 10;
 }
@@ -149,6 +155,8 @@ void CGLegalizer::prepare() {
 }
 
 void CGLegalizer::generateHorConstraints() {
+
+  _db.splitWells(1);
 
   _hConstraints.clear();
   _vConstraints.clear();
@@ -188,6 +196,7 @@ void CGLegalizer::generateHorConstraints() {
   sweepline.solve();
 }
 void CGLegalizer::generateVerConstraints() {
+  _db.splitWells(2);
   _hConstraints.clear();
   _vConstraints.clear();
   // Init the irredundant constraint edges
@@ -229,6 +238,7 @@ BoolType CGLegalizer::areaDrivenCompaction() {
         INF("CG legalizer: LP failed! No valid solution \n");
         return false;
       }
+      _db.drawCellBlocks("./debug/hor.gds");
     }
     else {
       // Vertical
@@ -275,6 +285,7 @@ BoolType CGLegalizer::wirelengthDrivenCompaction() {
       if (horpass) {
         horSolver.exportSolution();
       } else {
+        Assert(false);
         return false;
       }
     }
@@ -288,6 +299,7 @@ BoolType CGLegalizer::wirelengthDrivenCompaction() {
       if (verpass) {
         verSolver.exportSolution();
       } else {
+        Assert(false);
         return false;
       }
     }

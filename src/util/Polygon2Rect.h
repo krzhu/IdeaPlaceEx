@@ -155,12 +155,13 @@ namespace klib {
 template <typename T>
 inline bool
 convertPolygon2Rects(const std::vector<PROJECT_NAMESPACE::Point<T>> &pts,
-                     std::vector<PROJECT_NAMESPACE::Box<T>> &rects) {
+                     std::vector<PROJECT_NAMESPACE::Box<T>> &rects,
+                     limbo::geometry::slicing_orientation_2d strategy=limbo::geometry::HOR_VER_SLICING) {
   typedef typename PROJECT_NAMESPACE::Point<T> PtType;
   typedef typename PROJECT_NAMESPACE::Box<T> RectType;
 
   limbo::geometry::Polygon2Rectangle<std::vector<PtType>, std::vector<RectType>>
-      p2r(rects, pts.begin(), pts.end(), limbo::geometry::HOR_VER_SLICING);
+      p2r(rects, pts.begin(), pts.end(), strategy);
   return p2r();
 }
 } // namespace klib

@@ -8,6 +8,7 @@
 #ifndef IDEAPLACE_NLPGPLACER_H_
 #define IDEAPLACE_NLPGPLACER_H_
 
+#include <chrono>
 #include <Eigen/Dense>
 #ifdef IDEAPLACE_TASKFLOR_FOR_GRAD_OBJ_
 #include <taskflow/taskflow.hpp>
@@ -92,6 +93,8 @@ struct nlp_default_first_order_algorithms {
       converge::converge_criteria_max_iter<30000>,
       converge::converge_criteria_enable_if_fast_mode<
           converge::converge_criteria_max_iter<200>>,
+      converge::converge_criteria_enable_if_exceed_iter<
+          10, converge::converge_criteria_max_iter<10000>>,
       converge::converge_criteria_stop_when_large_variable_changes<nlp_default_types::nlp_numerical_type, nlp_default_types::EigenVector>>
       converge_type;
    //typedef optm::first_order::naive_gradient_descent<converge_type, nlp_default_types::nlp_numerical_type> optm_type;
@@ -252,7 +255,7 @@ struct construct_fence_type_trait<
   typedef diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
                                                           nlp_coordinate_type> 
                                                             op_type;
-  static void generateDistributionParameters(std::vector<BivariateGaussianParameters<nlp_numerical_type>> & result, const Database &db, nlp_numerical_type scale) {
+  static void generateDistributionParameters(std::vector<BivariateGaussianParameters<nlp_numerical_type>> & result, const Database &db, nlp_numerical_type scale, RealType overlapRatio = 0.0) {
 #if 0
     std::vector<std::vector<Box<nlp_coordinate_type>>> boxes; // Splited polygon
     std::vector<std::vector<Box<LocType>>> boxesUnScaled;
@@ -283,7 +286,7 @@ struct construct_fence_type_trait<
     auto getNumRects = [&](IndexType wellIdx) { return boxes.at(wellIdx).size(); };
     auto getRect = [&](IndexType wellIdx, IndexType rectIdx) {  return &boxes.at(wellIdx).at(rectIdx); };
     BivariateGaussianWellApproximationGenerator<nlp_numerical_type> gen(getNumWells, getNumRects, getRect);
-    gen.generate(result);
+    gen.generate(result, overlapRatio);
   }
 
   template<typename nlp_type>
@@ -320,7 +323,7 @@ struct construct_fence_type_trait<
              getLambdaFunc));
       nlp._fenceOps.back().setGetVarFunc(getVarFunc);
       nlp._fenceOps.back()._weight = db.parameters().defaultWellWeight();
-      generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, db, nlp._scale);
+      generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, db, nlp._scale, nlp.overlapAreaRatio());
     }
 };
 
@@ -429,7 +432,7 @@ struct reinit_well_trait<
 
     template<typename nlp_type> 
       static void reinit_well_operators(nlp_type &nlp) {
-        construct_fence_type_trait<op_type>::generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, nlp._db, nlp._scale);
+        construct_fence_type_trait<op_type>::generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, nlp._db, nlp._scale, nlp.overlapAreaRatio());
         nlp._fenceOps.back()._considerOutFenceCells = nlp._useWellCellOvl;
       }
 };
@@ -497,6 +500,15 @@ public:
   void readLocs();
   /* Well-related initialization */
   virtual void reinitWellOperators();
+  /// @brief get the overlapping area ratio
+  RealType overlapAreaRatio() {
+    nlp_coordinate_type overlapArea = 0.0;
+    for (auto &op : _ovlOps) {
+      overlapArea += diff::place_overlap_trait<
+          nlp_ovl_type>::overlapArea(op);
+      }
+    return overlapArea / _totalCellArea;
+  }
 
   void debug() {
     double xmin =99999;
@@ -846,15 +858,6 @@ public:
     return base_type::stop_condition_trait::stopPlaceCondition(
       *this, this->_stopCondition);
   }
-  /// @brief get the overlapping area ratio
-  RealType overlapAreaRatio() {
-    typename base_type::nlp_coordinate_type overlapArea = 0.0;
-    for (auto &op : base_type::_ovlOps) {
-      overlapArea += diff::place_overlap_trait<
-          typename base_type::nlp_ovl_type>::overlapArea(op);
-      }
-    return overlapArea / base_type::_totalCellArea;
-  }
 protected:
   /* Construct tasks */
   virtual void constructTasks() override;
@@ -1021,7 +1024,7 @@ protected:
   /* Misc. */
   BoolType _hasInitFirstOrderOuterProblem = false; ///< Whether has init multiplier, alpha, etc.
   IndexType _iter = 0;
-  BoolType _convergeWithLargeVariableChange = false;
+  BoolType _convergeWithLargeVariableChange = false; ///< The last termination of optimization is because of large location changes
 };
 
 //// @brief some helper function for NlpGPlacerSecondOrder

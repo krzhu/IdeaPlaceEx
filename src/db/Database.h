@@ -225,10 +225,10 @@ public:
   }
   void assignCellToWellAndRemoveUnusedWell();
   /// @brief split the well polygon into rectangles
-  void splitWells() {
+  void splitWells(IntType mode = 0) {
     _wellRectSize.clear();
     for (auto &well : _wellArray) {
-      well.splitIntoRects();
+      well.splitIntoRects(mode);
       _wellRectSize.emplace_back(well.rects().size());
     }
   }

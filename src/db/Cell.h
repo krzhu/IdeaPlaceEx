@@ -79,7 +79,7 @@ public:
     }
   }
   // Convert/split to rectanlge
-  void splitIntoRects();
+  void splitIntoRects(IntType mode=0);
   BoolType assignedWithAnyCell() const { return _sCellIds.size() != 0; }
 
 

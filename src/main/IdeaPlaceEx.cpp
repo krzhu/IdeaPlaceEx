@@ -187,7 +187,7 @@ LocType IdeaPlaceEx::solve(LocType gridStep) {
 #endif
   INF("Ideaplace: Entering legalization and detailed placement...\n");
   CGLegalizer legalizer(_db);
-  bool legalizeResult = legalizer.legalize();
+  legalizer.legalize();
   INF("Ideaplace: Assigning IO pin...\n");
   VirtualPinAssigner pinAssigner(_db);
   pinAssigner.solveFromDB();

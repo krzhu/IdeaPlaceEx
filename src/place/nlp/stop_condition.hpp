@@ -107,7 +107,7 @@ struct stop_after_violate_small {
       0.5; ///< with respect to sym cell width
 
   static constexpr RealType outFenceRatio =
-      0.1; ///< With respect to total cell area needs well
+      0.4; ///< With respect to total cell area needs well
   IntType curIter = 0;
   static constexpr IntType minIter = 0;
 };
@@ -212,6 +212,7 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
       bool passB = true;
       CoordType outFenceArea = fenceAreaMismatch(n);
       if (outFenceArea / n._totalCellArea > stop.outFenceRatio) {
+        DBG("outFence %f / %f = %f \n", outFenceArea, n._totalCellArea, outFenceArea / n._totalCellArea);
         passA = false;
       }
       IndexType outNum = numCenterViolateFence(n);

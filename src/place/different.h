@@ -1737,6 +1737,68 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGra
       }
   }
 
+
+/// @brief LSE-smoothed Area
+template <typename NumType, typename CoordType> struct LseAreaDifferentiable {
+  typedef NumType numerical_type;
+  typedef CoordType coordinate_type;
+
+  LseAreaDifferentiable(const std::function<NumType(void)> &getAlphaFunc,
+                        const std::function<NumType(void)> &getLambdaFunc) {
+    _getAlphaFunc = getAlphaFunc;
+    _getLambdaFunc = getLambdaFunc;
+  }
+
+  void setGetVarFunc(
+      const std::function<CoordType(IndexType, Orient2DType)> &getVarFunc) {
+    _getVarFunc = getVarFunc;
+  }
+  void setAccumulateGradFunc(
+      const std::function<void(NumType, IndexType, Orient2DType)> &func) {
+    _accumulateGradFunc = func;
+  }
+  void setGetAlphaFunc(const std::function<NumType(void)> &getAlphaFunc) {
+    _getAlphaFunc = getAlphaFunc;
+  }
+
+  void setVirtualPin(const CoordType &x, const CoordType &y) {
+    _validVirtualPin = 1;
+    _virtualPinX = x;
+    _virtualPinY = y;
+  }
+  void removeVirtualPin() { _validVirtualPin = 0; }
+  void addVar(IndexType cellIdx, const CoordType &offsetX,
+              const CoordType &offsetY) {
+    _cells.emplace_back(cellIdx);
+    _offsetX.emplace_back(offsetX);
+    _offsetY.emplace_back(offsetY);
+  }
+  void setWeight(const NumType &weight) { _weight = weight; }
+
+  NumType evaluate() const {
+    return 0;
+  }
+
+  void accumlateGradient() const {
+  }
+
+
+  IntType _validVirtualPin = 0;
+  CoordType _virtualPinX = 0;
+  CoordType _virtualPinY = 0;
+  std::vector<IndexType> _cells;
+  std::vector<CoordType> _offsetX;
+  std::vector<CoordType> _offsetY;
+  NumType _weight = 1;
+  std::function<NumType(void)>
+      _getAlphaFunc; ///< A function to get the current alpha
+  std::function<NumType(void)>
+      _getLambdaFunc; ///< A function to get the current lambda multiplier
+  std::function<CoordType(IndexType cellIdx, Orient2DType orient)>
+      _getVarFunc; ///< A function to get current variable value
+  std::function<void(NumType, IndexType, Orient2DType)>
+      _accumulateGradFunc; ///< A function to update partial
+};
 } // namespace diff
 
 PROJECT_NAMESPACE_END

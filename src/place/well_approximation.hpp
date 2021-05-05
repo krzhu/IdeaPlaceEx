@@ -12,6 +12,64 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+constexpr RealType extendLookUpTable(RealType overlapAreaRatio) {
+  if (overlapAreaRatio > 1.0) {
+    return 5.0;
+  }
+  if (overlapAreaRatio > 0.5) {
+    return 4.5;
+  }
+  if (overlapAreaRatio > 0.3) {
+    return 4.2;
+  }
+  if (overlapAreaRatio > 0.2) {
+    return 4.0;
+  }
+  if (overlapAreaRatio > 0.15) {
+    return 3.9;
+  }
+  if (overlapAreaRatio > 0.1) {
+    return 3.8;
+  }
+  if (overlapAreaRatio > 0.8) {
+    return 3.7;
+  }
+  if (overlapAreaRatio > 0.5) {
+    return 3.6;
+  }
+  if (overlapAreaRatio > 0.3) {
+    return 3.4;
+  }
+  if (overlapAreaRatio > 0.2) {
+    return 3.2;
+  }
+  if (overlapAreaRatio > 0.15) {
+    return 3.0;
+  }
+  if (overlapAreaRatio > 0.1) {
+    return 2.7;
+  }
+  if (overlapAreaRatio > 0.05) {
+    return 2.4;
+  }
+  if (overlapAreaRatio > 0.04) {
+    return 2.2;
+  }
+  if (overlapAreaRatio > 0.03) {
+    return 2.0;
+  }
+  if (overlapAreaRatio > 0.02) {
+    return 1.8;
+  }
+  if (overlapAreaRatio > 0.01) {
+    return 1.6;
+  }
+  if (overlapAreaRatio > 0.005) {
+    return 1.4;
+  }
+  return 1.2;
+}
+
 template<typename num_type>
 struct BivariateGaussianParameters {
   BivariateGaussianParameters(num_type muX_, num_type sigmaX_, num_type muY_, num_type sigmaY_, num_type normalize_)
@@ -32,7 +90,7 @@ class BivariateGaussianWellApproximationGenerator {
         const std::function<Box<num_type>*(IndexType, IndexType)> &getRect)
       : _getNumWells(getNumWells), _getNumRectsInWell(getNumRectsInWell), _getRect(getRect)
     {}
-    void generate(std::vector<BivariateGaussianParameters<num_type>> &vec);
+    void generate(std::vector<BivariateGaussianParameters<num_type>> &vec, RealType overlapAreaRatio=0.0);
   private:
     std::function<IndexType(void)> _getNumWells; ///< Get the number of wells
     std::function<IndexType(IndexType)> _getNumRectsInWell; ///< How many rectangles in a well
@@ -40,7 +98,9 @@ class BivariateGaussianWellApproximationGenerator {
 };
 
 template<typename num_type>
-inline void BivariateGaussianWellApproximationGenerator<num_type>::generate(std::vector<BivariateGaussianParameters<num_type>> &vec) {
+inline void BivariateGaussianWellApproximationGenerator<num_type>::generate(std::vector<BivariateGaussianParameters<num_type>> &vec, RealType overlapAreaRatio) {
+  DBG("%s : Ovl Ratio %f \n", __FUNCTION__, overlapAreaRatio);
+  const RealType extendRatio = extendLookUpTable(overlapAreaRatio);
   vec.clear();
   IndexType numWell = _getNumWells();
   for (IndexType wellIdx = 0; wellIdx < numWell; ++wellIdx) {
@@ -50,9 +110,9 @@ inline void BivariateGaussianWellApproximationGenerator<num_type>::generate(std:
     for (IndexType rectIdx = 0; rectIdx < numRects; ++rectIdx) {
       Box<num_type>*rect = _getRect(wellIdx, rectIdx);
       const num_type muX = static_cast<num_type>(rect->center().x());
-      const num_type sigmaX = static_cast<num_type>(rect->xLen() / 2);
+      const num_type sigmaX = static_cast<num_type>(rect->xLen() * extendRatio / 2);
       const num_type muY = static_cast<num_type>(rect->center().y());
-      const num_type sigmaY = static_cast<num_type>(rect->yLen() / 2);
+      const num_type sigmaY = static_cast<num_type>(rect->yLen() * extendRatio / 2);
       const num_type normalize =  (2 * 3.14 * sigmaX * sigmaY);
       vec.emplace_back(BivariateGaussianParameters<num_type>(muX, sigmaX, muY, sigmaY, normalize));
     }

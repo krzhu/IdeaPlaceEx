@@ -57,6 +57,32 @@ struct converge_criteria_trait<
   }
 };
 
+/// @brief converge condition that is enable only when the iteration exceed target _iter
+/// @tparam the slave converge criteria. The slave is checked when in fast mode
+template <int target_iter, typename converge_slave_type>
+struct converge_criteria_enable_if_exceed_iter {
+  converge_slave_type slave;
+  bool activate = false;
+};
+
+template <int target_iter, typename converge_slave_type>
+struct converge_criteria_trait<
+    converge_criteria_enable_if_exceed_iter<target_iter, converge_slave_type>> {
+  typedef converge_criteria_enable_if_exceed_iter<target_iter, converge_slave_type>
+      converge_type;
+  static void clear(converge_type &c) {
+    converge_criteria_trait<converge_slave_type>::clear(c.slave);
+  }
+  template <typename nlp_type, typename optm_type>
+  static BoolType stopCriteria(nlp_type &n, optm_type &o, converge_type &c) {
+    if (n._iter < target_iter) {
+      return false;
+    }
+    return converge_criteria_trait<converge_slave_type>::stopCriteria(n, o,
+                                                                      c.slave);
+  }
+};
+
 template <IntType max_iter = 20> struct converge_criteria_max_iter {
   IntType _iter = 0;
 };

@@ -234,7 +234,7 @@ ELSE()
     message(STATUS "Using build type DEFAULT: using Release flag")
     set(CMAKE_BUILD_TYPE Release)
 ENDIF()
-set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -fopenmp ")
+set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -fopenmp -Wno-int-in-bool-context") # Eigen used a lot of bool(Enum), disable the warning
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline ")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_PROFILE "-O3 -pg -Winline")
