@@ -1635,8 +1635,8 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::evaluate()
         for (IndexType gauIdx = 0; gauIdx < _gaussianParameters.size(); ++gauIdx) {
           const NumType muX = _gaussianParameters[gauIdx].muX;
           const NumType muY = _gaussianParameters[gauIdx].muY;
-          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX;
-          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
+          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX * _gaussianParameters[gauIdx].extention;
+          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY * _gaussianParameters[gauIdx].extention;
           const NumType normalize =_gaussianParameters[gauIdx].normalize;
           // Calculate cost
           const auto cost = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcCost(
@@ -1692,8 +1692,8 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGra
         for (IndexType gauIdx = 0; gauIdx < _gaussianParameters.size(); ++gauIdx) {
           const NumType muX = _gaussianParameters[gauIdx].muX;
           const NumType muY = _gaussianParameters[gauIdx].muY;
-          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX;
-          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
+          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX * _gaussianParameters[gauIdx].extention;
+          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY * _gaussianParameters[gauIdx].extention;
           const NumType normalize = _gaussianParameters[gauIdx].normalize;
           // Calculate derivative
           const auto diffx = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffX(
@@ -1761,34 +1761,78 @@ template <typename NumType, typename CoordType> struct LseAreaDifferentiable {
     _getAlphaFunc = getAlphaFunc;
   }
 
-  void setVirtualPin(const CoordType &x, const CoordType &y) {
-    _validVirtualPin = 1;
-    _virtualPinX = x;
-    _virtualPinY = y;
-  }
-  void removeVirtualPin() { _validVirtualPin = 0; }
-  void addVar(IndexType cellIdx, const CoordType &offsetX,
-              const CoordType &offsetY) {
+  void addVar(IndexType cellIdx, CoordType width, CoordType height) {
     _cells.emplace_back(cellIdx);
-    _offsetX.emplace_back(offsetX);
-    _offsetY.emplace_back(offsetY);
+    _cellWidths.emplace_back(op::conv<NumType>(width));
+    _cellHeights.emplace_back(op::conv<NumType>(height));
   }
   void setWeight(const NumType &weight) { _weight = weight; }
 
   NumType evaluate() const {
-    return 0;
+    const NumType lambda = _getLambdaFunc();
+    const NumType alpha = _getAlphaFunc();
+    std::array<NumType, 4> sumExpArray = {0.0, 0.0, 0.0, 0.0}; // sum exp(x/alpha), exp(-x/ alpha), exp(y/alpha), exp(-y/alpha)
+    NumType *pSumExp = &sumExpArray.front();
+    for (IndexType idx = 0; idx < _cells.size(); ++idx) {
+      IndexType cellIdx = _cells[idx];
+      const NumType x = op::conv<NumType>(
+          _getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+      const NumType y = op::conv<NumType>(
+          _getVarFunc(cellIdx, Orient2DType::VERTICAL));
+      const NumType xHi = x + _cellWidths[idx];
+      const NumType yHi = y + _cellHeights[idx];
+      pSumExp[0] += std::exp(x / alpha) + std::exp(xHi / alpha);
+      pSumExp[1] += std::exp(-x / alpha) + std::exp(-yHi / alpha);
+      pSumExp[2] += std::exp(y / alpha) + std::exp(yHi / alpha);
+      pSumExp[3] += std::exp(-y / alpha) + std::exp(-yHi / alpha);
+    }
+    const NumType cost = (alpha * (std::log(pSumExp[0]) + std::log(pSumExp[1]))) * (alpha * (std::log(pSumExp[2]) + std::log(pSumExp[3]))) * lambda * _weight;
+    return std::sqrt(cost);
   }
 
   void accumlateGradient() const {
+    const NumType lambda = _getLambdaFunc();
+    const NumType alpha = _getAlphaFunc();
+    std::array<NumType, 4> sumExpArray = {0.0, 0.0, 0.0, 0.0}; // sum exp(x/alpha), exp(-x/ alpha), exp(y/alpha), exp(-y/alpha)
+    NumType *pSumExp = &sumExpArray.front();
+    for (IndexType idx = 0; idx < _cells.size(); ++idx) {
+      IndexType cellIdx = _cells[idx];
+      const NumType x = op::conv<NumType>(
+          _getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+      const NumType y = op::conv<NumType>(
+          _getVarFunc(cellIdx, Orient2DType::VERTICAL));
+      const NumType xHi = x + _cellWidths[idx];
+      const NumType yHi = y + _cellHeights[idx];
+      pSumExp[0] += std::exp(x / alpha) + std::exp(xHi / alpha);
+      pSumExp[1] += std::exp(-x / alpha) + std::exp(-yHi / alpha);
+      pSumExp[2] += std::exp(y / alpha) + std::exp(yHi / alpha);
+      pSumExp[3] += std::exp(-y / alpha) + std::exp(-yHi / alpha);
+    }
+    std::array<NumType, 2> logSumExpArray = {0.0, 0.0}; // log exp sum x + log exp sum -x, log exp sum y + log exp sum -y
+    logSumExpArray[0] = std::log(sumExpArray[0]) + std::log(sumExpArray[1]);
+    logSumExpArray[1] = std::log(sumExpArray[2]) + std::log(sumExpArray[3]);
+    const NumType costScale = 1 / std::sqrt((alpha * (std::log(pSumExp[0]) + std::log(pSumExp[1]))) * (alpha * (std::log(pSumExp[2]) + std::log(pSumExp[3]))) * lambda * _weight);
+    for (IndexType idx = 0; idx < _cells.size(); ++idx) {
+      IndexType cellIdx = _cells[idx];
+      const NumType x = op::conv<NumType>(
+          _getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+      const NumType y = op::conv<NumType>(
+          _getVarFunc(cellIdx, Orient2DType::VERTICAL));
+      const NumType xHi = x + _cellWidths[idx];
+      const NumType yHi = y + _cellHeights[idx];
+      const NumType diffxLo = alpha * logSumExpArray[1] * ( std::exp(x / alpha ) /  sumExpArray[0] - std::exp(-x / alpha ) /  sumExpArray[1]);
+      const NumType diffyLo = alpha * logSumExpArray[0] * ( std::exp(y / alpha ) /  sumExpArray[2] - std::exp(-y / alpha ) /  sumExpArray[3]);
+      const NumType diffxHi = alpha * logSumExpArray[1] * ( std::exp(xHi / alpha ) /  sumExpArray[0] - std::exp(-xHi / alpha ) /  sumExpArray[1]);
+      const NumType diffyHi = alpha * logSumExpArray[0] * ( std::exp(yHi / alpha ) /  sumExpArray[2] - std::exp(-yHi / alpha ) /  sumExpArray[3]);
+      _accumulateGradFunc(costScale * lambda * (diffxLo + diffxHi) *_weight, cellIdx, Orient2DType::HORIZONTAL);
+      _accumulateGradFunc(costScale * lambda * (diffyLo + diffyHi) * _weight, cellIdx, Orient2DType::VERTICAL);
+    }
   }
 
 
-  IntType _validVirtualPin = 0;
-  CoordType _virtualPinX = 0;
-  CoordType _virtualPinY = 0;
   std::vector<IndexType> _cells;
-  std::vector<CoordType> _offsetX;
-  std::vector<CoordType> _offsetY;
+  std::vector<NumType> _cellWidths;
+  std::vector<NumType> _cellHeights;
   NumType _weight = 1;
   std::function<NumType(void)>
       _getAlphaFunc; ///< A function to get the current alpha

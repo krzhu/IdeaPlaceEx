@@ -508,6 +508,9 @@ struct multiplier_trait<mult_const_hpwl_cos_and_penalty_by_type<
     for (auto &op : nlp._fenceOps) {
       op._getLambdaFunc = [&]() { return mult._variedMults[4]; };
     }
+    for (auto &op : nlp._areaOps) {
+      op._getLambdaFunc = [&]() { return mult._constMults[0]; }; // Area use the same lambda as wirelength
+    }
   }
 
   template <typename nlp_type>

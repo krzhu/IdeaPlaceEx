@@ -104,6 +104,8 @@ public:
   RealType defaultWellWeight() const { return _defaultWellWeight; }
   /// @brief get whether the placer is in fast mode
   bool isFastMode() const { return _fastMode; }
+  /// @brief Get the weight of area versus wirelength
+  RealType areaToWireLengthWeight() const { return _areaToWireLengthWeight; }
 
 private:
   Box<LocType> _boundaryConstraint =
@@ -130,6 +132,7 @@ private:
                                             ///< regular net
   RealType _defaultWellWeight; ///< The default weight for well operators
   bool _fastMode;              ///< Whether this is in fast mode
+  RealType _areaToWireLengthWeight; ///< The relative weight of area respect to WLs
 };
 
 PROJECT_NAMESPACE_END

@@ -63,6 +63,8 @@ struct nlp_default_types {
   typedef diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
                                                            nlp_coordinate_type>
       nlp_fence_type;
+  typedef diff::LseAreaDifferentiable<nlp_numerical_type, nlp_coordinate_type> 
+    nlp_area_type;
 };
 
 struct nlp_default_zero_order_algorithms {
@@ -459,6 +461,7 @@ public:
   typedef typename nlp_types::nlp_power_wl_type nlp_power_wl_type;
   typedef typename nlp_types::nlp_crf_type nlp_crf_type;
   typedef typename nlp_types::nlp_fence_type nlp_fence_type;
+  typedef typename nlp_types::nlp_area_type nlp_area_type;
 
   /* algorithms */
   typedef typename nlp_zero_order_algorithms::stop_condition_type
@@ -638,6 +641,7 @@ protected:
   nlp_numerical_type _objPowerWl = 0.0; ///< power wire length
   nlp_numerical_type _objCrf = 0.0;     ///< Current flow
   nlp_numerical_type _objFence = 0.0;   ///< Fence region
+  nlp_numerical_type _objArea = 0.0; ///< Area objective
   nlp_numerical_type _obj =
       0.0; ///< The current value for the total objective penalty
   nlp_numerical_type _objHpwlRaw = 0.0; ///< The current value for hpwl
@@ -652,6 +656,7 @@ protected:
   nlp_numerical_type _objPowrWlRaw = 0.0; ///< Power wire length
   nlp_numerical_type _objCrfRaw = 0.0;    ///< Current flow
   nlp_numerical_type _objFenceRaw = 0.0;  ///< Fence region
+  nlp_numerical_type _objAreaRaw = 0.0; ///< Area
   /* NLP optimization kernel memebers */
   stop_condition_type _stopCondition;
   /* Optimization data */
@@ -666,6 +671,7 @@ protected:
   std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaPowerWlTasks; ///< The tasks for evaluating power wirelength objectives
   std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaCrfTasks; ///< The tasks for evaluating current flow objectives
   std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaFenceTasks; ///< The tasks for evaluating fence region objectives
+  std::vector<nt::Task<nt::EvaObjTask<nlp_numerical_type>>> _evaAreaTasks; ///< The tasks for evaluating fence region objectives
   // Sum the objectives
   nt::Task<nt::FuncTask> _sumObjHpwlTask; ///< The task for summing hpwl objective
   nt::Task<nt::FuncTask> _sumObjOvlTask; ///< The task for summing the overlapping objective
@@ -676,6 +682,7 @@ protected:
                                              ///< cosine signal path objective
   nt::Task<nt::FuncTask> _sumObjCrfTask; ///< The task for summing the current flow objective
   nt::Task<nt::FuncTask> _sumObjFenceTask; ///< The task for summing the fence region objecitve
+  nt::Task<nt::FuncTask> _sumObjAreaTask; ///< The task for summing the fence region objecitve
   nt::Task<nt::FuncTask> _sumObjAllTask; ///< The task for summing the different
                                          ///< objectives together
   // Wrapper tasks for debugging
@@ -689,6 +696,8 @@ protected:
   nt::Task<nt::FuncTask> _wrapObjCrfTask;   ///< The wrapper for caculating the
                                             ///< current flow objective
   nt::Task<nt::FuncTask> _wrapObjFenceTask; ///< The wrapper for calculating the
+                                            ///< fence region objective
+  nt::Task<nt::FuncTask> _wrapObjAreaTask; ///< The wrapper for calculating the
                                             ///< fence region objective
   nt::Task<nt::FuncTask> _wrapObjAllTask;
   /* Operators */
@@ -704,6 +713,7 @@ protected:
   std::vector<nlp_power_wl_type> _powerWlOps;
   std::vector<nlp_crf_type> _crfOps;     ///< The current flow operators
   std::vector<nlp_fence_type> _fenceOps; ///< The fence region operators
+  std::vector<nlp_area_type> _areaOps; ///< The area objective operators
 };
 
 template <typename nlp_settings>
@@ -737,6 +747,7 @@ public:
   typedef typename base_type::nlp_power_wl_type nlp_power_wl_type;
   typedef typename base_type::nlp_crf_type nlp_crf_type;
   typedef typename base_type::nlp_fence_type nlp_fence_type;
+  typedef typename base_type::nlp_area_type nlp_area_type;
 
   typedef typename nlp_settings::nlp_first_order_algorithms_type
       nlp_first_order_algorithms;
@@ -939,6 +950,7 @@ protected:
   EigenVector _gradPowerWl;
   EigenVector _gradCrf;
   EigenVector _gradFence; ///< The gradient of fence region objective
+  EigenVector _gradArea; ///< The gradient of area objective
   /* Tasks */
   // Calculate the partials
   std::vector<
@@ -965,6 +977,9 @@ protected:
   std::vector<
       nt::Task<nt::CalculateOperatorPartialTask<nlp_fence_type, EigenVector>>>
       _calcFencePartialTasks;
+  std::vector<
+      nt::Task<nt::CalculateOperatorPartialTask<nlp_area_type, EigenVector>>>
+      _calcAreaPartialTasks;
   // Update the partials
   std::vector<
       nt::Task<nt::UpdateGradientFromPartialTask<nlp_hpwl_type, EigenVector>>>
@@ -990,6 +1005,9 @@ protected:
   std::vector<
       nt::Task<nt::UpdateGradientFromPartialTask<nlp_fence_type, EigenVector>>>
       _updateFencePartialTasks;
+  std::vector<
+      nt::Task<nt::UpdateGradientFromPartialTask<nlp_area_type, EigenVector>>>
+      _updateAreaPartialTasks;
   // Clear the gradient. Use to clear the _gradxxx records. Needs to call before
   // updating the partials
   nt::Task<nt::FuncTask> _clearGradTask; // FIXME: not used right noe
@@ -1001,6 +1019,7 @@ protected:
   nt::Task<nt::FuncTask> _clearPowerWlGradTask;
   nt::Task<nt::FuncTask> _clearCrfGradTask;
   nt::Task<nt::FuncTask> _clearFenceGradTask;
+  nt::Task<nt::FuncTask> _clearAreaGradTask;
   // Sum the _grad from individual
   nt::Task<nt::FuncTask> _sumGradTask;
   nt::Task<nt::FuncTask> _sumHpwlGradTask;
@@ -1011,6 +1030,7 @@ protected:
   nt::Task<nt::FuncTask> _sumPowerWlTaskGradTask;
   nt::Task<nt::FuncTask> _sumCrfGradTask;
   nt::Task<nt::FuncTask> _sumFenceGradTask;
+  nt::Task<nt::FuncTask> _sumAreaGradTask;
   // all the grads has been calculated but have not updated
   nt::Task<nt::FuncTask> _wrapCalcGradTask; ///<  calculating the gradient and sum them
   /* optim and problem */

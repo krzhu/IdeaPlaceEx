@@ -72,13 +72,14 @@ constexpr RealType extendLookUpTable(RealType overlapAreaRatio) {
 
 template<typename num_type>
 struct BivariateGaussianParameters {
-  BivariateGaussianParameters(num_type muX_, num_type sigmaX_, num_type muY_, num_type sigmaY_, num_type normalize_)
-    : muX(muX_), sigmaX(sigmaX_), muY(muY_), sigmaY(sigmaY_), normalize(normalize_) {}
+  BivariateGaussianParameters(num_type muX_, num_type sigmaX_, num_type muY_, num_type sigmaY_, num_type normalize_, num_type extention_)
+    : muX(muX_), sigmaX(sigmaX_), muY(muY_), sigmaY(sigmaY_), normalize(normalize_), extention(extention_) {}
   num_type muX;
   num_type sigmaX;
   num_type muY;
   num_type sigmaY;
   num_type normalize; // mutliply this
+  num_type extention;
 };
 
 template<typename num_type>
@@ -100,7 +101,8 @@ class BivariateGaussianWellApproximationGenerator {
 template<typename num_type>
 inline void BivariateGaussianWellApproximationGenerator<num_type>::generate(std::vector<BivariateGaussianParameters<num_type>> &vec, RealType overlapAreaRatio) {
   DBG("%s : Ovl Ratio %f \n", __FUNCTION__, overlapAreaRatio);
-  const RealType extendRatio = extendLookUpTable(overlapAreaRatio);
+  //const RealType extendRatio = extendLookUpTable(overlapAreaRatio);
+  const RealType extendRatio = 1.0;
   vec.clear();
   IndexType numWell = _getNumWells();
   for (IndexType wellIdx = 0; wellIdx < numWell; ++wellIdx) {
@@ -110,11 +112,11 @@ inline void BivariateGaussianWellApproximationGenerator<num_type>::generate(std:
     for (IndexType rectIdx = 0; rectIdx < numRects; ++rectIdx) {
       Box<num_type>*rect = _getRect(wellIdx, rectIdx);
       const num_type muX = static_cast<num_type>(rect->center().x());
-      const num_type sigmaX = static_cast<num_type>(rect->xLen() * extendRatio / 2);
+      const num_type sigmaX = static_cast<num_type>(rect->xLen()/ 2);
       const num_type muY = static_cast<num_type>(rect->center().y());
-      const num_type sigmaY = static_cast<num_type>(rect->yLen() * extendRatio / 2);
+      const num_type sigmaY = static_cast<num_type>(rect->yLen()/ 2);
       const num_type normalize =  (2 * 3.14 * sigmaX * sigmaY);
-      vec.emplace_back(BivariateGaussianParameters<num_type>(muX, sigmaX, muY, sigmaY, normalize));
+      vec.emplace_back(BivariateGaussianParameters<num_type>(muX, sigmaX, muY, sigmaY, normalize, extendRatio));
     }
 
   }

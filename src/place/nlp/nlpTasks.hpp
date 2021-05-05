@@ -525,6 +525,23 @@ struct calc_operator_partial_build_cellmap_trait<
   }
 };
 
+template <typename nlp_numerical_type, typename nlp_coordinate_type>
+struct calc_operator_partial_build_cellmap_trait<
+    diff::LseAreaDifferentiable<nlp_numerical_type, nlp_coordinate_type>> {
+  typedef diff::LseAreaDifferentiable<nlp_numerical_type, nlp_coordinate_type>
+      nlp_op_type;
+  template <typename calc_type>
+  static void build(nlp_op_type &op, calc_type &calc) {
+    calc._numCells = op._cells.size(); // dx and dy for each cells
+    calc._inverseCellMap.resize(op._cells.size());
+    for (IndexType idx = 0; idx < op._cells.size(); ++idx) {
+      calc._cellMap[op._cells[idx]] = idx;
+      calc._inverseCellMap[idx] = op._cells[idx];
+    }
+  }
+};
+
+
 } // namespace nt
 
 namespace nt {

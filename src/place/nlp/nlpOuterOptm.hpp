@@ -54,6 +54,9 @@ struct alpha_trait<alpha_hpwl_ovl_oob<nlp_numerical_type>> {
     for (auto &op : nlp._fenceOps) {
       op.setGetAlphaFunc([&]() { return alpha._alpha[4]; });
     }
+    for (auto &op : nlp._areaOps) {
+      op.setGetAlphaFunc([&]() { return alpha._alpha[0]; }); // Use the same as HPWL
+    }
   }
   static std::function<nlp_numerical_type(void)>
   fenceGetAlphaFunc(alpha_type &alpha) {

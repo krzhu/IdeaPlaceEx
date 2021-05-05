@@ -99,7 +99,7 @@ struct stop_condition_trait<stop_enable_if_fast_mode<stop_slave_type>> {
 /// @brief stop after violating is small enough
 struct stop_after_violate_small {
   static constexpr RealType overlapRatio =
-      0.1; ///< with respect to total cell area
+      0.08; ///< with respect to total cell area
 
   static constexpr RealType outOfBoundaryRatio =
       0.1; ///< with respect to boundary
@@ -199,14 +199,6 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
     // Check whether out of fence region area is smaller than threshold
     bool passFence = true;
 #if 0
-    if (n._db.vWells().size() > 0) {
-      CoordType outFenceArea = fenceAreaMismatch(n);
-      DBG("Outfence area %f / %f = %f \n", outFenceArea, n._totalCellArea, outFenceArea / n._totalCellArea);
-      if (outFenceArea / n._totalCellArea > stop.outFenceRatio) {
-        passFence = false;
-      }
-    }
-#else
     if (n._db.vWells().size() > 0) {
       bool passA = true;
       bool passB = true;

@@ -124,7 +124,7 @@ struct optm_trait<
     } while (!converge_trait::stopCriteria(n, o, o._converge));
     n.calcObj();
 //#ifdef DEBUG_GR
-    DBG("adam: %f hpwl %f cos %f ovl %f oob %f asym %f fence %f \n", n._obj, n._objHpwl,
+    DBG("adam: %f hpwl %f area %f cos %f ovl %f oob %f asym %f fence %f \n", n._obj, n._objHpwl, n._objArea,
         n._objCos, n._objOvl, n._objOob, n._objAsym, n._objFence);
     DBG("gradient norm %f, ratio %f \n", n._grad.norm(), n._grad.norm() / initNorm);
     DBG("converge at iter %d \n", iter);

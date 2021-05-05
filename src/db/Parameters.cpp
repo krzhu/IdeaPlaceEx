@@ -19,5 +19,6 @@ Parameters::Parameters() {
   _defaultRelativeRatioOfPowerNet = 0.2;
   _defaultWellWeight = 5;
   _fastMode = false;
+  _areaToWireLengthWeight = 2.0;
 }
 PROJECT_NAMESPACE_END
