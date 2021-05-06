@@ -20,7 +20,7 @@ The cmake will automatically find the system Python.
 To use the other Python, add cmake flags `cmake -DPYTHON_INCLUDE_DIR=<path> -DPYTHON_LIBRARIES=<static libarary>`.
 For example, `-DPYTHON_INCLUDE_DIR=<path>/include/python3.7m -DPYTHON_LIBRARIES=<path>/lib/libpython3.7m.a`
 
-Either Gurobi or lpsolve.
+Either Gurobi or lpsolve. If one of them is not set through system variable or Cmake variable, the compilation will automatically look for the another.
 
 [Gurobi](https://www.gurobi.com) Install the Gurobi package. Set environment variable GUROBI\_HOME to the path, or specify the path to the library as Cmake cache variable GUROBI\_HOME `cmake -DGUROBI_HOME=$PATH`
 
