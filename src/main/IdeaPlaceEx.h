@@ -443,6 +443,14 @@ public:
     auto rectIdx = _db.getWellRectIdx(idx);
     return _db.well(rectIdx.first).rects().at(rectIdx.second);
   }
+  /// @brief Add a well contact template
+  void addVddContactTemplate(LocType xLo, LocType yLo, LocType xHi, LocType yHi, IntType weight) {
+    _db.tech().addVddContactTemplate(xLo, yLo, xHi, yHi, weight);
+  }
+  /// @brief Set the required spacing for VDD contact
+  void setVddContactRequiredSpacing(IntType require) {
+    _db.tech().setVddContactRequiredSpacing(require);
+  }
   /* Debug */
 #ifdef DEBUG_DRAW
   void drawDebug(const std::string &filename) {

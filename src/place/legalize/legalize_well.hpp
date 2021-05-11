@@ -15,12 +15,15 @@ class WellLegalizer {
 public:
   explicit WellLegalizer(Database &db) : _db(db) {}
   BoolType legalize();
+  BoolType legalizeAndAddContact();
   void generateIndividualWells();
 private:
   /// @brief add cell-edge spacing
   void legalizeCellEdgeSpacing();
   /// @brief legalize the NW spacing via patches for min step
   void legalizeMinStep();
+  /// @brief legalize vdd contact
+  void legalizeContact();
 private:
     Database &_db;
 };

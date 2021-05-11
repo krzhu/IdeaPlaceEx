@@ -1439,6 +1439,12 @@ namespace _fence_bivariate_gaussian_details {
   template<>
     struct calc_trait<FENCE_SIGMOID_COST> {
       template<typename numerical_type>
+        constexpr static numerical_type alphaScale(numerical_type sigma, numerical_type alpha) {
+          // The single sigmoid will decay to 0.1 at x= sigma +- sigma * alpha
+          // In total the cost has four alpha
+          return 0.9542425 / (sigma * alpha);
+        }
+      template<typename numerical_type>
         static numerical_type calcCost(
             numerical_type muX,
             numerical_type muY,
@@ -1454,7 +1460,9 @@ namespace _fence_bivariate_gaussian_details {
           using NumType = numerical_type;
           const NumType x = xLo + width / 2;
           const NumType y = yLo + height / 2;
-          return .0/((std::exp(-alpha*(muX+sigmaX-x))+1.0)*(std::exp(-alpha*(-muX+sigmaX+x))+1.0)*(std::exp(-alpha*(muY+sigmaY-y))+1.0)*(std::exp(-alpha*(-muY+sigmaY+y))+1.0));;
+          const NumType alphaX = alphaScale(sigmaX, alpha);
+          const NumType alphaY = alphaScale(sigmaX, alpha);
+          return 1.0/((std::exp(-alphaX*(muX+sigmaX-x))+1.0)*(std::exp(-alphaX*(-muX+sigmaX+x))+1.0)*(std::exp(-alphaY*(muY+sigmaY-y))+1.0)*(std::exp(-alphaY*(-muY+sigmaY+y))+1.0));;
         }
       template<typename numerical_type>
         static numerical_type calcDiffX(
@@ -1472,7 +1480,9 @@ namespace _fence_bivariate_gaussian_details {
           using NumType = numerical_type;
           const NumType x = xLo + width / 2;
           const NumType y = yLo + height / 2;
-          return -(alpha*std::exp(-alpha*(muX+sigmaX-x))*1.0/pow(std::exp(-alpha*(muX+sigmaX-x))+1.0,2.0))/((std::exp(-alpha*(-muX+sigmaX+x))+1.0)*(std::exp(-alpha*(muY+sigmaY-y))+1.0)*(std::exp(-alpha*(-muY+sigmaY+y))+1.0))+(alpha*std::exp(-alpha*(-muX+sigmaX+x))*1.0/pow(std::exp(-alpha*(-muX+sigmaX+x))+1.0,2.0))/((std::exp(-alpha*(muX+sigmaX-x))+1.0)*(std::exp(-alpha*(muY+sigmaY-y))+1.0)*(std::exp(-alpha*(-muY+sigmaY+y))+1.0));
+          const NumType alphaX = alphaScale(sigmaX, alpha);
+          const NumType alphaY = alphaScale(sigmaX, alpha);
+          return -(alphaX*std::exp(-alphaX*(muX+sigmaX-x))*1.0/pow(std::exp(-alphaX*(muX+sigmaX-x))+1.0,2.0))/((std::exp(-alphaX*(-muX+sigmaX+x))+1.0)*(std::exp(-alphaY*(muY+sigmaY-y))+1.0)*(std::exp(-alphaY*(-muY+sigmaY+y))+1.0))+(alphaX*std::exp(-alphaX*(-muX+sigmaX+x))*1.0/pow(std::exp(-alphaX*(-muX+sigmaX+x))+1.0,2.0))/((std::exp(-alphaX*(muX+sigmaX-x))+1.0)*(std::exp(-alphaY*(muY+sigmaY-y))+1.0)*(std::exp(-alphaY*(-muY+sigmaY+y))+1.0));
         }
       template<typename numerical_type>
         static numerical_type calcDiffY(
@@ -1490,7 +1500,9 @@ namespace _fence_bivariate_gaussian_details {
           using NumType = numerical_type;
           const NumType x = xLo + width / 2;
           const NumType y = yLo + height / 2;
-          return -(alpha*std::exp(-alpha*(muY+sigmaY-y))*1.0/pow(std::exp(-alpha*(muY+sigmaY-y))+1.0,2.0))/((std::exp(-alpha*(muX+sigmaX-x))+1.0)*(std::exp(-alpha*(-muX+sigmaX+x))+1.0)*(std::exp(-alpha*(-muY+sigmaY+y))+1.0))+(alpha*std::exp(-alpha*(-muY+sigmaY+y))*1.0/pow(std::exp(-alpha*(-muY+sigmaY+y))+1.0,2.0))/((std::exp(-alpha*(muX+sigmaX-x))+1.0)*(std::exp(-alpha*(-muX+sigmaX+x))+1.0)*(std::exp(-alpha*(muY+sigmaY-y))+1.0));
+          const NumType alphaX = alphaScale(sigmaX, alpha);
+          const NumType alphaY = alphaScale(sigmaX, alpha);
+          return -(alphaY*std::exp(-alphaY*(muY+sigmaY-y))*1.0/pow(std::exp(-alphaY*(muY+sigmaY-y))+1.0,2.0))/((std::exp(-alphaX*(muX+sigmaX-x))+1.0)*(std::exp(-alphaX*(-muX+sigmaX+x))+1.0)*(std::exp(-alphaY*(-muY+sigmaY+y))+1.0))+(alphaY*std::exp(-alphaY*(-muY+sigmaY+y))*1.0/pow(std::exp(-alphaY*(-muY+sigmaY+y))+1.0,2.0))/((std::exp(-alphaX*(muX+sigmaX-x))+1.0)*(std::exp(-alphaX*(-muX+sigmaX+x))+1.0)*(std::exp(-alphaY*(muY+sigmaY-y))+1.0));
         }
     };
   template<>
@@ -1577,7 +1589,7 @@ struct FenceBivariateGaussianDifferentiable {
     Assert(inFenceCellIdx.size() == inFenceCellHeights.size());
     Assert(outFenceCellIdx.size() == outFenceCellWidths.size());
     Assert(outFenceCellIdx.size() == outFenceCellHeights.size());
-    _getAlphaFunc = [](){ return 1.0; };
+    _getAlphaFunc = [](){ return 0.3; };
   }
 
   void setGetVarFunc(
@@ -1635,8 +1647,8 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::evaluate()
         for (IndexType gauIdx = 0; gauIdx < _gaussianParameters.size(); ++gauIdx) {
           const NumType muX = _gaussianParameters[gauIdx].muX;
           const NumType muY = _gaussianParameters[gauIdx].muY;
-          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX * _gaussianParameters[gauIdx].extention;
-          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY * _gaussianParameters[gauIdx].extention;
+          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX;
+          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
           const NumType normalize =_gaussianParameters[gauIdx].normalize;
           // Calculate cost
           const auto cost = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcCost(
@@ -1692,8 +1704,8 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGra
         for (IndexType gauIdx = 0; gauIdx < _gaussianParameters.size(); ++gauIdx) {
           const NumType muX = _gaussianParameters[gauIdx].muX;
           const NumType muY = _gaussianParameters[gauIdx].muY;
-          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX * _gaussianParameters[gauIdx].extention;
-          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY * _gaussianParameters[gauIdx].extention;
+          const NumType sigmaX = _gaussianParameters[gauIdx].sigmaX;
+          const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
           const NumType normalize = _gaussianParameters[gauIdx].normalize;
           // Calculate derivative
           const auto diffx = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffX(

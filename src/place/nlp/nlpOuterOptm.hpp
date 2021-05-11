@@ -34,6 +34,7 @@ struct alpha_trait<alpha_hpwl_ovl_oob<nlp_numerical_type>> {
   template <typename nlp_type> static alpha_type construct(nlp_type &) {
     alpha_type alpha;
     alpha._alpha.resize(5, 1.0);
+    alpha._alpha[4] = 0.3;
     return alpha;
   }
 

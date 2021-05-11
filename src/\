@@ -203,12 +203,6 @@ bool patchSpacingJogs(LocType minStep, Polygon<LocType>& poly) {
 
 BoolType WellLegalizer::legalize() {
   legalizeCellEdgeSpacing();
-  legalizeMinStep();
-  return true;
-}
-
-BoolType WellLegalizer::legalizeAndAddContact() {
-  legalizeCellEdgeSpacing();
   legalizeContact();
   legalizeMinStep();
   return true;
@@ -288,189 +282,105 @@ void WellLegalizer::legalizeCellEdgeSpacing() {
   }
 }
 
-namespace _legalize_well_vdd_contact_details {
-
-
-  void topologicalSort(const std::vector<std::vector<IndexType>> &outEdges, std::vector<IndexType> &results) {
-    std::vector<char> visited(outEdges.size(), false);
-    std::function<void(IndexType)> util = [&](IndexType i) {
-      visited.at(i) = true;
-      for (IndexType idx : outEdges.at(i)) {
-        if (not visited.at(idx)) {
-          util(idx);
-        }
-      }
-      results.emplace_back(i);
-    };
-    util(outEdges.size() - 2);  // We know this is source, don't need to iterate through all nodes
-  }
-
-  void selectVddContactCandidates(const std::vector<std::tuple<Box<LocType>, IndexType, LocType, IntType, IndexType>> &candidates, 
-      std::pair<IntType, IntType> costThreshold, 
-      LocType contactSpacing,
-      std::vector<IndexType> &results) {
-    // Figure out the valid candidates with in the cost range
-    IndexType startIdx = 0;
-    IndexType numCandidates = 0;
-    for (IndexType idx = 0; idx < candidates.size(); ++idx) {
-      const auto cost = std::get<2>(candidates.at(idx));
-      if (cost < costThreshold.first) {
-        ++startIdx;
-      }
-      if (cost > costThreshold.second) {
-        numCandidates = idx - startIdx;
-        Assert(idx> 0);
-        break;
-      }
+void selectVddContactCandidates(const std::vector<std::pair<Box<LocType>, std::pair<IndexType, LocType>>> &candidates, std::pair<IntType, IntType> costThreshold, std::vector<IndexType> &results) {
+  IndexType startIdx = 0;
+  IndexType endIdx = 0;
+  for (IndexType idx = 0; idx < candidates.size(); ++idx) {
+    const auto cost = candidates.at(idx).second.second;
+    if (cost < costThreshold.first) {
+      ++startIdx;
     }
-    // Construct the graph
-    std::vector<std::vector<IndexType>> outEdges;
-    outEdges.resize(numCandidates + 2);
-    const IndexType sourceIdx = numCandidates; // S
-    const IndexType targetIdx = numCandidates + 1; // T
-    for (IndexType idx = 0; idx < numCandidates; ++idx) {
-      outEdges.at(sourceIdx).emplace_back(idx);
-      outEdges.at(idx).emplace_back(targetIdx);
-    }
-    // Find the independent shape and give them a directed edge
-    for (IndexType i = 0; i < numCandidates; ++i) {
-      const auto &boxI = std::get<0>(candidates.at(i + startIdx));
-      for (IndexType j = i+1; j < numCandidates; ++j) {
-        const auto &boxJ = std::get<0>(candidates.at(j + startIdx));
-        if (boxI.xLo() >= boxJ.xHi() + contactSpacing and boxI.yLo() >= boxJ.yHi() + contactSpacing) {
-          // i is right to j
-          outEdges.at(j).emplace_back(i);
-        }
-        else if (boxJ.xLo() >= boxI.xHi() + contactSpacing and boxJ.yLo() >= boxI.yHi() + contactSpacing) {
-          // j is right to i
-          outEdges.at(i).emplace_back(j);
-        }
-      }
-    }
-    // Topological sort
-    std::vector<IndexType> sorted; // In reverse order
-    topologicalSort(outEdges, sorted);
-    Assert(sorted.front() == targetIdx);
-
-    // Find longest path
-    std::vector<IntType> dist(numCandidates + 2, -1);
-    dist.at(sourceIdx) = 0;
-    std::vector<IndexType> prevNode(numCandidates + 2, INDEX_TYPE_MAX);
-    for (IndexType i = 0; i < sorted.size(); ++i) { // sorted is in reverse order
-      IndexType idx = sorted.at(sorted.size() - 1 - i);
-      const IntType currentWeight = std::get<3>(candidates.at(idx + startIdx));
-      Assert(dist.at(idx) >= 0);
-      for (IndexType outIdx : outEdges.at(idx)) {
-        if (dist.at(outIdx) < dist.at(idx) + currentWeight) {
-          dist.at(outIdx) = dist.at(idx) + currentWeight;
-          prevNode.at(outIdx) = idx;
-        }
-      }
-    }
-    // Extract the result
-    IndexType nodeIdx = targetIdx;
-    while(prevNode.at(nodeIdx) != sourceIdx) {
-      if (nodeIdx != targetIdx) {
-        results.emplace_back(nodeIdx + startIdx);
-      }
-      nodeIdx = prevNode.at(nodeIdx);
+    if (cost > costThreshold.second) {
+      endIdx = idx - 1;
     }
   }
+}
 
-  /// @brief Try add as many contacts as possible, but make sure add at least one
-  void legalizeContactByAddingAsManyContactsAsPossible(Database &db, IndexType wellIdx) {
-    using rtree_type  = boost::geometry::index::rtree<Box<LocType>, boost::geometry::index::rstar<8, 2>>;
-    Well &well = db.well(wellIdx);
-    const LocType contactSpacing = db.tech().vddContactSpacing();
-    const Polygon<LocType> poly = well.shape();
-    std::vector<Box<LocType>> deviceBoxs;
-    for (IndexType cellIdx : well.sCellIds()) {
-      deviceBoxs.emplace_back(db.cell(cellIdx).cellBBoxOff());
-    }
-    rtree_type deviceRtree(deviceBoxs); // Store the shape of device
-    std::vector<Box<LocType>> outWellDevicesBoxes;
-    for (IndexType cellIdx = 0; cellIdx < db.numCells(); ++cellIdx) {
-      if (well.sCellIds().find(cellIdx) == well.sCellIds().end()) {
-        outWellDevicesBoxes.emplace_back(db.cell(cellIdx).cellBBoxOff());
-      }
-    }
-    rtree_type outDeviceRtree(outWellDevicesBoxes); // Store the out of well devices shapes
-    // Generate the contact candidates
-    const auto currentWellBBox = well.boundingBox();
-    const LocType genStep = std::max(db.parameters().gridStep(), 1);
-    const LocType genXLo = genStep * static_cast<LocType>((currentWellBBox.xLo() - contactSpacing)/ genStep);
-    const LocType genYLo = genStep * static_cast<LocType>((currentWellBBox.yLo() - contactSpacing)/ genStep);
-    const LocType genXHi = genStep * static_cast<LocType>((currentWellBBox.xHi() + contactSpacing)/ genStep + 1);
-    const LocType genYHi = genStep * static_cast<LocType>((currentWellBBox.yHi() + contactSpacing)/ genStep + 1);
-    std::vector<std::tuple<Box<LocType>,IndexType, LocType, IntType, IndexType>> candidates; // 0=shape, 1= idx, 2= cost, 3=weight 4=templateIdx
-    IndexType candidateIdx = 0;
-    const LocType genStepX = std::max(genStep, (genXHi - genXLo) / 200);
-    const LocType genStepY = std::max(genStep, (genYHi - genYLo) / 200);
-    for (IndexType contactTemplateIdx = 0; contactTemplateIdx < db.tech().numVddContactTemplates(); ++contactTemplateIdx) {
-      const Box<LocType> contactTemplate = db.tech().vddContactTemplate(contactTemplateIdx);
-      for (IntType xIdx = 0; xIdx <= (genXHi - genXLo) / genStepX; ++xIdx) {
-        for (IntType yIdx = 0; yIdx <= (genYHi - genYLo) / genStepX; ++yIdx) {
-          Box<LocType> contactShape = contactTemplate.offsetBox(Point<LocType>(xIdx * genStepX  + genXLo, yIdx * genStepY + genYLo));
-          auto queryBox = contactShape;
-          queryBox.expand(contactSpacing);
-          std::vector<Box<LocType>> queryResults;
-          deviceRtree.query(boost::geometry::index::intersects(queryBox), std::back_inserter(queryResults));
-          if (not queryResults.empty()) {
-            LocType dif = std::max(queryResults.front().yHi() - queryBox.yLo(), 0);
-            yIdx += dif / genStepY;
-            continue;
-          }
-          std::vector<Polygon<LocType>> intersects;
-          boost::geometry::intersection(contactShape, poly, intersects); // Get the intersection between well and contact
-
-          LocType intersectArea = 0;
-          for (const auto & inter : intersects) {
-            intersectArea += boost::geometry::area(inter);
-          }
-          std::vector<Box<LocType>> outWellIntersects;
-          outDeviceRtree.query(boost::geometry::index::intersects(queryBox), std::back_inserter(outWellIntersects)); // Get the intersection between other devices and contact
-          LocType outWellDeviceIntersectArea = 0;
-          for (const auto &inter : outWellIntersects) {
-            outWellDeviceIntersectArea += boost::geometry::area(inter);
-          }
-          candidates.emplace_back(std::make_tuple(contactShape, candidateIdx, contactShape.area() - intersectArea + outWellDeviceIntersectArea, db.tech().vddContactWeight(contactTemplateIdx), contactTemplateIdx));
-          ++candidateIdx;
-        }
-      }
-    }
-    std::stable_sort(candidates.begin(), candidates.end(), [&](const auto &i, const auto &j){ return std::get<2>(i) < std::get<2>(j);});
-    for (IndexType candIdx = 0; candIdx < candidates.size(); ++candIdx) {
-      std::get<1>(candidates.at(candIdx)) = candIdx;
-    }
-    IndexType numZeroCost = 0;
-    for (IndexType candIdx = 0; candIdx < candidates.size(); ++candIdx) {
-      if (std::get<2>(candidates.at(candIdx)) == 0) {
-        numZeroCost += 1;
-      }
-    }
-    if (numZeroCost == 0) {
-      AssertMsg(false, "Ok... Then we have to really implment the loop to fix no valid zero cost candidate");
-    }
-    std::vector<IndexType> selected;
-    selectVddContactCandidates(candidates, std::make_pair(0, 0), contactSpacing, selected);
-    Assert(selected.size() > 0);
-    for (IndexType idx : selected) {
-      const Box<LocType> &box = std::get<0>(candidates.at(idx));
-      const IndexType templIdx = std::get<4>(candidates.at(idx));
-      const Box<LocType> &templBox = db.tech().vddContactTemplate(templIdx);
-      const Point<LocType> pos = box.ll() -  templBox.ll();
-      well.addVddContact(templIdx, pos);
+/// @brief Try add as many contacts as possible, but make sure add at least one
+void legalizeContactByAddingAsManyContactsAsPossible(Database &db, IndexType wellIdx) {
+  using rtree_type  = boost::geometry::index::rtree<Box<LocType>, boost::geometry::index::rstar<8, 2>>;
+  Well &well = db.well(wellIdx);
+  const LocType contactSpacing = db.tech().vddContactSpacing();
+  const Polygon<LocType> poly = well.shape();
+  std::vector<Box<LocType>> deviceBoxs;
+  for (IndexType cellIdx : well.sCellIds()) {
+    deviceBoxs.emplace_back(db.cell(cellIdx).cellBBoxOff());
+  }
+  rtree_type deviceRtree(deviceBoxs); // Store the shape of device
+  std::vector<Box<LocType>> outWellDevicesBoxes;
+  for (IndexType cellIdx = 0; cellIdx < db.numCells(); ++cellIdx) {
+    if (well.sCellIds().find(cellIdx) == well.sCellIds().end()) {
+      outWellDevicesBoxes.emplace_back(db.cell(cellIdx).cellBBoxOff());
     }
   }
+  rtree_type outDeviceRtree(outWellDevicesBoxes); // Store the out of well devices shapes
+  // Generate the contact candidates
+  const auto currentWellBBox = well.boundingBox();
+  const LocType genStep = std::max(db.parameters().gridStep(), 1);
+  const LocType genXLo = genStep * static_cast<LocType>((currentWellBBox.xLo() - contactSpacing)/ genStep);
+  const LocType genYLo = genStep * static_cast<LocType>((currentWellBBox.yLo() - contactSpacing)/ genStep);
+  const LocType genXHi = genStep * static_cast<LocType>((currentWellBBox.xHi() + contactSpacing)/ genStep + 1);
+  const LocType genYHi = genStep * static_cast<LocType>((currentWellBBox.yHi() + contactSpacing)/ genStep + 1);
+  std::vector<std::pair<Box<LocType>, std::pair<IndexType, LocType>>> candidates; // .first=shape, second.first = idx, second.second = cost
+  IndexType candidateIdx = 0;
+  const LocType genStepX = std::max(genStep, (genXHi - genXLo) / 200);
+  const LocType genStepY = std::max(genStep, (genYHi - genYLo) / 200);
+  for (IndexType contactTemplateIdx = 0; contactTemplateIdx < db.tech().numVddContactTemplates(); ++contactTemplateIdx) {
+    const Box<LocType> contactTemplate = db.tech().vddContactTemplate(contactTemplateIdx);
+    for (IntType xIdx = 0; xIdx <= (genXHi - genXLo) / genStepX; ++xIdx) {
+      for (IntType yIdx = 0; yIdx <= (genYHi - genYLo) / genStepX; ++yIdx) {
+        Box<LocType> contactShape = contactTemplate.offsetBox(Point<LocType>(xIdx * genStepX  + genXLo, yIdx * genStepY + genYLo));
+        auto queryBox = contactShape;
+        queryBox.expand(contactSpacing);
+        std::vector<Box<LocType>> queryResults;
+        deviceRtree.query(boost::geometry::index::intersects(queryBox), std::back_inserter(queryResults));
+        if (not queryResults.empty()) {
+          LocType dif = std::max(queryResults.front().yHi() - queryBox.yLo(), 0);
+          yIdx += dif / genStepY;
+          continue;
+        }
+        std::vector<Polygon<LocType>> intersects;
+        boost::geometry::intersection(contactShape, poly, intersects); // Get the intersection between well and contact
 
-} // namespace _legalize_well_vdd_contact_details
+        //DBG("Intersection size %d \n", intersects.size());
+        LocType intersectArea = 0;
+        for (const auto & inter : intersects) {
+          intersectArea += boost::geometry::area(inter);
+        }
+        //DBG("Area %d \n", intersectArea);
+        std::vector<Box<LocType>> outWellIntersects;
+        outDeviceRtree.query(boost::geometry::index::intersects(queryBox), std::back_inserter(outWellIntersects)); // Get the intersection between other devices and contact
+        LocType outWellDeviceIntersectArea = 0;
+        for (const auto &inter : outWellIntersects) {
+          outWellDeviceIntersectArea += boost::geometry::area(inter);
+        }
+        candidates.emplace_back(std::make_pair(contactShape, std::make_pair(candidateIdx, contactShape.area() - intersectArea + outWellDeviceIntersectArea)));
+        ++candidateIdx;
+      }
+    }
+  }
+  std::stable_sort(candidates.begin(), candidates.end(), [&](const auto &i, const auto &j){ return i.second.second < j.second.second;});
+  for (IndexType candIdx = 0; candIdx < candidates.size(); ++candIdx) {
+    candidates.at(candIdx).second.first = candIdx;
+  }
+  IndexType numZeroCost = 0;
+  for (IndexType candIdx = 0; candIdx < candidates.size(); ++candIdx) {
+    if (candidates.at(candIdx).second.second == 0) {
+      numZeroCost += 1;
+    }
+  }
+  if (numZeroCost == 0) {
+    AssertMsg(false, "Ok... Then we have to really implment the loop to fix no valid zero cost candidate");
+  }
+  Assert(false);
+}
 
 void WellLegalizer::legalizeContact() {
   if (_db.tech().numVddContactTemplates() == 0) {
     return;
   }
   for (IndexType wellIdx = 0; wellIdx < _db.vWells().size(); ++wellIdx) {
-    _legalize_well_vdd_contact_details::legalizeContactByAddingAsManyContactsAsPossible(_db, wellIdx);
+    legalizeContactByAddingAsManyContactsAsPossible(_db, wellIdx);
   }
 }
 

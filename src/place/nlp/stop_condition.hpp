@@ -227,7 +227,7 @@ template <> struct stop_condition_trait<stop_after_violate_small> {
        const Database &db = nlp._db;
        IndexType numViolate = 0;
        // Build well shape tree
-       using rtree_type  = boost::geometry::index::rtree<Box<LocType>, boost::geometry::index::linear<16, 4>>;
+       using rtree_type  = boost::geometry::index::rtree<Box<LocType>, boost::geometry::index::rstar<8>>;
        rtree_type rtree;
        IndexType rectIdx = 0;
        for (const auto &well : db.vWells()) {

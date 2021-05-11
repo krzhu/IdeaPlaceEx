@@ -127,9 +127,8 @@ struct nlp_default_first_order_algorithms {
       alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type,
                                        2>,
       alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type,
-                                       3>,
-      alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type,
-                                       4>>
+                                       3>
+     >
       alpha_update_type;
 };
 
@@ -257,7 +256,7 @@ struct construct_fence_type_trait<
   typedef diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
                                                           nlp_coordinate_type> 
                                                             op_type;
-  static void generateDistributionParameters(std::vector<BivariateGaussianParameters<nlp_numerical_type>> & result, const Database &db, nlp_numerical_type scale, RealType overlapRatio = 0.0) {
+  static void generateDistributionParameters(std::vector<BivariateGaussianParameters<nlp_numerical_type>> & result, const Database &db, nlp_numerical_type scale) {
 #if 0
     std::vector<std::vector<Box<nlp_coordinate_type>>> boxes; // Splited polygon
     std::vector<std::vector<Box<LocType>>> boxesUnScaled;
@@ -271,6 +270,7 @@ struct construct_fence_type_trait<
       for (const auto &box : boxesUnScaled[wellIdx]) {
         boxes[wellIdx].emplace_back(
             Box<nlp_coordinate_type>(box.xLo() * scale, box.yLo() * scale,
+
                                      box.xHi() * scale, box.yHi() * scale));
       }
     }
@@ -288,7 +288,7 @@ struct construct_fence_type_trait<
     auto getNumRects = [&](IndexType wellIdx) { return boxes.at(wellIdx).size(); };
     auto getRect = [&](IndexType wellIdx, IndexType rectIdx) {  return &boxes.at(wellIdx).at(rectIdx); };
     BivariateGaussianWellApproximationGenerator<nlp_numerical_type> gen(getNumWells, getNumRects, getRect);
-    gen.generate(result, overlapRatio);
+    gen.generate(result);
   }
 
   template<typename nlp_type>
@@ -325,7 +325,7 @@ struct construct_fence_type_trait<
              getLambdaFunc));
       nlp._fenceOps.back().setGetVarFunc(getVarFunc);
       nlp._fenceOps.back()._weight = db.parameters().defaultWellWeight();
-      generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, db, nlp._scale, nlp.overlapAreaRatio());
+      generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, db, nlp._scale);
     }
 };
 
@@ -434,7 +434,7 @@ struct reinit_well_trait<
 
     template<typename nlp_type> 
       static void reinit_well_operators(nlp_type &nlp) {
-        construct_fence_type_trait<op_type>::generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, nlp._db, nlp._scale, nlp.overlapAreaRatio());
+        construct_fence_type_trait<op_type>::generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, nlp._db, nlp._scale);
         nlp._fenceOps.back()._considerOutFenceCells = nlp._useWellCellOvl;
       }
 };

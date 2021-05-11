@@ -49,9 +49,8 @@ else()
 endif()
 unset (LIMBO_DIR CACHE)
 
-find_package(Boost 1.6 COMPONENTS system graph iostreams)
+find_package(Boost 1.67 COMPONENTS system graph iostreams)
 find_package( ZLIB REQUIRED )
-
 
 
 # Find Lemon

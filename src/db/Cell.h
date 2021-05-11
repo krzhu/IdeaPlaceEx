@@ -45,6 +45,9 @@ public:
     for (auto &rect : _splitedRects) {
       rect.offsetBy(Point<LocType>(xOffset, yOffset));
     }
+    for (auto & pt : _vddContactPositions) {
+      pt.shiftXY(xOffset, yOffset);
+    }
   }
 
   // operator
@@ -82,6 +85,12 @@ public:
   void splitIntoRects(IntType mode=0);
   BoolType assignedWithAnyCell() const { return _sCellIds.size() != 0; }
 
+  // VDD contacts
+  void addVddContact(IndexType templateIdx, const Point<LocType> &pos) {
+    _vddContactTemplates.emplace_back(templateIdx);
+    _vddContactPositions.emplace_back(pos);
+  }
+
 
 private:
   std::string _name;
@@ -89,6 +98,8 @@ private:
   Polygon<LocType> _shape; // Polygon90
   std::set<IndexType> _sCellIds;
   std::vector<Box<LocType>> _splitedRects; ///< Splited well 
+  std::vector<IndexType> _vddContactTemplates; ///< The indices of templates inserted
+  std::vector<Point<LocType>> _vddContactPositions; ///< The position of inserted VDD contact templates
 };
 
 /// @class IDEAPLACE::Cell

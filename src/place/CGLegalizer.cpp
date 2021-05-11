@@ -92,9 +92,14 @@ Relation determineBoxRelation(const Box<LocType> &box1, const Box<LocType> &box2
   }
 }
 
-void CGLegalizer::legalizeWells() {
+void CGLegalizer::legalizeWells(bool addContact) {
   WellLegalizer wellLegalizer(_db);
-  wellLegalizer.legalize();
+  if (addContact) {
+    wellLegalizer.legalizeAndAddContact();
+  }
+  else {
+    wellLegalizer.legalize();
+  }
 }
 
 void CGLegalizer::generateIndividualWells(){

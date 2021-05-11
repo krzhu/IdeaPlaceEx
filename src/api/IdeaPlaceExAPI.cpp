@@ -214,6 +214,8 @@ void initIdeaPlaceExAPI(py::module &m) {
       .def("splitWells", &PROJECT_NAMESPACE::IdeaPlaceEx::splitWells, "Split the wells into rectangles")
       .def("numWellRects", &PROJECT_NAMESPACE::IdeaPlaceEx::numWellRects, "Get the number of well rects")
       .def("wellRect", &PROJECT_NAMESPACE::IdeaPlaceEx::wellRect, "Get one rect from the well")
+      .def("setVddContactRequiredSpacing", &PROJECT_NAMESPACE::IdeaPlaceEx::setVddContactRequiredSpacing, "Set the required spacing for VDD contacts")
+      .def("addVddContactTemplate", &PROJECT_NAMESPACE::IdeaPlaceEx::addVddContactTemplate, "Add a new VDD contact template")
 #ifdef DEBUG_DRAW
       .def("debugDraw", &PROJECT_NAMESPACE::IdeaPlaceEx::drawDebug, "Draw the debug layout")
 #endif // ifdef DEBUG_DRAW

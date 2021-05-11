@@ -34,7 +34,7 @@ public:
   /// @param Extra spacing to add to the legalization
   BoolType preserveRelationCompaction(LocType extraSpacing = -1); 
   /// @brief legalzie with-in well 
-  void legalizeWells();
+  void legalizeWells(bool addContact);
   /// @brief Generate individual wells and legalize
   void generateIndividualWells();
   /// @brief close the well-aware functionality

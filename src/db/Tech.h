@@ -10,9 +10,34 @@
 
 #include "global/global.h"
 #include "util/Vector2D.h"
+#include "util/box.hpp"
 #include <unordered_map>
 
 PROJECT_NAMESPACE_BEGIN
+
+/// @brief VDD contact templates
+class VddContactRule {
+  public:
+    explicit VddContactRule() = default;
+    /// @brief Set the required spacing rule (from device to contact)
+    void setRequiredSpacing(LocType requiredSpacing) { _requiredSpacing = requiredSpacing; }
+    /// @brief Get the required spacing rule (from device to contact)
+    LocType requiredSpacing() const { return _requiredSpacing; }
+    /// @brief Add a contact shape candidate
+    void addContactTemplate(const Box<LocType> &templ, IntType weight) { _contactTemplates.emplace_back(templ); _contactWeights.emplace_back(weight); }
+    /// @brief Add a contact shape candidate
+    void addContactTemplate(LocType xLo, LocType yLo, LocType xHi, LocType yHi, IntType weight) { addContactTemplate(Box<LocType>(xLo, yLo, xHi, yHi), weight); }
+    /// @brief Get the number of templates available
+    IndexType numContactTemplates() const { return _contactTemplates.size(); }
+    /// @brief Get a template
+    const Box<LocType> & contractTemplate(IndexType idx) const { return _contactTemplates.at(idx); }
+    /// @brief Get the weight of a template
+    IntType contactWeight(IndexType idx) const { return _contactWeights.at(idx); }
+  private:
+    std::vector<Box<LocType>> _contactTemplates;
+    std::vector<IntType> _contactWeights; ///< The weight for each contact. Higher the preferred
+    LocType _requiredSpacing = 0;
+};
 
 class Tech {
 public:
@@ -69,6 +94,12 @@ public:
   void setCellToNwellEdgeSpacing(LocType spacing) { _cellToNwellEdgeSpacing = spacing; }
   /// @brief Get the required spacing from cell edge to N-well boundary
   LocType cellToNwellEdgeSpacing() const { return _cellToNwellEdgeSpacing; }
+  /// @brief Set the required vdd contact spacing
+  void setVddContactRequiredSpacing(LocType require) { _contactRule.setRequiredSpacing(require); }
+  /// @brief Add a VDD contact template
+  void addVddContactTemplate(LocType xLo, LocType yLo, LocType xHi, LocType yHi, IntType weight) { _contactRule.addContactTemplate(xLo, yLo, xHi, yHi, weight); }
+  /// @brief Add ad VDD contact template
+  void addVddContactTemplate(const Box<LocType> &box, IntType weight) { _contactRule.addContactTemplate(box, weight); }
   /*------------------------------*/
   /* Query the tech               */
   /*------------------------------*/
@@ -123,6 +154,14 @@ public:
   /// @brief get the number of layers
   /// @return the number of layers
   IndexType numLayers() const { return _gdsLayerIdxArray.size(); }
+  /// @brief Get the required spacing for VDD contact
+  LocType vddContactSpacing() const { return _contactRule.requiredSpacing(); }
+  /// @brief Get number of VDD contact templates available
+  IndexType numVddContactTemplates() const { return _contactRule.numContactTemplates(); }
+  /// @brief Get a vdd contact template
+  const Box<LocType> & vddContactTemplate(IndexType idx) const { return _contactRule.contractTemplate(idx); }
+  /// @brief Get a vdd contact weight
+  IntType vddContactWeight(IndexType idx) const { return _contactRule.contactWeight(idx); }
   /*------------------------------*/
   /* Getters                      */
   /*------------------------------*/
@@ -157,6 +196,7 @@ private:
                     ///< shapes of layer 1 and layer 2.
   IndexType _nwellLayerIdx = INDEX_TYPE_MAX;
   LocType _cellToNwellEdgeSpacing = 0;
+  VddContactRule _contactRule; ///< The rules for VDD contact
 };
 
 inline void Tech::initRuleDataStructure() {
