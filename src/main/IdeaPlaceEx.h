@@ -129,10 +129,6 @@ public:
   void setNwellLayerIdx(IndexType layerIdx) {
     _db.tech().setNwellLayerIdx(layerIdx);
   }
-  /// @brief Set the required spacing from cell to n-well edge
-  void setCellToNwellEdgeSpacing(LocType spacing) {
-    _db.tech().setCellToNwellEdgeSpacing(spacing);
-  }
 
   /*------------------------------*/
   /* Standard input interface     */
@@ -147,6 +143,10 @@ public:
   /// @brief set this cell as it needs well
   /// @param the index of the cell
   void flagCellAsNeedWell(IndexType cellIdx) { _db.cell(cellIdx).setNeedWell(true); }
+  /// @brief Set the channel width of a cell
+  void setCellFingerChannelWidth(IndexType cellIdx, LocType width) { _db.cell(cellIdx).setFingerChannelWidth(width); }
+  /// @brief Set the channel length of a cell
+  void setCellFingerChannelLength(IndexType cellIdx, LocType length) { _db.cell(cellIdx).setFingerChannelLength(length); }
   /// @brief add a new pin
   /// @param the index of cell this pin belonging to
   /// @return the index of the pin allocated
@@ -320,6 +320,14 @@ public:
   /// @return false: left or right
   bool isIopinVertical(IndexType netIdx) const {
     return _db.net(netIdx).iopinVertical();
+  }
+  /// @brief Add WPE vertical spacing rule. If device width > width, it need spacing
+  void addWpeVerticalSpacingRule(LocType width, LocType spacing) {
+    _db.tech().addWpeVerticalSpacingRule(width, spacing);
+  }
+  /// @brief Add WPE horizontal spacing rule. If device length > length, it need spacing
+  void addWpeHorizontalSpacingRule(LocType length, LocType spacing) {
+    _db.tech().addWpeHorizontalSpacingRule(length, spacing);
   }
   /*------------------------------*/
   /* Standard output interface    */

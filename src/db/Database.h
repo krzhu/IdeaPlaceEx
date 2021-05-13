@@ -277,6 +277,14 @@ public:
   Box<LocType> cellSpacing(IndexType cellIdx1, IndexType cellIdx2) const;
   /// @brief calculate the spacing between cells
   void calculateCellSpacings();
+  /// @brief Get the reqired WPE spacing
+  /// @param cell index
+  /// @return Pair. .first=horizontal spacing .second=vertical spacing
+  std::pair<LocType, LocType> wpeSpacing(IndexType cellIdx) {
+    const LocType ver = _tech.wpeVerticalSpacing(cell(cellIdx).fingerChannelWidth());
+    const LocType hor = _tech.wpeHorizontalSpacing(cell(cellIdx).fingerChannelLength());
+    return std::make_pair(hor, ver);
+  }
   /*------------------------------*/
   /* Supporting functions         */
   /*------------------------------*/

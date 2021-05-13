@@ -244,14 +244,15 @@ void WellLegalizer::legalizeMinStep() {
 
 void WellLegalizer::generateIndividualWells() {
   _db.clearWells();
-  const LocType cellToWellEdgeSpacing = _db.tech().cellToNwellEdgeSpacing();
   for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
     auto &cell = _db.cell(cellIdx);
     if (not cell.needWell()) {
       continue;
     }
     auto cellBox = cell.cellBBoxOff();
-    cellBox.expand(cellToWellEdgeSpacing);
+    auto wpeSpacing = _db.wpeSpacing(cellIdx);
+    cellBox.expandX(wpeSpacing.first);
+    cellBox.expandY(wpeSpacing.second);
     auto wellIdx = _db.allocateWell();
     auto &well = _db.well(wellIdx);
     well.setShape(Polygon<LocType>(cellBox).outer());
@@ -261,7 +262,6 @@ void WellLegalizer::generateIndividualWells() {
 }
 
 void WellLegalizer::legalizeCellEdgeSpacing() {
-  const LocType cellToWellEdgeSpacing = _db.tech().cellToNwellEdgeSpacing();
   for (IndexType wellIdx = 0; wellIdx < _db.vWells().size(); ++wellIdx) {
     auto &well = _db.well(wellIdx);
     // Here we generate a rectangle for each cell that satisfying the spacing
@@ -277,7 +277,9 @@ void WellLegalizer::legalizeCellEdgeSpacing() {
     pm.insert(well.shape(), 0);
     for (IndexType cellIdx : well.sCellIds()) {
       auto cellBox = _db.cell(cellIdx).cellBBoxOff();
-      cellBox.expand(cellToWellEdgeSpacing);
+      auto wpeSpacing = _db.wpeSpacing(cellIdx);
+      cellBox.expandX(wpeSpacing.first);
+      cellBox.expandY(wpeSpacing.second);
       pm.insert(cellBox, 0);
     }
     pm.merge(result);
@@ -290,6 +292,8 @@ void WellLegalizer::legalizeCellEdgeSpacing() {
 
 namespace _legalize_well_vdd_contact_details {
 
+
+  static constexpr IndexType MAX_CONTACT_CANDIDATE = 2000;
 
   void topologicalSort(const std::vector<std::vector<IndexType>> &outEdges, std::vector<IndexType> &results) {
     std::vector<char> visited(outEdges.size(), false);
@@ -309,6 +313,8 @@ namespace _legalize_well_vdd_contact_details {
       std::pair<IntType, IntType> costThreshold, 
       LocType contactSpacing,
       std::vector<IndexType> &results) {
+    Assert(candidates.size() > 0);
+
     // Figure out the valid candidates with in the cost range
     IndexType startIdx = 0;
     IndexType numCandidates = 0;
@@ -322,6 +328,9 @@ namespace _legalize_well_vdd_contact_details {
         Assert(idx> 0);
         break;
       }
+    }
+    if (numCandidates == 0) {
+      numCandidates = candidates.size() - startIdx; //Upper threshold is more than max(candidates cost)
     }
     // Construct the graph
     std::vector<std::vector<IndexType>> outEdges;
@@ -356,9 +365,12 @@ namespace _legalize_well_vdd_contact_details {
     std::vector<IntType> dist(numCandidates + 2, -1);
     dist.at(sourceIdx) = 0;
     std::vector<IndexType> prevNode(numCandidates + 2, INDEX_TYPE_MAX);
-    for (IndexType i = 0; i < sorted.size(); ++i) { // sorted is in reverse order
+    for (IndexType i = 0; i < sorted.size() - 1; ++i) { // sorted is in reverse order. Skip target
       IndexType idx = sorted.at(sorted.size() - 1 - i);
-      const IntType currentWeight = std::get<3>(candidates.at(idx + startIdx));
+      IntType currentWeight = 0;
+      if (i != 0) { // i=0 -> source node -> give it 0
+        currentWeight = std::get<3>(candidates.at(idx + startIdx));
+      }
       Assert(dist.at(idx) >= 0);
       for (IndexType outIdx : outEdges.at(idx)) {
         if (dist.at(outIdx) < dist.at(idx) + currentWeight) {
@@ -375,6 +387,8 @@ namespace _legalize_well_vdd_contact_details {
       }
       nodeIdx = prevNode.at(nodeIdx);
     }
+    results.emplace_back(nodeIdx + startIdx);
+    Assert(nodeIdx != sourceIdx and nodeIdx != targetIdx);
   }
 
   /// @brief Try add as many contacts as possible, but make sure add at least one
@@ -438,21 +452,33 @@ namespace _legalize_well_vdd_contact_details {
         }
       }
     }
+    AssertMsg(candidates.size() > 0, "Ok, then we have to have a loop to handle no valid candidate situation \n");
     std::stable_sort(candidates.begin(), candidates.end(), [&](const auto &i, const auto &j){ return std::get<2>(i) < std::get<2>(j);});
     for (IndexType candIdx = 0; candIdx < candidates.size(); ++candIdx) {
       std::get<1>(candidates.at(candIdx)) = candIdx;
     }
     IndexType numZeroCost = 0;
+    std::pair<LocType, LocType> candidateThresholds;
     for (IndexType candIdx = 0; candIdx < candidates.size(); ++candIdx) {
       if (std::get<2>(candidates.at(candIdx)) == 0) {
         numZeroCost += 1;
       }
     }
     if (numZeroCost == 0) {
-      AssertMsg(false, "Ok... Then we have to really implment the loop to fix no valid zero cost candidate");
+      if (candidates.size() > MAX_CONTACT_CANDIDATE) {
+        candidateThresholds = std::make_pair(0, std::get<2>(candidates.at(MAX_CONTACT_CANDIDATE)));
+        DBG("HERE \n");
+      }
+      else {
+        candidateThresholds = std::make_pair(0, LOC_TYPE_MAX);
+        DBG("THERE \n");
+      }
+    }
+    else {
+      candidateThresholds = std::make_pair(0, 0);
     }
     std::vector<IndexType> selected;
-    selectVddContactCandidates(candidates, std::make_pair(0, 0), contactSpacing, selected);
+    selectVddContactCandidates(candidates, candidateThresholds, contactSpacing, selected);
     Assert(selected.size() > 0);
     for (IndexType idx : selected) {
       const Box<LocType> &box = std::get<0>(candidates.at(idx));

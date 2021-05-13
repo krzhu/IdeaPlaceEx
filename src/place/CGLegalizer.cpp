@@ -323,7 +323,7 @@ BoolType CGLegalizer::wirelengthDrivenCompaction() {
 BoolType CGLegalizer::preserveRelationCompaction(LocType extraSpacing) {
   generateRedundantConstraintGraph();
   INF("CG legalizer: Prerserve relational coodinate horizontal LP...\n");
-  auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstraints);
+  auto horSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_HORIZONTAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _hConstrPreserve);
   horSolver.setExtraSpacing(extraSpacing);
   if (horSolver.solve()) {
     horSolver.exportSolution();
@@ -332,7 +332,7 @@ BoolType CGLegalizer::preserveRelationCompaction(LocType extraSpacing) {
     return false;
   }
   INF("CG legalizer: Prerserve relational coodinate vetical LP...\n");
-  auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstraints);
+  auto verSolver = lp_legalize::LpLegalizeWirelength<lp_legalize::LEGALIZE_VERTICAL_DIRECTION, lp_legalize::DO_NOT_RELAX_SYM_CONSTR>(_db, _vConstrPreserve);
   verSolver.setExtraSpacing(extraSpacing);
   if (verSolver.solve()) {
     verSolver.exportSolution();
@@ -344,8 +344,9 @@ BoolType CGLegalizer::preserveRelationCompaction(LocType extraSpacing) {
   return true;
 }
 void CGLegalizer::generateRedundantConstraintGraph() {
-  _hConstraints.clear();
-  _vConstraints.clear();
+  if (not _hConstrPreserve.edges().empty() or not _vConstrPreserve.edges().empty()) {
+    return;
+  }
   for (IndexType ci1 = 0; ci1 < _db.numCells(); ++ci1) {
     const Box<LocType> box1 = _db.cell(ci1).cellBBoxOff();
     for (IndexType ci2 = ci1 + 1; ci2 < _db.numCells(); ++ci2) {
@@ -354,33 +355,33 @@ void CGLegalizer::generateRedundantConstraintGraph() {
       const Box<LocType> box2 = _db.cell(ci2).cellBBoxOff();
       auto relation = determineBoxRelation(box1, box2, isSymPair, bothIsSelfSym);
       if (relation == Relation::LEFT) {
-        _hConstraints.addConstraintEdge(ci2, ci1);
+        _hConstrPreserve.addConstraintEdge(ci2, ci1);
       }
       else if (relation == Relation::RIGHT) {
-        _hConstraints.addConstraintEdge(ci1, ci2);
+        _hConstrPreserve.addConstraintEdge(ci1, ci2);
       }
       else if (relation == Relation::BOTTOM) {
-        _vConstraints.addConstraintEdge(ci2, ci1);
+        _vConstrPreserve.addConstraintEdge(ci2, ci1);
       }
       else if (relation == Relation::TOP) {
-        _vConstraints.addConstraintEdge(ci1, ci2);
+        _vConstrPreserve.addConstraintEdge(ci1, ci2);
       }
       else if (relation == Relation::BOTTOM_LEFT) {
-        _hConstraints.addConstraintEdge(ci2, ci1);
-        _vConstraints.addConstraintEdge(ci2, ci1);
+        _hConstrPreserve.addConstraintEdge(ci2, ci1);
+        _vConstrPreserve.addConstraintEdge(ci2, ci1);
       }
       else if (relation == Relation::BOTTOM_RIGHT) {
-        _hConstraints.addConstraintEdge(ci1, ci2);
-        _vConstraints.addConstraintEdge(ci2, ci1);
+        _hConstrPreserve.addConstraintEdge(ci1, ci2);
+        _vConstrPreserve.addConstraintEdge(ci2, ci1);
       }
       else if (relation == Relation::TOP_LEFT) {
-        _hConstraints.addConstraintEdge(ci2, ci1);
-        _vConstraints.addConstraintEdge(ci1, ci2);
+        _hConstrPreserve.addConstraintEdge(ci2, ci1);
+        _vConstrPreserve.addConstraintEdge(ci1, ci2);
       }
       else {
         Assert(relation == Relation::TOP_RIGHT);
-        _vConstraints.addConstraintEdge(ci1, ci2);
-        _hConstraints.addConstraintEdge(ci1, ci2);
+        _vConstrPreserve.addConstraintEdge(ci1, ci2);
+        _hConstrPreserve.addConstraintEdge(ci1, ci2);
       }
     }
   }

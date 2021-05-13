@@ -142,6 +142,10 @@ public:
     return _loc.y() + (_cellBBox.yLo() + _cellBBox.yHi()) / 2;
   }
   bool flip() { return _flip; }
+  bool isFingerChannelWidthSet() const { return _fingerChannelWidth >= 0; }
+  LocType fingerChannelWidth() const { return _fingerChannelWidth; }
+  bool isFingerChannelLengthSet() const { return _fingerChannelLength >= 0; }
+  LocType fingerChannelLength() const { return _fingerChannelLength; }
   /*------------------------------*/
   /* Setters                      */
   /*------------------------------*/
@@ -157,6 +161,8 @@ public:
   /// @param the name of the cell
   void setName(const std::string &name) { _name = name; }
   void setFlip(bool flip) { _flip = flip; }
+  void setFingerChannelWidth(LocType width) { _fingerChannelWidth = width; } 
+  void setFingerChannelLength(LocType length) { _fingerChannelLength = length; } 
   /*------------------------------*/
   /* Vector operations            */
   /*------------------------------*/
@@ -309,6 +315,8 @@ private:
   BoolType _needWell = false; ///< Wehther this cell need a well
   std::vector<Box<LocType>> _spacingToCells; ///< Required spacing to other cells. Only record the number of cells after this cell in index
   ///< The last one is against individual N-well
+  LocType _fingerChannelWidth = -1;  ///< Channel width for MOS finger
+  LocType _fingerChannelLength = -1; ///< Channel length for MOS finger
 };
 
 PROJECT_NAMESPACE_END

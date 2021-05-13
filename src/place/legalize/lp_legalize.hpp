@@ -587,6 +587,7 @@ namespace lp_legalize {
           auto var = lp_trait::solution(_solver, _locs.at(idx));
           if (::klib::autoRound<LocType>(var) < 0) { // Gurobi sometimes report OPTIMAL while having everything messed up
             ERR("LP legalization solver: LP infeasible. \n");
+            assert(false);
             return false;
           }
         }

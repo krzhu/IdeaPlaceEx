@@ -15,6 +15,66 @@
 
 PROJECT_NAMESPACE_BEGIN
 
+class WpeSpacingRule {
+  public:
+    explicit WpeSpacingRule() = default;
+    /// @brief Add vertical spacing rule. If device width > width, it need spacing
+    void addVerticalSpacingRule(LocType width, LocType spacing) {
+      _fingerWidth.emplace_back(width);
+      _verSpacing.emplace_back(spacing);
+      if (_fingerWidth.size() >= 2) {
+        if (_fingerWidth.at(_fingerWidth.size() - 2) > _fingerWidth.back()) {
+          AssertMsg(false, "Check WPE spacing setting. Channel width is not in ascending order.");
+        }
+        if (_verSpacing.at(_verSpacing.size() - 2) > _verSpacing.back()) {
+          AssertMsg(false, "Check WPE spacing setting. Longer width results in lower spacing. ");
+        }
+      }
+    }
+    /// @brief Add horizontal spacing rule. If device length > length, it need spacing
+    void addHorizontalSpacingRule(LocType length, LocType spacing) {
+      _fingerLength.emplace_back(length);
+      _horSpacing.emplace_back(spacing);
+      if (_fingerLength.size() >= 2) {
+        if (_fingerLength.at(_fingerLength.size() - 2) > _fingerLength.back()) {
+          AssertMsg(false, "Check WPE spacing setting. Channel length is not in ascending order.");
+        }
+        if (_horSpacing.at(_horSpacing.size() - 2) > _horSpacing.back()) {
+          AssertMsg(false, "Check WPE spacing setting. Longer length results in lower spacing. ");
+        }
+      }
+    }
+    /// @brief get the required vertical spacing. 
+    /// @param finger channel width of the device
+    LocType verticalSpacing(LocType width) const {
+      AssertMsg(width >= 0, "Check device width. Maybe it wasn't set correctely?");
+      for (IndexType idx = 0; idx < _fingerWidth.size(); ++idx) {
+        if (_fingerWidth.at(idx) > width) {
+          AssertMsg(idx > 0, "Check WPE spacing setting. Include width=0 case.");
+          return _verSpacing.at(idx - 1);
+        }
+      }
+      return _verSpacing.back();
+    }
+    /// @brief get the required horizontal spacing. 
+    /// @param finger channel length of the device
+    LocType horizontalSpacing(LocType length) const {
+      AssertMsg(length >= 0, "Check device length. Maybe it wasn't set correctely?");
+      for (IndexType idx = 0; idx < _fingerLength.size(); ++idx) {
+        if (_fingerLength.at(idx) > length) {
+          AssertMsg(idx > 0, "Check WPE spacing setting. Include length=0 case.");
+          return _horSpacing.at(idx - 1);
+        }
+      }
+      return _horSpacing.back();
+    }
+  private:
+    std::vector<LocType> _fingerWidth; ///< Finger width determine vertical spacing
+    std::vector<LocType> _verSpacing; 
+    std::vector<LocType> _fingerLength;
+    std::vector<LocType> _horSpacing;
+};
+
 /// @brief VDD contact templates
 class VddContactRule {
   public:
@@ -90,16 +150,20 @@ public:
   /// @brief Set the n-well layer index
   /// @param The layer index of the N-well layer
   void setNwellLayerIdx(IndexType nwellLayerIdx) { _nwellLayerIdx = nwellLayerIdx; } 
-  /// @brief Set the required spacing from cell edge to N-well boundary
-  void setCellToNwellEdgeSpacing(LocType spacing) { _cellToNwellEdgeSpacing = spacing; }
-  /// @brief Get the required spacing from cell edge to N-well boundary
-  LocType cellToNwellEdgeSpacing() const { return _cellToNwellEdgeSpacing; }
   /// @brief Set the required vdd contact spacing
   void setVddContactRequiredSpacing(LocType require) { _contactRule.setRequiredSpacing(require); }
   /// @brief Add a VDD contact template
   void addVddContactTemplate(LocType xLo, LocType yLo, LocType xHi, LocType yHi, IntType weight) { _contactRule.addContactTemplate(xLo, yLo, xHi, yHi, weight); }
   /// @brief Add ad VDD contact template
   void addVddContactTemplate(const Box<LocType> &box, IntType weight) { _contactRule.addContactTemplate(box, weight); }
+  /// @brief Add WPE vertical spacing rule. If device width > width, it need spacing
+  void addWpeVerticalSpacingRule(LocType width, LocType spacing) {
+    _wpe.addVerticalSpacingRule(width, spacing);
+  }
+  /// @brief Add WPE horizontal spacing rule. If device length > length, it need spacing
+  void addWpeHorizontalSpacingRule(LocType length, LocType spacing) {
+    _wpe.addHorizontalSpacingRule(length, spacing);
+  }
   /*------------------------------*/
   /* Query the tech               */
   /*------------------------------*/
@@ -162,6 +226,16 @@ public:
   const Box<LocType> & vddContactTemplate(IndexType idx) const { return _contactRule.contractTemplate(idx); }
   /// @brief Get a vdd contact weight
   IntType vddContactWeight(IndexType idx) const { return _contactRule.contactWeight(idx); }
+  /// @brief get the required vertical spacing. 
+  /// @param finger channel width of the device
+  LocType wpeVerticalSpacing(LocType width) const {
+    return _wpe.verticalSpacing(width);
+  }
+  /// @brief get the required horizontal spacing. 
+  /// @param finger channel length of the device
+  LocType wpeHorizontalSpacing(LocType length) const {
+    return _wpe.horizontalSpacing(length);
+  }
   /*------------------------------*/
   /* Getters                      */
   /*------------------------------*/
@@ -195,8 +269,8 @@ private:
                     ///< _spacingRule[layer1][layer2] = spacing rules btween
                     ///< shapes of layer 1 and layer 2.
   IndexType _nwellLayerIdx = INDEX_TYPE_MAX;
-  LocType _cellToNwellEdgeSpacing = 0;
   VddContactRule _contactRule; ///< The rules for VDD contact
+  WpeSpacingRule _wpe; ///< The rule for WPE spacing
 };
 
 inline void Tech::initRuleDataStructure() {

@@ -59,6 +59,8 @@ private:
   Database &_db;             ///< The database of IdeaPlaceEx
   Constraints _hConstraints; ///< The horizontal constraint edges
   Constraints _vConstraints; ///< The vertical constraint edges
+  Constraints _hConstrPreserve; ///< The horizontal constraint edges from GP solution
+  Constraints _vConstrPreserve; ///< The vertical constraint edges from GP solution
   RealType _wStar; ///< The width from the objective function of the first LP
   RealType _hStar; ///< The width from the objective function of the first LP
   BoolType _wellAware = false;

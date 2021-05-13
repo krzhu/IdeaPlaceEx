@@ -58,8 +58,6 @@ void initIdeaPlaceExAPI(py::module &m) {
           &PROJECT_NAMESPACE::IdeaPlaceEx::setInterLayerSpacing)
       .def("setNwellLayerIdx",
           &PROJECT_NAMESPACE::IdeaPlaceEx::setNwellLayerIdx)
-      .def("setCellToNwellEdgeSpacing",
-          &PROJECT_NAMESPACE::IdeaPlaceEx::setCellToNwellEdgeSpacing)
       .def("allocateCell", &PROJECT_NAMESPACE::IdeaPlaceEx::allocateCell,
            "Allocate a new cell, return the index of the cell")
       .def("setCellName", &PROJECT_NAMESPACE::IdeaPlaceEx::setCellName,
@@ -210,12 +208,16 @@ void initIdeaPlaceExAPI(py::module &m) {
       .def("clearWells", &PROJECT_NAMESPACE::IdeaPlaceEx::clearWells, 
           "Clear the current wells")
       .def("flagCellAsNeedWell", &PROJECT_NAMESPACE::IdeaPlaceEx::flagCellAsNeedWell, "Flag a cell as it need well")
+      .def("setCellFingerChannelWidth", &PROJECT_NAMESPACE::IdeaPlaceEx::setCellFingerChannelWidth, "Set the finger width for the device")
+      .def("setCellFingerChannelLength", &PROJECT_NAMESPACE::IdeaPlaceEx::setCellFingerChannelLength, "Set the finger length for the device")
       .def("assignCellToWell", &PROJECT_NAMESPACE::IdeaPlaceEx::assignCellToWell, "Assign cells to wells")
       .def("splitWells", &PROJECT_NAMESPACE::IdeaPlaceEx::splitWells, "Split the wells into rectangles")
       .def("numWellRects", &PROJECT_NAMESPACE::IdeaPlaceEx::numWellRects, "Get the number of well rects")
       .def("wellRect", &PROJECT_NAMESPACE::IdeaPlaceEx::wellRect, "Get one rect from the well")
       .def("setVddContactRequiredSpacing", &PROJECT_NAMESPACE::IdeaPlaceEx::setVddContactRequiredSpacing, "Set the required spacing for VDD contacts")
       .def("addVddContactTemplate", &PROJECT_NAMESPACE::IdeaPlaceEx::addVddContactTemplate, "Add a new VDD contact template")
+      .def("addWpeHorizontalSpacingRule", &PROJECT_NAMESPACE::IdeaPlaceEx::addWpeHorizontalSpacingRule, "Add a WPE horizontal spacing rule: a pair of length and spacing")
+      .def("addWpeVerticalSpacingRule", &PROJECT_NAMESPACE::IdeaPlaceEx::addWpeVerticalSpacingRule, "Add a WPE vertical spacing rule: a pair of width and spacing")
 #ifdef DEBUG_DRAW
       .def("debugDraw", &PROJECT_NAMESPACE::IdeaPlaceEx::drawDebug, "Draw the debug layout")
 #endif // ifdef DEBUG_DRAW
