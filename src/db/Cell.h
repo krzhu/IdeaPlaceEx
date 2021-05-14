@@ -36,7 +36,14 @@ public:
   bool addCellIdx(const IndexType i) { return _sCellIds.emplace(i).second; }
   bool removeCellIdx(const IndexType i) { return _sCellIds.erase(i); }
   void setShape(const Polygon<LocType>::RingType &outer) {
-    _shape.setOuter(outer);
+    if (outer[0] == outer[1]) {
+      const Polygon<LocType>::RingType ring(outer.begin() +1, outer.end());
+      _shape.setOuter(ring);
+    }
+    else {
+      _shape.setOuter(outer);
+    }
+    boost::geometry::correct(_shape);
   }
   void moveBy(const LocType xOffset, const LocType yOffset) {
     for (auto &pt : _shape.outer()) {

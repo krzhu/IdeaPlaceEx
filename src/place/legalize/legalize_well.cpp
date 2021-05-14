@@ -287,7 +287,7 @@ void WellLegalizer::legalizeCellEdgeSpacing() {
     typedef boost::polygon::property_merge_90<LocType, IntType> PropertyMergeType; //use int as property_type -> we don't care basically
     typedef boost::polygon::polygon_90_set_data<LocType> PolygonSetType; // Potentially we can use our own Polygon set implementation
     // But since we are using boost::geometry outside, it might be safe to explicitly converting boost::polygon polygon back
-    typedef std::map<std::set<IntType>, PolygonSetType> PropertyMergeResultType;
+    typedef std::map<std::vector<IntType>, PolygonSetType> PropertyMergeResultType;
     PropertyMergeType pm;
     PropertyMergeResultType result;
     pm.insert(well.shape(), 0);
@@ -301,7 +301,22 @@ void WellLegalizer::legalizeCellEdgeSpacing() {
     pm.merge(result);
     std::vector<Polygon<LocType>> polyVec;
     (*result.begin()).second.get_polygons(polyVec);
-    Assert(polyVec.size() == 1);
+    //Assert(polyVec.size() == 1);
+    if (polyVec.size() != 1) {
+      ERR("WellLegalizer::Well away from cell. WellIdx %d \n", wellIdx);
+      DBG("Result size %d  vec %d\n", result.size(), polyVec.size());
+      well.printInfo();
+      for (IndexType cellIdx : well.sCellIds()) {
+        auto cellBox = _db.cell(cellIdx).cellBBoxOff();
+        auto wpeSpacing = _db.wpeSpacing(cellIdx);
+        cellBox.expandX(wpeSpacing.first);
+        cellBox.expandY(wpeSpacing.second);
+        DBG("Cell %d %s \n", cellIdx, cellBox.toStr().c_str());
+        _db.drawCellBlocks("debug/wtf.gds");
+      }
+      Assert(false);
+      continue;
+    }
     well.setShape(polyVec[0].outer());
   }
 }
