@@ -261,6 +261,7 @@ BoolType CGLegalizer::areaDrivenCompaction() {
         INF("CG legalizer: LP failed! No valid solution \n");
         return false;
       }
+      _db.drawCellBlocks("./debug/hor.gds");
     }
     else {
       // Vertical

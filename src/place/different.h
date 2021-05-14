@@ -1680,11 +1680,11 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::evaluate()
           const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
           const NumType normalize =_gaussianParameters[gauIdx].normalize;
           // Calculate cost
-          const auto cost = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcCost(
+          const auto cost = 3* _fence_bivariate_gaussian_details::calc_trait<CostType>::calcCost(
               muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
               );
 
-          costOut[idx + _inFenceCellIdx.size()] += lambda * cost * _weight;
+          costOut[idx + _inFenceCellIdx.size()] += lambda * cost * _weight ;
         }
       }
       return std::accumulate(costOut.begin(), costOut.end(), 0.0);
@@ -1741,10 +1741,10 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGra
           const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
           const NumType normalize = _gaussianParameters[gauIdx].normalize;
           // Calculate cost
-          const auto diffx =  _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffX(
+          const auto diffx = 3*  _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffX(
               muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
               );
-          const auto diffy =  _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffY(
+          const auto diffy = 3* _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffY(
               muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
               );
           _accumulateGradFunc(lambda * diffx *_weight, cellIdx, Orient2DType::HORIZONTAL);
@@ -1935,9 +1935,6 @@ template <typename NumType, typename CoordType, typename CostType = AREA_LSE_COS
     _lse_area_details::lse_area_trait<CostType>::accumulateGrad(*this);
   }
 
-  void configTotalCellArea(NumType cellArea) {
-    _constant = std::sqrt(cellArea) / 2;
-  }
 
 
   std::vector<IndexType> _cells;
@@ -1952,7 +1949,7 @@ template <typename NumType, typename CoordType, typename CostType = AREA_LSE_COS
       _getVarFunc; ///< A function to get current variable value
   std::function<void(NumType, IndexType, Orient2DType)>
       _accumulateGradFunc; ///< A function to update partial
-  NumType _constant = -1; ///< For linear approximation
+  NumType _constant = 0.5; ///< For linear approximation
 };
 
 } // namespace diff

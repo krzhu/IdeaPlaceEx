@@ -506,7 +506,7 @@ struct multiplier_trait<mult_const_hpwl_cos_and_penalty_by_type<
       op._getLambdaFunc = [&]() { return mult._variedMults[3]; };
     }
     for (auto &op : nlp._fenceOps) {
-      op._getLambdaFunc = [&]() { return mult._variedMults[4]; };
+      op._getLambdaFunc = [&]() { return mult._constMults[0]; }; // SAME as HPWL
     }
     for (auto &op : nlp._areaOps) {
       op._getLambdaFunc = [&]() { return mult._constMults[0]; }; // Area use the same lambda as wirelength
@@ -532,7 +532,7 @@ struct multiplier_trait<mult_const_hpwl_cos_and_penalty_by_type<
 
   static std::function<nlp_numerical_type(void)>
   fenceGetLambdaFunc(mult_type &mult) {
-    return [&]() { return mult._variedMults[4]; };
+    return [&]() { return mult._constMults[0]; };
   }
 
   static std::function<nlp_numerical_type(void)>

@@ -75,8 +75,8 @@ namespace update {
 template <typename nlp_numerical_type>
 struct fence_update {
   // alpha = a / (x - k * obj_init) + b
-  static constexpr nlp_numerical_type alphaMax = 0.3;
-  static constexpr nlp_numerical_type alphaMin = 0.01;
+  static constexpr nlp_numerical_type alphaMax = 1.2;
+  static constexpr nlp_numerical_type alphaMin = 0.2;
 };
 
 template <typename nlp_numerical_type>
@@ -102,14 +102,14 @@ struct alpha_update_trait<fence_update<nlp_numerical_type>> {
                                alpha_hpwl_ovl_oob<nlp_numerical_type> &alpha,
                                update_type &update) {
     const auto ovlRatio = nlp.overlapAreaRatio();
-    if (ovlRatio > 0.1) {
+    if (ovlRatio > 0.8) {
       alpha._alpha[4] = update.alphaMax;
     }
-    else if (ovlRatio < 0.001) {
+    else if (ovlRatio < 0.003) {
       alpha._alpha[4] = update.alphaMin;
     }
     else {
-      alpha._alpha[4] = (update.alphaMax - update.alphaMin) * (ovlRatio - 0.001) / (0.1 - 0.001) + update.alphaMin;
+      alpha._alpha[4] = (update.alphaMax - update.alphaMin) * (ovlRatio - 0.003) / (0.8 - 0.003) + update.alphaMin;
     }
   }
 };

@@ -386,7 +386,6 @@ void NlpGPlacerBase<nlp_settings>::initOperators() {
       _areaOps.back().setGetVarFunc(getVarFunc);
       _areaOps.back().setWeight(totalNetWeight * _db.parameters().areaToWireLengthWeight()); 
     }
-    _areaOps.back().configTotalCellArea(_totalCellArea);
   }
 
   INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob "
@@ -755,7 +754,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::stepOptmIter() {
 
 template <typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::cleanupMode() {
-    auto getOvlAlphaFunc = [&]() { return  0.3; }; //Use the min
+    auto getOvlAlphaFunc = [&]() { return  0.2; }; //Use the min
     auto getOvlLambdaFunc = mult_trait::ovlGetLambdaFunc(*this->_multiplier);
     auto getVarFunc = [&](IndexType cellIdx, Orient2DType orient) {
 #ifdef MULTI_SYM_GROUP
@@ -768,22 +767,6 @@ void NlpGPlacerFirstOrder<nlp_settings>::cleanupMode() {
 #endif
     };
 
-    this->_ovlOps.clear();
-  // Pair-wise cell overlapping
-  for (IndexType cellIdxI = 0; cellIdxI < this->_db.numCells(); ++cellIdxI) {
-    if (this->_db.cell(cellIdxI).needWell()) { continue; }
-    const auto cellBBoxI = this->_db.cell(cellIdxI).cellBBox();
-    for (IndexType cellIdxJ = cellIdxI + 1; cellIdxJ < this->_db.numCells();
-         ++cellIdxJ) {
-      if (this->_db.cell(cellIdxJ).needWell()) { continue; }
-      const auto cellBBoxJ = this->_db.cell(cellIdxJ).cellBBox();
-      this->_ovlOps.emplace_back(nlp_ovl_type(
-          cellIdxI, cellBBoxI.xLen() * this->_scale, cellBBoxI.yLen() * this->_scale,
-          cellIdxJ, cellBBoxJ.xLen() * this->_scale, cellBBoxJ.yLen() * this->_scale,
-          getOvlAlphaFunc, getOvlLambdaFunc));
-      this->_ovlOps.back().setGetVarFunc(getVarFunc);
-    }
-  }
 
 // Pair-wise well-to-cell overlapping
   for (IndexType wellIdx = 0; wellIdx < this->_db.vWells().size();
@@ -792,8 +775,8 @@ void NlpGPlacerFirstOrder<nlp_settings>::cleanupMode() {
     Box<LocType> boxUnScaled = well.boundingBox();
     Box<typename base_type::nlp_coordinate_type>
         box( // Splited polygon
-        (boxUnScaled.xLo()  - boxUnScaled.xLen() / 2)* this->_scale, (boxUnScaled.yLo() - boxUnScaled.yLen() / 2)* this->_scale,
-        (boxUnScaled.xHi()  + boxUnScaled.xLen() / 2)* this->_scale, (boxUnScaled.yHi() + boxUnScaled.yLen() / 2)* this->_scale);
+        (boxUnScaled.xLo() )* this->_scale, (boxUnScaled.yLo() )* this->_scale,
+        (boxUnScaled.xHi() )* this->_scale, (boxUnScaled.yHi() )* this->_scale);
     for (IndexType cellIdx = 0; cellIdx < this->_db.numCells();
          ++cellIdx) {
       if (well.sCellIds().find(cellIdx) == well.sCellIds().end()) {
@@ -807,7 +790,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::cleanupMode() {
         this->_ovlOps.back().configConsiderOnlyOneCell(box.xLo(),
                                                             box.yLo());
         this->_ovlOps.back().setGetVarFunc(getVarFunc);
-        this->_ovlOps.back().setWeight(0.6);
+        this->_ovlOps.back().setWeight(0.2);
       }
     }
   }
@@ -824,7 +807,7 @@ void NlpGPlacerFirstOrder<nlp_settings>::cleanupMode() {
   this->clearTasks();
   this->constructTasks();
   // Optm
-  _useSimpleOptm = true;
+  _useSimpleOptm = false;
   optm_trait::optimize(*this, _optm);
 }
 
