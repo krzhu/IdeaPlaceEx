@@ -311,10 +311,11 @@ public:
       if (not cell(cellIdx).needWell()) {
         continue;
       }
+      cell(cellIdx).calculateCellBBox();
       auto wpe = wpeSpacing(cellIdx);
       Box<LocType> bbox = cell(cellIdx).cellBBox();
-      bbox.expandX(std::max(wpe.first, 900)); // FIXME: typical guard ring well extension. Only for experimental comparsion 
-      bbox.expandY(std::max(wpe.second, 900));
+      bbox.expandX(std::max(wpe.first, 500 + 340 *2)); // FIXME: typical guard ring well extension. Only for experimental comparsion 
+      bbox.expandY(std::max(wpe.second, 500 + 340 *2)); // 500 + 340*2 align with other experimental setting (guard ring + required spacing)
       cell(cellIdx).unionBBox(_tech.nwellLayerIdx(), bbox);
       cell(cellIdx).calculateCellBBox();
     }

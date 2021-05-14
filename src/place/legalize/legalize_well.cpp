@@ -290,6 +290,7 @@ void WellLegalizer::legalizeCellEdgeSpacing() {
     typedef std::map<std::vector<IntType>, PolygonSetType> PropertyMergeResultType;
     PropertyMergeType pm;
     PropertyMergeResultType result;
+    boost::geometry::correct(well.shape());
     pm.insert(well.shape(), 0);
     for (IndexType cellIdx : well.sCellIds()) {
       auto cellBox = _db.cell(cellIdx).cellBBoxOff();
@@ -304,17 +305,27 @@ void WellLegalizer::legalizeCellEdgeSpacing() {
     //Assert(polyVec.size() == 1);
     if (polyVec.size() != 1) {
       ERR("WellLegalizer::Well away from cell. WellIdx %d \n", wellIdx);
-      DBG("Result size %d  vec %d\n", result.size(), polyVec.size());
+      ERR("Result size %d  vec %d\n", result.size(), polyVec.size());
       well.printInfo();
+      Box<LocType> bbox(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
       for (IndexType cellIdx : well.sCellIds()) {
         auto cellBox = _db.cell(cellIdx).cellBBoxOff();
         auto wpeSpacing = _db.wpeSpacing(cellIdx);
         cellBox.expandX(wpeSpacing.first);
         cellBox.expandY(wpeSpacing.second);
-        DBG("Cell %d %s \n", cellIdx, cellBox.toStr().c_str());
-        _db.drawCellBlocks("debug/wtf.gds");
+        bbox.unionBox(cellBox);
       }
-      Assert(false);
+      for (const auto &pt : well.shape().outer()) {
+        bbox.coverPoint(pt);
+      }
+      Ring<LocType> ring({
+          Point<LocType>(bbox.xLo(), bbox.yLo()),
+          Point<LocType>(bbox.xLo(), bbox.yHi()),
+          Point<LocType>(bbox.xHi(), bbox.yHi()),
+          Point<LocType>(bbox.xHi(), bbox.yLo()),
+          Point<LocType>(bbox.xLo(), bbox.yLo())
+          });
+      well.setShape(ring);
       continue;
     }
     well.setShape(polyVec[0].outer());
@@ -496,6 +507,7 @@ namespace _legalize_well_vdd_contact_details {
       }
     }
     if (numZeroCost == 0) {
+      WRN("Legalize well:: Add non zero cost contact \n");
       if (candidates.size() > MAX_CONTACT_CANDIDATE) {
         candidateThresholds = std::make_pair(0, std::get<2>(candidates.at(MAX_CONTACT_CANDIDATE)));
       }
@@ -509,12 +521,43 @@ namespace _legalize_well_vdd_contact_details {
     std::vector<IndexType> selected;
     selectVddContactCandidates(candidates, candidateThresholds, contactSpacing, selected);
     Assert(selected.size() > 0);
+    typedef boost::polygon::property_merge_90<LocType, IntType> PropertyMergeType; //use int as property_type -> we don't care basically
+    typedef boost::polygon::polygon_90_set_data<LocType> PolygonSetType; // Potentially we can use our own Polygon set implementation
+    // But since we are using boost::geometry outside, it might be safe to explicitly converting boost::polygon polygon back
+    typedef std::map<std::set<IntType>, PolygonSetType> PropertyMergeResultType;
+    PropertyMergeType pm;
+    PropertyMergeResultType result;
+    boost::geometry::correct(well.shape());
+    pm.insert(well.shape(), 0);
+    Box<LocType> bigBBox(LOC_TYPE_MAX, LOC_TYPE_MAX, LOC_TYPE_MIN, LOC_TYPE_MIN);
     for (IndexType idx : selected) {
-      const Box<LocType> &box = std::get<0>(candidates.at(idx));
+      Box<LocType> box = std::get<0>(candidates.at(idx));
       const IndexType templIdx = std::get<4>(candidates.at(idx));
       const Box<LocType> &templBox = db.tech().vddContactTemplate(templIdx);
       const Point<LocType> pos = box.ll() -  templBox.ll();
       well.addVddContact(templIdx, pos);
+      box.expand(contactSpacing);
+      bigBBox.unionBox(box);
+      pm.insert(box, 0);
+    }
+    pm.merge(result);
+    std::vector<Polygon<LocType>> polyVec;
+    (*result.begin()).second.get_polygons(polyVec);
+    if (polyVec.size() != 1) {
+      for (const auto &pt : well.shape().outer()) {
+        bigBBox.coverPoint(pt);
+      }
+      Ring<LocType> ring({
+          Point<LocType>(bigBBox.xLo(), bigBBox.yLo()),
+          Point<LocType>(bigBBox.xLo(), bigBBox.yHi()),
+          Point<LocType>(bigBBox.xHi(), bigBBox.yHi()),
+          Point<LocType>(bigBBox.xHi(), bigBBox.yLo()),
+          Point<LocType>(bigBBox.xLo(), bigBBox.yLo())
+          });
+      well.setShape(ring);
+    }
+    else {
+      well.setShape(polyVec[0].outer());
     }
   }
 
