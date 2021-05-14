@@ -176,11 +176,17 @@ void CGLegalizer::generateHorConstraints() {
   };
 
   auto exemptVerticalMoveFunc = [&](IndexType cellIdx1, IndexType cellIdx2) {
+    if (cellIdx1 > cellIdx2) {
+      std::swap(cellIdx1, cellIdx2);
+    }
+    if (cellIdx2 < _db.numCells()) {
+      return false;
+    }
     IndexType largestIdx = _db.numCells() + _db.numWellRects();
     if (cellIdx1 >= largestIdx or cellIdx2 >= largestIdx) {
       return false;
     }
-    const auto box1 = getCellOrWellBBoc(cellIdx1);
+    auto box1 = getCellOrWellBBoc(cellIdx1);
     const auto box2 = getCellOrWellBBoc(cellIdx2);
     const auto relation = determineBoxRelation(box1, box2);
     if (relation == Relation::TOP or relation == Relation::BOTTOM) {
@@ -199,6 +205,12 @@ void CGLegalizer::generateHorConstraints() {
     sweepline.closeConsiderWell();
   }
   sweepline.solve();
+  if (_wellAware) {
+    SweeplineConstraintGraphGenerator sweepline2(_db, _hConstraints,
+                                                _vConstraints);
+    sweepline2.closeConsiderWell();
+    sweepline2.solve();
+  }
 }
 void CGLegalizer::generateVerConstraints() {
   _db.splitWells(2);
@@ -215,6 +227,12 @@ void CGLegalizer::generateVerConstraints() {
     sweepline.closeConsiderWell();
   }
   sweepline.solve();
+  if (_wellAware) {
+    SweeplineConstraintGraphGenerator sweepline2(_db, _hConstraints,
+                                                _vConstraints);
+    sweepline2.closeConsiderWell();
+    sweepline2.solve();
+  }
 }
 
 
@@ -243,7 +261,6 @@ BoolType CGLegalizer::areaDrivenCompaction() {
         INF("CG legalizer: LP failed! No valid solution \n");
         return false;
       }
-      _db.drawCellBlocks("./debug/hor.gds");
     }
     else {
       // Vertical

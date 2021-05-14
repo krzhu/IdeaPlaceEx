@@ -19,30 +19,30 @@ bool Database::initCell(IndexType cellIdx) {
 }
 
 
-std::uint64_t Database::area() const {
-    LocType xMax = LOC_TYPE_MIN;
-    LocType xMin = LOC_TYPE_MAX;
-    LocType yMax = LOC_TYPE_MIN;
-    LocType yMin = LOC_TYPE_MAX;
+RealType Database::area() const {
+    RealType xMax = LOC_TYPE_MIN;
+    RealType xMin = LOC_TYPE_MAX;
+    RealType yMax = LOC_TYPE_MIN;
+    RealType yMin = LOC_TYPE_MAX;
     for (const auto &cell : _cellArray) {
       const auto box = cell.cellBBoxOff();
-      xMax = std::max(xMax, box.xh());
-      xMin = std::min(xMin, box.xl());
-      yMax = std::max(yMax, box.yh());
-      yMin = std::min(yMin, box.yl());
+      xMax = std::max(xMax, static_cast<RealType>(box.xh()));
+      xMin = std::min(xMin, static_cast<RealType>(box.xl()));
+      yMax = std::max(yMax, static_cast<RealType>(box.yh()));
+      yMin = std::min(yMin, static_cast<RealType>(box.yl()));
     }
     for (const auto &well : _wellArray) {
       for (const auto &pt : well.shape().outer()) {
-        xMax = std::max(xMax, pt.x());
-        yMax = std::max(yMax, pt.y());
-        xMin = std::min(xMin, pt.x());
-        yMin = std::min(yMin, pt.y());
+        xMax = std::max(xMax, static_cast<RealType>(pt.x()));
+        yMax = std::max(yMax, static_cast<RealType>(pt.y()));
+        xMin = std::min(xMin, static_cast<RealType>(pt.x()));
+        yMin = std::min(yMin, static_cast<RealType>(pt.y()));
       }
     }
-    std::uint64_t area = xMax - xMin;
+    RealType area = xMax - xMin;
     area *= (yMax - yMin);
-    DBG("Area %d * %d = %d \n", yMax-yMin, xMax-xMin, area);
-    return area / 1e6;
+    DBG("Area %f * %f = %f \n", yMax-yMin, xMax-xMin, area);
+    return area;
 }
 
 LocType Database::hpwl() const {

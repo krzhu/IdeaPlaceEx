@@ -300,11 +300,25 @@ public:
       cell.forceExtendToGrid(gridSize);
     }
   }
-  std::uint64_t area() const;
+  RealType area() const;
   bool checkSym();
   LocType findSymAxis();
   /// @brief Move the layout so that everything is located >= 0
   void offsetLayout();
+  /// @brief individual well mode, only for illustration
+  void individualWell() {
+    for (IndexType cellIdx = 0; cellIdx < numCells(); ++cellIdx) {
+      if (not cell(cellIdx).needWell()) {
+        continue;
+      }
+      auto wpe = wpeSpacing(cellIdx);
+      Box<LocType> bbox = cell(cellIdx).cellBBox();
+      bbox.expandX(std::max(wpe.first, 900)); // FIXME: typical guard ring well extension. Only for experimental comparsion 
+      bbox.expandY(std::max(wpe.second, 900));
+      cell(cellIdx).unionBBox(_tech.nwellLayerIdx(), bbox);
+      cell(cellIdx).calculateCellBBox();
+    }
+  }
   /*------------------------------*/
   /* Debug functions              */
   /*------------------------------*/

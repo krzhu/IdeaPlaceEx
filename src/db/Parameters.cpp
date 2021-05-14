@@ -20,5 +20,6 @@ Parameters::Parameters() {
   _defaultWellWeight = 5;
   _fastMode = false;
   _areaToWireLengthWeight = 2.0;
+  _smallestWellPolyStep = 1000;
 }
 PROJECT_NAMESPACE_END

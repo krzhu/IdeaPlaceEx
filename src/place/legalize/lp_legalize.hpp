@@ -352,16 +352,24 @@ namespace _lp_legalize_details {
               lp_type::lp_trait::addConstr(
                   lp._solver,
                   lp._locs.at(symPair.firstCell()) + lp._locs.at(symPair.secondCell()) -
-                          2 * (symVar) ==
-                      -cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, symPair.firstCell())); // Two cells are equal in width <- assumption
+                          2 * (symVar) <= 
+                      -cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, symPair.firstCell()) + 1e-6); // Two cells are equal in width <- assumption
+              lp_type::lp_trait::addConstr(
+                  lp._solver,
+                  lp._locs.at(symPair.firstCell()) + lp._locs.at(symPair.secondCell()) -
+                          2 * (symVar) >= 
+                      -cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, symPair.firstCell()) - 1e-6); // Two cells are equal in width <- assumption
           }
           for (IndexType selfSymIdx = 0; selfSymIdx < symGrp.numSelfSyms();
                ++selfSymIdx) {
             IndexType ssCellIdx = symGrp.selfSym(selfSymIdx);
             // x1 + width + x2 = 2 * symAxis
             lp_type::lp_trait::addConstr(lp._solver,
-                                2 * lp._locs.at(ssCellIdx) - 2 * (symVar) ==
-                                    - cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, ssCellIdx));
+                                2 * lp._locs.at(ssCellIdx) - 2 * (symVar) <=
+                                    - cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, ssCellIdx) + 1e-6);
+            lp_type::lp_trait::addConstr(lp._solver,
+                                2 * lp._locs.at(ssCellIdx) - 2 * (symVar) >=
+                                    - cell_loc_trait<LEGALIZE_HORIZONTAL_DIRECTION>::getLen(lp._db, ssCellIdx) - 1e-6);
           }
         }
       }
@@ -395,8 +403,11 @@ namespace _lp_legalize_details {
               const auto &symPair = symGroup.symPair(symPairIdx);
               // y_i = y_j
               lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(symPair.firstCell()) -
-                                                   lp._locs.at(symPair.secondCell()) ==
-                                               0.0);
+                                                   lp._locs.at(symPair.secondCell()) <=
+                                               1e-6);
+              lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(symPair.firstCell()) -
+                                                   lp._locs.at(symPair.secondCell()) >=
+                                               1e-6);
             }
           }
         }
@@ -478,7 +489,9 @@ namespace _lp_legalize_details {
             // Add constraint
             // x_first - x_cur = their original location difference
             lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(firstWellIdx) - lp._locs.at(locIdx)
-                == firstRectLoc - currentRectLoc);
+                <= firstRectLoc - currentRectLoc + 1e-6);
+            lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(firstWellIdx) - lp._locs.at(locIdx)
+                >= firstRectLoc - currentRectLoc - 1e-6);
             ++locIdx;
           }
           // Make sure the cell inside are moving together
@@ -487,7 +500,9 @@ namespace _lp_legalize_details {
             // Add constraint
             // x_first - x_cell = their original location difference
             lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(firstWellIdx) - lp._locs.at(cellIdx)
-                == firstRectLoc - cellLoc);
+                <= firstRectLoc - cellLoc + 1e-6);
+            lp_type::lp_trait::addConstr(lp._solver, lp._locs.at(firstWellIdx) - lp._locs.at(cellIdx)
+                >= firstRectLoc - cellLoc - 1e-6);
           }
         }
       }

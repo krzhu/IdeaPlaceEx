@@ -109,17 +109,19 @@ void SweeplineConstraintGraphGenerator::generateEvents(
       events.emplace_back(Event(cellIdx, cell.xHi(), false));
     }
   }
-  IndexType wellShapeIdx = _db.numCells(); // Counting from end of number of cells
-  for (const auto &well : _db.vWells()) {
-    for (const auto &rect : well.rects()) {
-      if (isHor) {
-        events.emplace_back(Event(wellShapeIdx, rect.yLo(), true));
-        events.emplace_back(Event(wellShapeIdx, rect.yHi(), false));
-      } else {
-        events.emplace_back(Event(wellShapeIdx, rect.xLo(), true));
-        events.emplace_back(Event(wellShapeIdx, rect.xHi(), false));
+  if (_considerWell) {
+    IndexType wellShapeIdx = _db.numCells(); // Counting from end of number of cells
+    for (const auto &well : _db.vWells()) {
+      for (const auto &rect : well.rects()) {
+        if (isHor) {
+          events.emplace_back(Event(wellShapeIdx, rect.yLo(), true));
+          events.emplace_back(Event(wellShapeIdx, rect.yHi(), false));
+        } else {
+          events.emplace_back(Event(wellShapeIdx, rect.xLo(), true));
+          events.emplace_back(Event(wellShapeIdx, rect.xHi(), false));
+        }
+        ++wellShapeIdx;
       }
-      ++wellShapeIdx;
     }
   }
 

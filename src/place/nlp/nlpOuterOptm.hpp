@@ -70,6 +70,53 @@ struct alpha_trait<alpha_hpwl_ovl_oob<nlp_numerical_type>> {
 };
 
 namespace update {
+
+
+template <typename nlp_numerical_type>
+struct fence_update {
+  // alpha = a / (x - k * obj_init) + b
+  static constexpr nlp_numerical_type alphaMax = 0.3;
+  static constexpr nlp_numerical_type alphaMin = 0.01;
+};
+
+template <typename nlp_numerical_type>
+struct alpha_update_trait<fence_update<nlp_numerical_type>> {
+  typedef fence_update<nlp_numerical_type> update_type;
+
+
+  template <typename nlp_type>
+  static constexpr update_type
+  construct(nlp_type &, alpha_hpwl_ovl_oob<nlp_numerical_type> &) {
+    return update_type();
+  }
+
+  template <typename nlp_type>
+  static constexpr void init(nlp_type &,
+                             alpha_hpwl_ovl_oob<nlp_numerical_type> &alpha,
+                             update_type &update) {
+    alpha._alpha[4] = update.alphaMax;
+  }
+
+  template <typename nlp_type>
+  static constexpr void update(nlp_type &nlp,
+                               alpha_hpwl_ovl_oob<nlp_numerical_type> &alpha,
+                               update_type &update) {
+    const auto ovlRatio = nlp.overlapAreaRatio();
+    if (ovlRatio > 0.1) {
+      alpha._alpha[4] = update.alphaMax;
+    }
+    else if (ovlRatio < 0.001) {
+      alpha._alpha[4] = update.alphaMin;
+    }
+    else {
+      alpha._alpha[4] = (update.alphaMax - update.alphaMin) * (ovlRatio - 0.001) / (0.1 - 0.001) + update.alphaMin;
+    }
+  }
+};
+
+
+
+
 /// @breif update the alpha that mapping objective function to alpha, from [0,
 /// init_obj] -> [min, max]
 /// @tparam the index of which alpha to update

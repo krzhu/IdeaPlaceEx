@@ -196,9 +196,6 @@ LocType IdeaPlaceEx::solve(LocType gridStep) {
   // Restore proxmity group
   _proximityMgr.restore();
 
-  INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl());
-  INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins());
-  INF("IdeaPlaceEx:: area %d \n", _db.area());
 
   _db.checkSym();
 
@@ -209,6 +206,11 @@ LocType IdeaPlaceEx::solve(LocType gridStep) {
   } else {
     symAxis = alignToGrid(1);
   }
+
+
+  INF("IdeaPlaceEx:: HPWL %f \n", _db.hpwl() / 1000.0);
+  INF("IdeaPlaceEx:: HPWL with virtual pin: %f \n", _db.hpwlWithVitualPins() / 1000.0);
+  INF("IdeaPlaceEx:: area %f \n", _db.area() / 1e6 );
 
 #ifdef DEBUG_GR
 #ifdef DEBUG_DRAW
@@ -228,9 +230,9 @@ LocType IdeaPlaceEx::endPlace() {
     alignToGrid(_db.parameters().gridStep());
   }
 
-  INF("IdeaPlaceEx:: HPWL %d \n", _db.hpwl() / 1000);
-  INF("IdeaPlaceEx:: HPWL with virtual pin: %d \n", _db.hpwlWithVitualPins() / 1000);
-  INF("IdeaPlaceEx:: area %d \n", _db.area() );
+  INF("IdeaPlaceEx:: HPWL %f \n", _db.hpwl() / 1000.0);
+  INF("IdeaPlaceEx:: HPWL with virtual pin: %f \n", _db.hpwlWithVitualPins() / 1000.0);
+  INF("IdeaPlaceEx:: area %f \n", _db.area() / 1e6 );
 
 
   return _db.findSymAxis();

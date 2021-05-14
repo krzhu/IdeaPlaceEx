@@ -106,6 +106,8 @@ public:
   bool isFastMode() const { return _fastMode; }
   /// @brief Get the weight of area versus wirelength
   RealType areaToWireLengthWeight() const { return _areaToWireLengthWeight; }
+  /// @brief Get the smallest step allowed in well polygon
+  LocType smallestWellPolyStep() const { return _smallestWellPolyStep; }
 
 private:
   Box<LocType> _boundaryConstraint =
@@ -133,6 +135,7 @@ private:
   RealType _defaultWellWeight; ///< The default weight for well operators
   bool _fastMode;              ///< Whether this is in fast mode
   RealType _areaToWireLengthWeight; ///< The relative weight of area respect to WLs
+  LocType _smallestWellPolyStep; ///< The smallest step allowed in well
 };
 
 PROJECT_NAMESPACE_END

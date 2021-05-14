@@ -14,7 +14,7 @@ void Well::splitIntoRects(IntType mode) {
   _splitedRects.clear();
   if (not klib::convertPolygon2Rects(shape().outer(), _splitedRects, slicing_orient)) {
     ERR("Well:: cannot split well polygon! \n");
-    Assert(false);
+    _splitedRects.emplace_back(this->boundingBox());
   }
 }
 

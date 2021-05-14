@@ -127,7 +127,8 @@ struct nlp_default_first_order_algorithms {
       alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type,
                                        2>,
       alpha::update::reciprocal_by_obj<nlp_default_types::nlp_numerical_type,
-                                       3>
+                                       3>,
+      alpha::update::fence_update<nlp_default_types::nlp_numerical_type>
      >
       alpha_update_type;
 };
@@ -354,8 +355,8 @@ struct reinit_well_trait<
 
         auto getFenceAlphaFunc = nlp_type::alpha_trait::fenceGetAlphaFunc(*nlp._alpha);
         auto getFenceLambdaFunc = nlp_type::mult_trait::fenceGetLambdaFunc(*nlp._multiplier);
-        auto getOvlAlphaFunc = nlp_type::alpha_trait::fenceGetAlphaFunc(*nlp._alpha);
-        auto getOvlLambdaFunc = nlp_type::mult_trait::fenceGetLambdaFunc(*nlp._multiplier);
+        auto getOvlAlphaFunc = nlp_type::alpha_trait::ovlGetAlphaFunc(*nlp._alpha);
+        auto getOvlLambdaFunc = nlp_type::mult_trait::ovlGetLambdaFunc(*nlp._multiplier);
 
         if (not nlp._hasInitFirstOrderOuterProblem) {
           // Before init first order outer problem
@@ -618,7 +619,6 @@ protected:
   Database &_db; ///< The placement engine database
   /* NLP problem parameters */
   IndexType _numCells; ///< The number of cells
-  RealType _alpha;     ///< Used in LSE approximation hyperparameter
   Box<nlp_coordinate_type>
       _boundary; ///< The boundary constraint for the placement
   nlp_coordinate_type _scale =
@@ -869,6 +869,7 @@ public:
     return base_type::stop_condition_trait::stopPlaceCondition(
       *this, this->_stopCondition);
   }
+  void cleanupMode();
 protected:
   /* Construct tasks */
   virtual void constructTasks() override;
@@ -914,6 +915,7 @@ protected:
       }
       //std::cout<<"\n\nSum: "<<sumgrad<<"\n\n"<<std::endl;
   }
+
 
 private:
   void initFirstOrderOuterProblem() {
@@ -1041,10 +1043,12 @@ protected:
   std::shared_ptr<alpha_update_type> _alphaUpdate;
   /* Parameters */
   BoolType _useWellCellOvl = false; ///<
+  bool _useSimpleOptm = false;
   /* Misc. */
   BoolType _hasInitFirstOrderOuterProblem = false; ///< Whether has init multiplier, alpha, etc.
   IndexType _iter = 0;
   BoolType _convergeWithLargeVariableChange = false; ///< The last termination of optimization is because of large location changes
+  std::vector<IndexType> _maskOutCells; ///< Cells that should not update values
 };
 
 //// @brief some helper function for NlpGPlacerSecondOrder

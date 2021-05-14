@@ -218,6 +218,7 @@ void initIdeaPlaceExAPI(py::module &m) {
       .def("addVddContactTemplate", &PROJECT_NAMESPACE::IdeaPlaceEx::addVddContactTemplate, "Add a new VDD contact template")
       .def("addWpeHorizontalSpacingRule", &PROJECT_NAMESPACE::IdeaPlaceEx::addWpeHorizontalSpacingRule, "Add a WPE horizontal spacing rule: a pair of length and spacing")
       .def("addWpeVerticalSpacingRule", &PROJECT_NAMESPACE::IdeaPlaceEx::addWpeVerticalSpacingRule, "Add a WPE vertical spacing rule: a pair of width and spacing")
+      .def("individualWell", &PROJECT_NAMESPACE::IdeaPlaceEx::individualWell, "Only for comparsion purpose")
 #ifdef DEBUG_DRAW
       .def("debugDraw", &PROJECT_NAMESPACE::IdeaPlaceEx::drawDebug, "Draw the debug layout")
 #endif // ifdef DEBUG_DRAW

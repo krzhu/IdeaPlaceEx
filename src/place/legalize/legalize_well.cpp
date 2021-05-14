@@ -156,7 +156,7 @@ bool patchConvexJogs(LocType minStep, Polygon<LocType>& poly) {
 
 /// @brief patch the polygon to eliminate u-shape spacing error
 /// @return if detect jog in the process
-bool patchSpacingJogs(LocType minStep, Polygon<LocType>& poly) {
+bool patchSpacingJogs(LocType minStep, Polygon<LocType>& poly, boost::geometry::index::rtree<Box<LocType>, boost::geometry::index::rstar<8, 2>> &rtree) {
   bool hasJog = false;
   const auto &ring = poly.outer();
   // Here we generate a rectangle for each cell that satisfying the spacing
@@ -175,14 +175,20 @@ bool patchSpacingJogs(LocType minStep, Polygon<LocType>& poly) {
     const auto& pt1 = ring[j];
     const auto& pt2 = j + 1 == ring.size() ? ring[0] : ring[j + 1];
     const auto& pt3 = j + 2 == ring.size() ? ring[1] : ring[j + 2];
+    if (pt0 == pt3) {
+      continue;
+    }
+    auto box = Box<LocType>(
+                   std::min({pt0.x(), pt1.x(), pt2.x(), pt3.x()}),
+                   std::min({pt0.y(), pt1.y(), pt2.y(), pt3.y()}),
+                   std::max({pt0.x(), pt1.x(), pt2.x(), pt3.x()}),
+                   std::max({pt0.y(), pt1.y(), pt2.y(), pt3.y()}));
+    std::vector<Box<LocType>> queryResults;
+    rtree.query(boost::geometry::index::intersects(box), std::back_inserter(queryResults));
     if (::klib::manhattanDistance(pt1, pt2) < minStep 
         or (::klib::manhattanDistance(pt0, pt1) < minStep
-          and ::klib::manhattanDistance(pt2, pt3) < minStep)) {
-      auto box = Box<LocType>(
-                     std::min({pt0.x(), pt1.x(), pt2.x(), pt3.x()}),
-                     std::min({pt0.y(), pt1.y(), pt2.y(), pt3.y()}),
-                     std::max({pt0.x(), pt1.x(), pt2.x(), pt3.x()}),
-                     std::max({pt0.y(), pt1.y(), pt2.y(), pt3.y()}));
+          and ::klib::manhattanDistance(pt2, pt3) < minStep)
+        or not queryResults.empty()) {
       JogOrient_t orientA, orientB;
       if (counterClockwise(pt0, pt1, pt2, orientA) and counterClockwise(pt1, pt2, pt3, orientB) ) { // concave
         hasJog = true;
@@ -218,9 +224,17 @@ void WellLegalizer::legalizeMinStep() {
   if (not _db.tech().isNwellLayerSet()) {
     return;
   }
+  using rtree_type  = boost::geometry::index::rtree<Box<LocType>, boost::geometry::index::rstar<8, 2>>;
   const LocType minStep = _db.tech().spacingRule(_db.tech().nwellLayerIdx());
   for (IndexType wellIdx = 0; wellIdx < _db.vWells().size(); ++wellIdx) {
     auto &well = _db.well(wellIdx);
+    std::vector<Box<LocType>> outWellDevicesBoxes;
+    for (IndexType cellIdx = 0; cellIdx < _db.numCells(); ++cellIdx) {
+      if (well.sCellIds().find(cellIdx) == well.sCellIds().end()) {
+        outWellDevicesBoxes.emplace_back(_db.cell(cellIdx).cellBBoxOff());
+      }
+    }
+    rtree_type outDeviceRtree(outWellDevicesBoxes); // Store the out of well devices shapes
     while (1) {
       bool hasJog = false;
       if (patchConcaveJogs(minStep, well.shape())) {
@@ -228,11 +242,11 @@ void WellLegalizer::legalizeMinStep() {
         continue;
       }
 
-      if (patchConvexJogs(minStep, well.shape())) {
+      if (patchConvexJogs(std::max(minStep, _db.parameters().smallestWellPolyStep()), well.shape())) { 
         hasJog = true;
         continue;
       }
-      if (patchSpacingJogs(minStep, well.shape())) {
+      if (patchSpacingJogs(std::max(minStep, _db.parameters().smallestWellPolyStep()), well.shape(), outDeviceRtree)) {
         hasJog = true;
         continue;
       }
@@ -259,6 +273,8 @@ void WellLegalizer::generateIndividualWells() {
     cell.setWellIdx(wellIdx);
     well.addCellIdx(cellIdx);
   }
+  legalizeContact();
+  legalizeMinStep();
 }
 
 void WellLegalizer::legalizeCellEdgeSpacing() {
@@ -467,11 +483,9 @@ namespace _legalize_well_vdd_contact_details {
     if (numZeroCost == 0) {
       if (candidates.size() > MAX_CONTACT_CANDIDATE) {
         candidateThresholds = std::make_pair(0, std::get<2>(candidates.at(MAX_CONTACT_CANDIDATE)));
-        DBG("HERE \n");
       }
       else {
         candidateThresholds = std::make_pair(0, LOC_TYPE_MAX);
-        DBG("THERE \n");
       }
     }
     else {

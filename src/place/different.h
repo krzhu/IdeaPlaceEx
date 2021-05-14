@@ -1436,6 +1436,10 @@ struct FENCE_SIGMOID_COST {};
 namespace _fence_bivariate_gaussian_details {
   template<typename CostType> struct calc_trait{};
 
+  inline double safeExp(double val) {
+    return std::exp(std::min(std::max(val, -700.0), 700.0));
+  }
+
   template<>
     struct calc_trait<FENCE_SIGMOID_COST> {
       template<typename numerical_type>
@@ -1462,7 +1466,7 @@ namespace _fence_bivariate_gaussian_details {
           const NumType y = yLo + height / 2;
           const NumType alphaX = alphaScale(sigmaX, alpha);
           const NumType alphaY = alphaScale(sigmaX, alpha);
-          return 1.0/((std::exp(-alphaX*(muX+sigmaX-x))+1.0)*(std::exp(-alphaX*(-muX+sigmaX+x))+1.0)*(std::exp(-alphaY*(muY+sigmaY-y))+1.0)*(std::exp(-alphaY*(-muY+sigmaY+y))+1.0));;
+          return 1.0/((safeExp(-alphaX*(muX+sigmaX-x))+1.0)*(safeExp(-alphaX*(-muX+sigmaX+x))+1.0)*(safeExp(-alphaY*(muY+sigmaY-y))+1.0)*(safeExp(-alphaY*(-muY+sigmaY+y))+1.0));;
         }
       template<typename numerical_type>
         static numerical_type calcDiffX(
@@ -1482,7 +1486,7 @@ namespace _fence_bivariate_gaussian_details {
           const NumType y = yLo + height / 2;
           const NumType alphaX = alphaScale(sigmaX, alpha);
           const NumType alphaY = alphaScale(sigmaX, alpha);
-          return -(alphaX*std::exp(-alphaX*(muX+sigmaX-x))*1.0/pow(std::exp(-alphaX*(muX+sigmaX-x))+1.0,2.0))/((std::exp(-alphaX*(-muX+sigmaX+x))+1.0)*(std::exp(-alphaY*(muY+sigmaY-y))+1.0)*(std::exp(-alphaY*(-muY+sigmaY+y))+1.0))+(alphaX*std::exp(-alphaX*(-muX+sigmaX+x))*1.0/pow(std::exp(-alphaX*(-muX+sigmaX+x))+1.0,2.0))/((std::exp(-alphaX*(muX+sigmaX-x))+1.0)*(std::exp(-alphaY*(muY+sigmaY-y))+1.0)*(std::exp(-alphaY*(-muY+sigmaY+y))+1.0));
+          return -(alphaX*safeExp(-alphaX*(muX+sigmaX-x))*1.0/pow(safeExp(-alphaX*(muX+sigmaX-x))+1.0,2.0))/((safeExp(-alphaX*(-muX+sigmaX+x))+1.0)*(safeExp(-alphaY*(muY+sigmaY-y))+1.0)*(safeExp(-alphaY*(-muY+sigmaY+y))+1.0))+(alphaX*safeExp(-alphaX*(-muX+sigmaX+x))*1.0/pow(safeExp(-alphaX*(-muX+sigmaX+x))+1.0,2.0))/((safeExp(-alphaX*(muX+sigmaX-x))+1.0)*(safeExp(-alphaY*(muY+sigmaY-y))+1.0)*(safeExp(-alphaY*(-muY+sigmaY+y))+1.0));
         }
       template<typename numerical_type>
         static numerical_type calcDiffY(
@@ -1502,7 +1506,7 @@ namespace _fence_bivariate_gaussian_details {
           const NumType y = yLo + height / 2;
           const NumType alphaX = alphaScale(sigmaX, alpha);
           const NumType alphaY = alphaScale(sigmaX, alpha);
-          return -(alphaY*std::exp(-alphaY*(muY+sigmaY-y))*1.0/pow(std::exp(-alphaY*(muY+sigmaY-y))+1.0,2.0))/((std::exp(-alphaX*(muX+sigmaX-x))+1.0)*(std::exp(-alphaX*(-muX+sigmaX+x))+1.0)*(std::exp(-alphaY*(-muY+sigmaY+y))+1.0))+(alphaY*std::exp(-alphaY*(-muY+sigmaY+y))*1.0/pow(std::exp(-alphaY*(-muY+sigmaY+y))+1.0,2.0))/((std::exp(-alphaX*(muX+sigmaX-x))+1.0)*(std::exp(-alphaX*(-muX+sigmaX+x))+1.0)*(std::exp(-alphaY*(muY+sigmaY-y))+1.0));
+          return -(alphaY*safeExp(-alphaY*(muY+sigmaY-y))*1.0/pow(safeExp(-alphaY*(muY+sigmaY-y))+1.0,2.0))/((safeExp(-alphaX*(muX+sigmaX-x))+1.0)*(safeExp(-alphaX*(-muX+sigmaX+x))+1.0)*(safeExp(-alphaY*(-muY+sigmaY+y))+1.0))+(alphaY*safeExp(-alphaY*(-muY+sigmaY+y))*1.0/pow(safeExp(-alphaY*(-muY+sigmaY+y))+1.0,2.0))/((safeExp(-alphaX*(muX+sigmaX-x))+1.0)*(safeExp(-alphaX*(-muX+sigmaX+x))+1.0)*(safeExp(-alphaY*(muY+sigmaY-y))+1.0));
         }
     };
   template<>
@@ -1737,10 +1741,10 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGra
           const NumType sigmaY = _gaussianParameters[gauIdx].sigmaY;
           const NumType normalize = _gaussianParameters[gauIdx].normalize;
           // Calculate cost
-          const auto diffx = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffX(
+          const auto diffx =  _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffX(
               muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
               );
-          const auto diffy = _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffY(
+          const auto diffy =  _fence_bivariate_gaussian_details::calc_trait<CostType>::calcDiffY(
               muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, alpha, normalize
               );
           _accumulateGradFunc(lambda * diffx *_weight, cellIdx, Orient2DType::HORIZONTAL);
@@ -1750,8 +1754,151 @@ FenceBivariateGaussianDifferentiable<NumType, CoordType, CostType>::accumlateGra
   }
 
 
+struct AREA_LSE_COST {};
+struct AREA_LSE_LINEAR_COST {};
+
+namespace _lse_area_details {
+  template<typename CostType>
+  struct lse_area_trait {};
+
+  template<>
+    struct lse_area_trait<AREA_LSE_COST> {
+      template<typename op_type>
+      static auto evaluate(op_type &op) {
+        using NumType = typename op_type::numerical_type;
+        const NumType lambda = op._getLambdaFunc();
+        const NumType alpha = op._getAlphaFunc();
+        std::array<NumType, 4> sumExpArray = {0.0, 0.0, 0.0, 0.0}; // sum exp(x/alpha), exp(-x/ alpha), exp(y/alpha), exp(-y/alpha)
+        NumType *pSumExp = &sumExpArray.front();
+        for (IndexType idx = 0; idx < op._cells.size(); ++idx) {
+          IndexType cellIdx = op._cells[idx];
+          const NumType x = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+          const NumType y = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::VERTICAL));
+          const NumType xHi = x + op._cellWidths[idx];
+          const NumType yHi = y + op._cellHeights[idx];
+          pSumExp[0] += std::exp(x / alpha) + std::exp(xHi / alpha);
+          pSumExp[1] += std::exp(-x / alpha) + std::exp(-xHi / alpha);
+          pSumExp[2] += std::exp(y / alpha) + std::exp(yHi / alpha);
+          pSumExp[3] += std::exp(-y / alpha) + std::exp(-yHi / alpha);
+        }
+        const NumType cost = (alpha * (std::log(pSumExp[0]) + std::log(pSumExp[1]))) * (alpha * (std::log(pSumExp[2]) + std::log(pSumExp[3]))) * lambda * op._weight;
+        return std::sqrt(cost);
+      }
+      template<typename op_type>
+      static void accumulateGrad(op_type &op) {
+        using NumType = typename op_type::numerical_type;
+        const NumType lambda = op._getLambdaFunc();
+        const NumType alpha = op._getAlphaFunc();
+        std::array<NumType, 4> sumExpArray = {0.0, 0.0, 0.0, 0.0}; // sum exp(x/alpha), exp(-x/ alpha), exp(y/alpha), exp(-y/alpha)
+        NumType *pSumExp = &sumExpArray.front();
+        for (IndexType idx = 0; idx < op._cells.size(); ++idx) {
+          IndexType cellIdx = op._cells[idx];
+          const NumType x = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+          const NumType y = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::VERTICAL));
+          const NumType xHi = x + op._cellWidths[idx];
+          const NumType yHi = y + op._cellHeights[idx];
+          pSumExp[0] += std::exp(x / alpha) + std::exp(xHi / alpha);
+          pSumExp[1] += std::exp(-x / alpha) + std::exp(-xHi / alpha);
+          pSumExp[2] += std::exp(y / alpha) + std::exp(yHi / alpha);
+          pSumExp[3] += std::exp(-y / alpha) + std::exp(-yHi / alpha);
+        }
+        std::array<NumType, 2> logSumExpArray = {0.0, 0.0}; // log exp sum x + log exp sum -x, log exp sum y + log exp sum -y
+        logSumExpArray[0] = std::log(sumExpArray[0]) + std::log(sumExpArray[1]);
+        logSumExpArray[1] = std::log(sumExpArray[2]) + std::log(sumExpArray[3]);
+        const NumType costScale = 1 / std::sqrt((alpha * (std::log(pSumExp[0]) + std::log(pSumExp[1]))) * (alpha * (std::log(pSumExp[2]) + std::log(pSumExp[3]))) * lambda * op._weight);
+        for (IndexType idx = 0; idx < op._cells.size(); ++idx) {
+          IndexType cellIdx = op._cells[idx];
+          const NumType x = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+          const NumType y = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::VERTICAL));
+          const NumType xHi = x + op._cellWidths[idx];
+          const NumType yHi = y + op._cellHeights[idx];
+          const NumType diffxLo = alpha * logSumExpArray[1] * ( std::exp(x / alpha ) /  sumExpArray[0] - std::exp(-x / alpha ) /  sumExpArray[1]);
+          const NumType diffyLo = alpha * logSumExpArray[0] * ( std::exp(y / alpha ) /  sumExpArray[2] - std::exp(-y / alpha ) /  sumExpArray[3]);
+          const NumType diffxHi = alpha * logSumExpArray[1] * ( std::exp(xHi / alpha ) /  sumExpArray[0] - std::exp(-xHi / alpha ) /  sumExpArray[1]);
+          const NumType diffyHi = alpha * logSumExpArray[0] * ( std::exp(yHi / alpha ) /  sumExpArray[2] - std::exp(-yHi / alpha ) /  sumExpArray[3]);
+          op._accumulateGradFunc(costScale * lambda * (diffxLo + diffxHi) * op._weight, cellIdx, Orient2DType::HORIZONTAL);
+          op._accumulateGradFunc(costScale * lambda * (diffyLo + diffyHi) * op._weight, cellIdx, Orient2DType::VERTICAL);
+        }
+      }
+    };
+
+
+
+  template<>
+    struct lse_area_trait<AREA_LSE_LINEAR_COST> {
+
+      template<typename op_type>
+      static auto evaluate(op_type &op) {
+        using NumType = typename op_type::numerical_type;
+        const NumType lambda = op._getLambdaFunc();
+        const NumType alpha = op._getAlphaFunc();
+        std::array<NumType, 4> sumExpArray = {0.0, 0.0, 0.0, 0.0}; // sum exp(x/alpha), exp(-x/ alpha), exp(y/alpha), exp(-y/alpha)
+        NumType *pSumExp = &sumExpArray.front();
+        for (IndexType idx = 0; idx < op._cells.size(); ++idx) {
+          IndexType cellIdx = op._cells[idx];
+          const NumType x = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+          const NumType y = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::VERTICAL));
+          const NumType xHi = x + op._cellWidths[idx];
+          const NumType yHi = y + op._cellHeights[idx];
+          pSumExp[0] += std::exp(x / alpha) + std::exp(xHi / alpha);
+          pSumExp[1] += std::exp(-x / alpha) + std::exp(-xHi / alpha);
+          pSumExp[2] += std::exp(y / alpha) + std::exp(yHi / alpha);
+          pSumExp[3] += std::exp(-y / alpha) + std::exp(-yHi / alpha);
+        }
+        const NumType cost = op._constant * alpha * (std::log(pSumExp[0]) + std::log(pSumExp[1]) + std::log(pSumExp[2]) + std::log(pSumExp[3])) * lambda * op._weight;
+        return cost;
+      }
+      template<typename op_type>
+      static void accumulateGrad(op_type &op) {
+        using NumType = typename op_type::numerical_type;
+        const NumType lambda = op._getLambdaFunc();
+        const NumType alpha = op._getAlphaFunc();
+        std::array<NumType, 4> sumExpArray = {0.0, 0.0, 0.0, 0.0}; // sum exp(x/alpha), exp(-x/ alpha), exp(y/alpha), exp(-y/alpha)
+        NumType *pSumExp = &sumExpArray.front();
+        for (IndexType idx = 0; idx < op._cells.size(); ++idx) {
+          IndexType cellIdx = op._cells[idx];
+          const NumType x = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+          const NumType y = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::VERTICAL));
+          const NumType xHi = x + op._cellWidths[idx];
+          const NumType yHi = y + op._cellHeights[idx];
+          pSumExp[0] += std::exp(x / alpha) + std::exp(xHi / alpha);
+          pSumExp[1] += std::exp(-x / alpha) + std::exp(-xHi / alpha);
+          pSumExp[2] += std::exp(y / alpha) + std::exp(yHi / alpha);
+          pSumExp[3] += std::exp(-y / alpha) + std::exp(-yHi / alpha);
+        }
+        for (IndexType idx = 0; idx < op._cells.size(); ++idx) {
+          IndexType cellIdx = op._cells[idx];
+          const NumType x = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
+          const NumType y = op::conv<NumType>(
+              op._getVarFunc(cellIdx, Orient2DType::VERTICAL));
+          const NumType xHi = x + op._cellWidths[idx];
+          const NumType yHi = y + op._cellHeights[idx];
+          const NumType diffxLo =  std::exp(x / alpha) / pSumExp[0] - std::exp(-x / alpha) / pSumExp[1] ;
+          const NumType diffxHi =  std::exp(xHi / alpha) / pSumExp[0] - std::exp(-xHi / alpha) / pSumExp[1] ;
+          const NumType diffyLo =  std::exp(y / alpha) / pSumExp[2] - std::exp(-y / alpha) / pSumExp[3] ;
+          const NumType diffyHi =  std::exp(yHi / alpha) / pSumExp[2] - std::exp(-yHi / alpha) / pSumExp[3] ;
+          op._accumulateGradFunc( lambda * (diffxLo + diffxHi) * op._constant * op._weight, cellIdx, Orient2DType::HORIZONTAL);
+          op._accumulateGradFunc( lambda * (diffyLo + diffyHi) * op._constant * op._weight, cellIdx, Orient2DType::VERTICAL);
+        }
+      }
+    };
+
+
+} // namespace _lse_area_details
+
 /// @brief LSE-smoothed Area
-template <typename NumType, typename CoordType> struct LseAreaDifferentiable {
+template <typename NumType, typename CoordType, typename CostType = AREA_LSE_COST> struct LseAreaDifferentiable {
   typedef NumType numerical_type;
   typedef CoordType coordinate_type;
 
@@ -1781,64 +1928,15 @@ template <typename NumType, typename CoordType> struct LseAreaDifferentiable {
   void setWeight(const NumType &weight) { _weight = weight; }
 
   NumType evaluate() const {
-    const NumType lambda = _getLambdaFunc();
-    const NumType alpha = _getAlphaFunc();
-    std::array<NumType, 4> sumExpArray = {0.0, 0.0, 0.0, 0.0}; // sum exp(x/alpha), exp(-x/ alpha), exp(y/alpha), exp(-y/alpha)
-    NumType *pSumExp = &sumExpArray.front();
-    for (IndexType idx = 0; idx < _cells.size(); ++idx) {
-      IndexType cellIdx = _cells[idx];
-      const NumType x = op::conv<NumType>(
-          _getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
-      const NumType y = op::conv<NumType>(
-          _getVarFunc(cellIdx, Orient2DType::VERTICAL));
-      const NumType xHi = x + _cellWidths[idx];
-      const NumType yHi = y + _cellHeights[idx];
-      pSumExp[0] += std::exp(x / alpha) + std::exp(xHi / alpha);
-      pSumExp[1] += std::exp(-x / alpha) + std::exp(-yHi / alpha);
-      pSumExp[2] += std::exp(y / alpha) + std::exp(yHi / alpha);
-      pSumExp[3] += std::exp(-y / alpha) + std::exp(-yHi / alpha);
-    }
-    const NumType cost = (alpha * (std::log(pSumExp[0]) + std::log(pSumExp[1]))) * (alpha * (std::log(pSumExp[2]) + std::log(pSumExp[3]))) * lambda * _weight;
-    return std::sqrt(cost);
+    return _lse_area_details::lse_area_trait<CostType>::evaluate(*this);
   }
 
   void accumlateGradient() const {
-    const NumType lambda = _getLambdaFunc();
-    const NumType alpha = _getAlphaFunc();
-    std::array<NumType, 4> sumExpArray = {0.0, 0.0, 0.0, 0.0}; // sum exp(x/alpha), exp(-x/ alpha), exp(y/alpha), exp(-y/alpha)
-    NumType *pSumExp = &sumExpArray.front();
-    for (IndexType idx = 0; idx < _cells.size(); ++idx) {
-      IndexType cellIdx = _cells[idx];
-      const NumType x = op::conv<NumType>(
-          _getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
-      const NumType y = op::conv<NumType>(
-          _getVarFunc(cellIdx, Orient2DType::VERTICAL));
-      const NumType xHi = x + _cellWidths[idx];
-      const NumType yHi = y + _cellHeights[idx];
-      pSumExp[0] += std::exp(x / alpha) + std::exp(xHi / alpha);
-      pSumExp[1] += std::exp(-x / alpha) + std::exp(-yHi / alpha);
-      pSumExp[2] += std::exp(y / alpha) + std::exp(yHi / alpha);
-      pSumExp[3] += std::exp(-y / alpha) + std::exp(-yHi / alpha);
-    }
-    std::array<NumType, 2> logSumExpArray = {0.0, 0.0}; // log exp sum x + log exp sum -x, log exp sum y + log exp sum -y
-    logSumExpArray[0] = std::log(sumExpArray[0]) + std::log(sumExpArray[1]);
-    logSumExpArray[1] = std::log(sumExpArray[2]) + std::log(sumExpArray[3]);
-    const NumType costScale = 1 / std::sqrt((alpha * (std::log(pSumExp[0]) + std::log(pSumExp[1]))) * (alpha * (std::log(pSumExp[2]) + std::log(pSumExp[3]))) * lambda * _weight);
-    for (IndexType idx = 0; idx < _cells.size(); ++idx) {
-      IndexType cellIdx = _cells[idx];
-      const NumType x = op::conv<NumType>(
-          _getVarFunc(cellIdx, Orient2DType::HORIZONTAL));
-      const NumType y = op::conv<NumType>(
-          _getVarFunc(cellIdx, Orient2DType::VERTICAL));
-      const NumType xHi = x + _cellWidths[idx];
-      const NumType yHi = y + _cellHeights[idx];
-      const NumType diffxLo = alpha * logSumExpArray[1] * ( std::exp(x / alpha ) /  sumExpArray[0] - std::exp(-x / alpha ) /  sumExpArray[1]);
-      const NumType diffyLo = alpha * logSumExpArray[0] * ( std::exp(y / alpha ) /  sumExpArray[2] - std::exp(-y / alpha ) /  sumExpArray[3]);
-      const NumType diffxHi = alpha * logSumExpArray[1] * ( std::exp(xHi / alpha ) /  sumExpArray[0] - std::exp(-xHi / alpha ) /  sumExpArray[1]);
-      const NumType diffyHi = alpha * logSumExpArray[0] * ( std::exp(yHi / alpha ) /  sumExpArray[2] - std::exp(-yHi / alpha ) /  sumExpArray[3]);
-      _accumulateGradFunc(costScale * lambda * (diffxLo + diffxHi) *_weight, cellIdx, Orient2DType::HORIZONTAL);
-      _accumulateGradFunc(costScale * lambda * (diffyLo + diffyHi) * _weight, cellIdx, Orient2DType::VERTICAL);
-    }
+    _lse_area_details::lse_area_trait<CostType>::accumulateGrad(*this);
+  }
+
+  void configTotalCellArea(NumType cellArea) {
+    _constant = std::sqrt(cellArea) / 2;
   }
 
 
@@ -1854,7 +1952,9 @@ template <typename NumType, typename CoordType> struct LseAreaDifferentiable {
       _getVarFunc; ///< A function to get current variable value
   std::function<void(NumType, IndexType, Orient2DType)>
       _accumulateGradFunc; ///< A function to update partial
+  NumType _constant = -1; ///< For linear approximation
 };
+
 } // namespace diff
 
 PROJECT_NAMESPACE_END

@@ -103,7 +103,6 @@ void NlpGPlacerBase<nlp_settings>::initProblem() {
 
 template <typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::initHyperParams() {
-  _alpha = NLP_WN_CONJ_ALPHA;
 }
 
 template <typename nlp_settings>
@@ -167,7 +166,7 @@ void NlpGPlacerBase<nlp_settings>::initPlace() {
 
 template <typename nlp_settings>
 void NlpGPlacerBase<nlp_settings>::initOperators() {
-  auto getAlphaFunc = [&]() { return _alpha; };
+  auto getAlphaFunc = [&]() { return 1.0; };
   auto getLambdaFunc = [&]() { return 1.0; };
   auto getVarFunc = [&](IndexType cellIdx, Orient2DType orient) {
 #ifdef MULTI_SYM_GROUP
@@ -387,6 +386,7 @@ void NlpGPlacerBase<nlp_settings>::initOperators() {
       _areaOps.back().setGetVarFunc(getVarFunc);
       _areaOps.back().setWeight(totalNetWeight * _db.parameters().areaToWireLengthWeight()); 
     }
+    _areaOps.back().configTotalCellArea(_totalCellArea);
   }
 
   INF("Ideaplace global placement:: number of operators %d, hpwl %d ovl %d oob "
@@ -754,6 +754,81 @@ void NlpGPlacerFirstOrder<nlp_settings>::stepOptmIter() {
 }
 
 template <typename nlp_settings>
+void NlpGPlacerFirstOrder<nlp_settings>::cleanupMode() {
+    auto getOvlAlphaFunc = [&]() { return  0.3; }; //Use the min
+    auto getOvlLambdaFunc = mult_trait::ovlGetLambdaFunc(*this->_multiplier);
+    auto getVarFunc = [&](IndexType cellIdx, Orient2DType orient) {
+#ifdef MULTI_SYM_GROUP
+      return _pl(plIdx(cellIdx, orient));
+#else
+      if (orient == Orient2DType::NONE) {
+        return this->_defaultSymAxis;
+      }
+      return this->_pl(this->plIdx(cellIdx, orient));
+#endif
+    };
+
+    this->_ovlOps.clear();
+  // Pair-wise cell overlapping
+  for (IndexType cellIdxI = 0; cellIdxI < this->_db.numCells(); ++cellIdxI) {
+    if (this->_db.cell(cellIdxI).needWell()) { continue; }
+    const auto cellBBoxI = this->_db.cell(cellIdxI).cellBBox();
+    for (IndexType cellIdxJ = cellIdxI + 1; cellIdxJ < this->_db.numCells();
+         ++cellIdxJ) {
+      if (this->_db.cell(cellIdxJ).needWell()) { continue; }
+      const auto cellBBoxJ = this->_db.cell(cellIdxJ).cellBBox();
+      this->_ovlOps.emplace_back(nlp_ovl_type(
+          cellIdxI, cellBBoxI.xLen() * this->_scale, cellBBoxI.yLen() * this->_scale,
+          cellIdxJ, cellBBoxJ.xLen() * this->_scale, cellBBoxJ.yLen() * this->_scale,
+          getOvlAlphaFunc, getOvlLambdaFunc));
+      this->_ovlOps.back().setGetVarFunc(getVarFunc);
+    }
+  }
+
+// Pair-wise well-to-cell overlapping
+  for (IndexType wellIdx = 0; wellIdx < this->_db.vWells().size();
+       ++wellIdx) {
+    const auto &well = this->_db.vWells().at(wellIdx);
+    Box<LocType> boxUnScaled = well.boundingBox();
+    Box<typename base_type::nlp_coordinate_type>
+        box( // Splited polygon
+        (boxUnScaled.xLo()  - boxUnScaled.xLen() / 2)* this->_scale, (boxUnScaled.yLo() - boxUnScaled.yLen() / 2)* this->_scale,
+        (boxUnScaled.xHi()  + boxUnScaled.xLen() / 2)* this->_scale, (boxUnScaled.yHi() + boxUnScaled.yLen() / 2)* this->_scale);
+    for (IndexType cellIdx = 0; cellIdx < this->_db.numCells();
+         ++cellIdx) {
+      if (well.sCellIds().find(cellIdx) == well.sCellIds().end()) {
+        const auto cellBBox = this->_db.cell(cellIdx).cellBBox();
+        this->_ovlOps.emplace_back(
+            nlp_ovl_type(cellIdx, cellBBox.xLen() * this->_scale,
+                         cellBBox.yLen() * this->_scale,
+                         666666, // Doesn't matter
+                         box.xLen(), box.yLen(), getOvlAlphaFunc,
+                         getOvlLambdaFunc));
+        this->_ovlOps.back().configConsiderOnlyOneCell(box.xLo(),
+                                                            box.yLo());
+        this->_ovlOps.back().setGetVarFunc(getVarFunc);
+        this->_ovlOps.back().setWeight(0.6);
+      }
+    }
+  }
+  // Mask out the unwanted cell value update
+  for (IndexType cellIdx = 0; cellIdx < this->_db.numCells(); ++cellIdx) {
+    if (this->_db.cell(cellIdx).needWell()) {
+      _maskOutCells.emplace_back(cellIdx);
+    }
+  }
+
+  this->_fenceOps.clear();
+
+  // Re-construct tasks
+  this->clearTasks();
+  this->constructTasks();
+  // Optm
+  _useSimpleOptm = true;
+  optm_trait::optimize(*this, _optm);
+}
+
+template <typename nlp_settings>
 void NlpGPlacerFirstOrder<nlp_settings>::initProblem() {
   this->initHyperParams();
   this->initBoundaryParams();
@@ -1116,6 +1191,10 @@ void NlpGPlacerFirstOrder<nlp_settings>::constructWrapCalcGradTask() {
       _updateFencePartialTasks[i].run();
     }
     _sumGradTask.run();
+    for (IndexType cellIdx : _maskOutCells) {
+      _grad[this->plIdx(cellIdx, Orient2DType::HORIZONTAL)] = 0; 
+      _grad[this->plIdx(cellIdx, Orient2DType::VERTICAL)] = 0; 
+    }
   };
   _wrapCalcGradTask = Task<FuncTask>(FuncTask(calcGradLambda));
 }

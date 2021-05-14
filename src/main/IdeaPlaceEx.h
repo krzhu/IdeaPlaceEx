@@ -459,6 +459,10 @@ public:
   void setVddContactRequiredSpacing(IntType require) {
     _db.tech().setVddContactRequiredSpacing(require);
   }
+  /// @brief Enter individual well mode. Directly insert well to cell. Only for illustration and comparison purpose
+  void individualWell() {
+    _db.individualWell();
+  }
   /* Debug */
 #ifdef DEBUG_DRAW
   void drawDebug(const std::string &filename) {
