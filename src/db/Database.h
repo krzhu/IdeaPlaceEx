@@ -232,6 +232,7 @@ public:
       _wellRectSize.emplace_back(well.rects().size());
     }
   }
+  IndexType numWells() const { return _wellArray.size(); }
   IndexType numWellRects() const {
     return std::accumulate(_wellRectSize.begin(), _wellRectSize.end(), 0);
   }

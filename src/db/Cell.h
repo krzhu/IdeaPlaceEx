@@ -97,6 +97,15 @@ public:
     _vddContactTemplates.emplace_back(templateIdx);
     _vddContactPositions.emplace_back(pos);
   }
+  IndexType numVddContacts() const {
+    return _vddContactTemplates.size();
+  }
+  IndexType vddContactTemplate(IndexType idx) const {
+    return _vddContactTemplates.at(idx);
+  }
+  const Point<LocType> &vddContactPosition(IndexType idx) const {
+    return _vddContactPositions.at(idx);
+  }
 
 
 private:

@@ -459,6 +459,19 @@ public:
   void setVddContactRequiredSpacing(IntType require) {
     _db.tech().setVddContactRequiredSpacing(require);
   }
+  IndexType numWells() const {
+    return _db.numWells();
+  }
+  /// @brief Get num contact in a well
+  IndexType numContacts(IndexType wellIdx) const {
+    return _db.well(wellIdx).numVddContacts();
+  }
+  IndexType contactTemplate(IndexType wellIdx, IndexType contactIdx) const {
+    return _db.well(wellIdx).vddContactTemplate(contactIdx);
+  }
+  const Point<LocType> &contactPosition(IndexType wellIdx, IndexType contactIdx) const {
+    return _db.well(wellIdx).vddContactPosition(contactIdx);
+  }
   /// @brief Enter individual well mode. Directly insert well to cell. Only for illustration and comparison purpose
   void individualWell() {
     _db.individualWell();
