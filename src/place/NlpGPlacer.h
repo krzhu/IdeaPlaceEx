@@ -276,14 +276,8 @@ struct construct_fence_type_trait<
       }
     }
 #else
-    IndexType numWells = 0;
-    for (IndexType wellIdx = 0; wellIdx < db.vWells().size(); ++wellIdx) {
-      if (db.well(wellIdx).wellType() == wellType) {
-        numWells += 1;
-      }
-    }
     std::vector<std::vector<Box<nlp_coordinate_type>>> boxes;
-    boxes.resize(numWells);
+    boxes.resize(db.vWells().size());
     for (IndexType wellIdx = 0; wellIdx < db.vWells().size(); ++wellIdx) {
       if (db.well(wellIdx).wellType() != wellType) {
         continue;

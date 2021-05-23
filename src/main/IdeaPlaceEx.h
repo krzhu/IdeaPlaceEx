@@ -143,6 +143,7 @@ public:
   /// @brief set this cell as it needs well
   /// @param the index of the cell
   void setCellWellType(IndexType cellIdx, IntType wellType) { _db.cell(cellIdx).setWellType(wellType); }
+  void setNumWellTypes(IndexType num) { _db.setNumWellTypes(num); }
   /// @brief Set the channel width of a cell
   void setCellFingerChannelWidth(IndexType cellIdx, LocType width) { _db.cell(cellIdx).setFingerChannelWidth(width); }
   /// @brief Set the channel length of a cell

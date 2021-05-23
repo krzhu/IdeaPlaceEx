@@ -241,6 +241,9 @@ void Database::assignCellToWellAndRemoveUnusedWell() {
     for (IndexType wellIdx = 0; wellIdx < _wellArray.size(); ++wellIdx) {
       auto &well = _wellArray.at(wellIdx);
       LocType dist = boost::geometry::distance(cellCenter, well.shape());
+      if (well.wellType() != cell(cellIdx).wellType()) {
+        dist = 1e6;
+      }
       if (dist < shortestDist) {
         targetWellIdx = wellIdx;
         shortestDist = dist;
