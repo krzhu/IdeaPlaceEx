@@ -16,7 +16,7 @@ PROJECT_NAMESPACE_BEGIN
 
 class Well {
 public:
-  Well(const IndexType i = INDEX_TYPE_MAX) : _name(""), _idx(i) {}
+  Well(const IndexType i = INDEX_TYPE_MAX, IndexType wellType = 0) : _name(""), _idx(i), _type(wellType) {}
   ~Well() {}
 
   // get
@@ -30,6 +30,10 @@ public:
   const std::vector<Box<LocType>> & rects() const { return _splitedRects; }
 
   const std::set<IndexType> &sCellIds() const { return _sCellIds; }
+
+  IndexType wellType() const {
+    return _type;
+  }
 
   // set
   void setName(const std::string &n) { _name = n; }
@@ -116,6 +120,7 @@ private:
   std::vector<Box<LocType>> _splitedRects; ///< Splited well 
   std::vector<IndexType> _vddContactTemplates; ///< The indices of templates inserted
   std::vector<Point<LocType>> _vddContactPositions; ///< The position of inserted VDD contact templates
+  IndexType _type = 0; ///< The types of wells
 };
 
 /// @class IDEAPLACE::Cell
@@ -303,8 +308,9 @@ public:
   void setSelfSym(bool selfSym = true) { _bSelfSym = selfSym; };
   void setSymNetIdx(IndexType symNetIdx) { _symNetIdx = symNetIdx; }
   IndexType symNetIdx() const { return _symNetIdx; }
-  void setNeedWell(BoolType needWell) { _needWell = needWell; }
-  BoolType needWell() const { return _needWell; }
+  void setWellType(IntType wellType) { _wellType = wellType; }
+  IndexType wellType() const { return static_cast<IndexType>(_wellType); }
+  bool needWell() const { return _wellType >= 0; }
 
   /*------------------------------*/
   /* Well`              `         */
@@ -328,7 +334,7 @@ private:
   bool _flip = false;
 
   IndexType _wellIdx = INDEX_TYPE_MAX;
-  BoolType _needWell = false; ///< Wehther this cell need a well
+  IntType _wellType = -1; ///< -1 -> don't need
   std::vector<Box<LocType>> _spacingToCells; ///< Required spacing to other cells. Only record the number of cells after this cell in index
   ///< The last one is against individual N-well
   LocType _fingerChannelWidth = -1;  ///< Channel width for MOS finger

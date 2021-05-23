@@ -257,7 +257,7 @@ struct construct_fence_type_trait<
   typedef diff::FenceBivariateGaussianDifferentiable<nlp_numerical_type,
                                                           nlp_coordinate_type> 
                                                             op_type;
-  static void generateDistributionParameters(std::vector<BivariateGaussianParameters<nlp_numerical_type>> & result, const Database &db, nlp_numerical_type scale) {
+  static void generateDistributionParameters(std::vector<BivariateGaussianParameters<nlp_numerical_type>> & result, const Database &db, nlp_numerical_type scale, IndexType wellType) {
 #if 0
     std::vector<std::vector<Box<nlp_coordinate_type>>> boxes; // Splited polygon
     std::vector<std::vector<Box<LocType>>> boxesUnScaled;
@@ -276,9 +276,18 @@ struct construct_fence_type_trait<
       }
     }
 #else
-    std::vector<std::vector<Box<nlp_coordinate_type>>> boxes;
-    boxes.resize(db.vWells().size());
+    IndexType numWells = 0;
     for (IndexType wellIdx = 0; wellIdx < db.vWells().size(); ++wellIdx) {
+      if (db.well(wellIdx).wellType() == wellType) {
+        numWells += 1;
+      }
+    }
+    std::vector<std::vector<Box<nlp_coordinate_type>>> boxes;
+    boxes.resize(numWells);
+    for (IndexType wellIdx = 0; wellIdx < db.vWells().size(); ++wellIdx) {
+      if (db.well(wellIdx).wellType() != wellType) {
+        continue;
+      }
       auto box = db.well(wellIdx).boundingBox();
       boxes[wellIdx].emplace_back(
             Box<nlp_coordinate_type>(box.xLo() * scale, box.yLo() * scale,
@@ -305,28 +314,30 @@ struct construct_fence_type_trait<
       std::vector<IndexType> outFenceCellIdx;
       std::vector<nlp_coordinate_type> outWidths;
       std::vector<nlp_coordinate_type> outHeights;
-      for (IndexType cellIdx = 0; cellIdx < db.numCells(); ++cellIdx) {
-        const auto &cell = db.cell(cellIdx);
-        nlp_coordinate_type width = cell.cellBBox().width() * nlp._scale;
-        nlp_coordinate_type height = cell.cellBBox().height() * nlp._scale;
-        if (db.cell(cellIdx).needWell()) {
-          inFenceCellIdx.emplace_back(cellIdx);
-          inWidths.emplace_back(width);
-          inHeights.emplace_back(height);
+      for (IndexType wellType = 0;  wellType < db.numWellTypes(); ++wellType) {
+        for (IndexType cellIdx = 0; cellIdx < db.numCells(); ++cellIdx) {
+          const auto &cell = db.cell(cellIdx);
+          nlp_coordinate_type width = cell.cellBBox().width() * nlp._scale;
+          nlp_coordinate_type height = cell.cellBBox().height() * nlp._scale;
+          if (db.cell(cellIdx).wellType() == wellType) {
+            inFenceCellIdx.emplace_back(cellIdx);
+            inWidths.emplace_back(width);
+            inHeights.emplace_back(height);
+          }
+          else {
+            outFenceCellIdx.emplace_back(cellIdx);
+            outWidths.emplace_back(width);
+            outHeights.emplace_back(height);
+          }
         }
-        else {
-          outFenceCellIdx.emplace_back(cellIdx);
-          outWidths.emplace_back(width);
-          outHeights.emplace_back(height);
-        }
+        nlp._fenceOps.emplace_back(op_type(inFenceCellIdx, outFenceCellIdx,
+              inWidths, inHeights,
+              outWidths, outHeights,
+               getLambdaFunc));
+        nlp._fenceOps.back().setGetVarFunc(getVarFunc);
+        nlp._fenceOps.back()._weight = db.parameters().defaultWellWeight();
+        generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, db, nlp._scale, wellType);
       }
-      nlp._fenceOps.emplace_back(op_type(inFenceCellIdx, outFenceCellIdx,
-            inWidths, inHeights,
-            outWidths, outHeights,
-             getLambdaFunc));
-      nlp._fenceOps.back().setGetVarFunc(getVarFunc);
-      nlp._fenceOps.back()._weight = db.parameters().defaultWellWeight();
-      generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, db, nlp._scale);
     }
 };
 
@@ -435,8 +446,10 @@ struct reinit_well_trait<
 
     template<typename nlp_type> 
       static void reinit_well_operators(nlp_type &nlp) {
-        construct_fence_type_trait<op_type>::generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, nlp._db, nlp._scale);
-        nlp._fenceOps.back()._considerOutFenceCells = nlp._useWellCellOvl;
+        for (IndexType wellType = 0; wellType < nlp._db.numWellTypes(); ++wellType) {
+          construct_fence_type_trait<op_type>::generateDistributionParameters(nlp._fenceOps.back()._gaussianParameters, nlp._db, nlp._scale, wellType);
+          nlp._fenceOps.back()._considerOutFenceCells = nlp._useWellCellOvl;
+        }
       }
 };
 } // namespace _nlp_details
@@ -540,7 +553,7 @@ public:
     fGaussian.open(normal_distr);
     fCostIn.open(cost_in);
     fGradIn.open(grad_in);
-    const std::vector<BivariateGaussianParameters<nlp_numerical_type>> &paras = _fenceOps.back()._gaussianParameters;
+    std::vector<BivariateGaussianParameters<nlp_numerical_type>> &paras = _fenceOps.back()._gaussianParameters;
     for (IndexType gauIdx  = 0; gauIdx < paras.size(); ++gauIdx) {
       const auto muX = paras[gauIdx].muX;
       const auto muY = paras[gauIdx].muY;
@@ -549,7 +562,14 @@ public:
       const auto normalize = paras[gauIdx].normalize;
       fGaussian<< muX << " "<< sigmaX << " "<< muY << " "<< sigmaY <<  " "  << normalize << "\n";
     }
+    paras.clear();
+    paras.emplace_back(BivariateGaussianParameters<nlp_numerical_type>(6.5, 2.5, 4.0, 2.2, 1.0));
+    paras.emplace_back(BivariateGaussianParameters<nlp_numerical_type>(-6.5, 3.0, -7.5, 2.0, 1.0));
     fGaussian.close();
+    xmax = 10;
+    xmin = -10;
+    ymax = 10;
+    ymin = -10;
     double width = (xmax - xmin) / 100;
     double height = (ymax - ymin) / 100;
     double size = std::max(width, height);
@@ -565,12 +585,18 @@ public:
           const auto muY = paras[gauIdx].muY;
           const auto sigmaX = paras[gauIdx].sigmaX;
           const auto sigmaY = paras[gauIdx].sigmaY;
-          std::complex<double> complexCost = ((diff::op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+diff::op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(diff::op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<double>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0)))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+diff::op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<double>(-1.0)))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*2.5E-1*sqrt(std::complex<double>(-1.0)))/(sigmaX*sigmaY);
-          cost += std::real(complexCost);
-          std::complex<double> diffx = ((sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(muX-xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX))-sqrt(2.0)*1.0/sqrt(3.141592653589793)*exp(1.0/(sigmaX*sigmaX)*pow(-muX+width+xLo,2.0)*(-1.0/2.0))*sqrt(1.0/(sigmaX*sigmaX)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(diff::op::realerf(sqrt(2.0)*(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<double>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0)))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0))+diff::op::realerf(sqrt(2.0)*(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<double>(-1.0)))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*(1.0/2.0)))*-2.5E-1*sqrt(std::complex<double>(-1.0)))/(sigmaX*sigmaY);        
-          std::complex<double> diffy = ((sqrt(2.0)*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(1.0/(sigmaY*sigmaY)*(height+yLo)*sqrt(std::complex<double>(-1.0))-muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<double>(-1.0))-sqrt(std::complex<double>(2.0))*1.0/(sigmaY*sigmaY)*1.0/sqrt(3.141592653589793)*exp((sigmaY*sigmaY)*pow(muY*1.0/(sigmaY*sigmaY)*sqrt(std::complex<double>(-1.0))-1.0/(sigmaY*sigmaY)*yLo*sqrt(std::complex<double>(-1.0)),2.0)*(1.0/2.0))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*sqrt(std::complex<double>(-1.0)))*(diff::op::realerf(sqrt(2.0)*sqrt(1.0/(sigmaX*sigmaX))*(-muX+width+xLo)*(1.0/2.0))+diff::op::realerf(sqrt(2.0)*(muX-xLo)*sqrt(1.0/(sigmaX*sigmaX))*(1.0/2.0)))*1.0/sqrt(1.0/(sigmaX*sigmaX))*1.0/sqrt(std::complex<double>(-1.0/(sigmaY*sigmaY)))*2.5E-1*sqrt(std::complex<double>(-1.0)))/(sigmaX*sigmaY);
-          xDiff += std::real(diffx);
-          yDiff += std::real(diffy);
+          cost += diff::_fence_bivariate_gaussian_details::calc_trait<diff::FENCE_SIGMOID_COST>::calcCost(
+              muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, 0.2, 1.0
+              );
+
+          const auto diffx = diff::_fence_bivariate_gaussian_details::calc_trait<diff::FENCE_SIGMOID_COST>::calcDiffX(
+              muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, 0.2, 1.0
+              );
+          const auto diffy = diff::_fence_bivariate_gaussian_details::calc_trait<diff::FENCE_SIGMOID_COST>::calcDiffY(
+              muX, muY, sigmaX, sigmaY, xLo, yLo, width, height, 0.2, 1.0
+              );
+          xDiff += diffx;
+          yDiff += diffy;
         }
         fCostIn << xStep << " " << yStep << " "<< xLo <<" "<< yLo <<" "<< cost << "\n";
         if (xStep % 10 == 0 and yStep % 10 == 0) {

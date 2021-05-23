@@ -142,7 +142,7 @@ public:
   }
   /// @brief set this cell as it needs well
   /// @param the index of the cell
-  void flagCellAsNeedWell(IndexType cellIdx) { _db.cell(cellIdx).setNeedWell(true); }
+  void setCellWellType(IndexType cellIdx, IntType wellType) { _db.cell(cellIdx).setWellType(wellType); }
   /// @brief Set the channel width of a cell
   void setCellFingerChannelWidth(IndexType cellIdx, LocType width) { _db.cell(cellIdx).setFingerChannelWidth(width); }
   /// @brief Set the channel length of a cell
@@ -426,8 +426,8 @@ public:
   /*------------------------------*/
   /* Well                         */
   /*------------------------------*/
-  IndexType allocateWell() {
-    IndexType wellIdx = _db.allocateWell();
+  IndexType allocateWell(IndexType wellType=0) {
+    IndexType wellIdx = _db.allocateWell(wellType);
     return wellIdx;
   }
   void setWellName(const IndexType wellIdx, const std::string name) {

@@ -207,7 +207,7 @@ void initIdeaPlaceExAPI(py::module &m) {
            "Print the info of a well")
       .def("clearWells", &PROJECT_NAMESPACE::IdeaPlaceEx::clearWells, 
           "Clear the current wells")
-      .def("flagCellAsNeedWell", &PROJECT_NAMESPACE::IdeaPlaceEx::flagCellAsNeedWell, "Flag a cell as it need well")
+      .def("setCellWellType", &PROJECT_NAMESPACE::IdeaPlaceEx::setCellWellType, "Set the well type of the cell")
       .def("setCellFingerChannelWidth", &PROJECT_NAMESPACE::IdeaPlaceEx::setCellFingerChannelWidth, "Set the finger width for the device")
       .def("setCellFingerChannelLength", &PROJECT_NAMESPACE::IdeaPlaceEx::setCellFingerChannelLength, "Set the finger length for the device")
       .def("assignCellToWell", &PROJECT_NAMESPACE::IdeaPlaceEx::assignCellToWell, "Assign cells to wells")

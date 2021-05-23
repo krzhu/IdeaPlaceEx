@@ -206,8 +206,8 @@ public:
   Well &well(const IndexType i) { return _wellArray.at(i); }
   const Well &well(const IndexType i) const { return _wellArray.at(i); }
 
-  IndexType allocateWell() {
-    Well w(_wellArray.size());
+  IndexType allocateWell(IndexType wellType = 0) {
+    Well w(_wellArray.size(), wellType);
     _wellArray.emplace_back(w);
     return w.idx();
   }
@@ -249,6 +249,13 @@ public:
   }
   IndexType numRectInWell(IndexType wellIdx) const {
     return _wellRectSize.at(wellIdx);
+  }
+  void setNumWellTypes(IndexType numWellTypes) {
+    _numWellTypes = numWellTypes;
+  }
+
+  IndexType numWellTypes() const {
+    return _numWellTypes;
   }
 
   /*------------------------------*/
@@ -343,6 +350,7 @@ private:
 
   Tech _tech;       ///< The tech information
   Parameters _para; ///< The parameters for the placement engine
+  IndexType _numWellTypes = 0; ///< The number of well types
 };
 
 inline RealType Database::calculateTotalCellArea() const {
