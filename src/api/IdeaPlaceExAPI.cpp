@@ -164,6 +164,10 @@ void initIdeaPlaceExAPI(py::module &m) {
            "Get x coordinate of a cell location")
       .def("yCellLoc", &PROJECT_NAMESPACE::IdeaPlaceEx::yCellLoc,
            "Get y coordinate of a cell location")
+      .def("pinName", &PROJECT_NAMESPACE::IdeaPlaceEx::pinName)
+      .def("numPins", &PROJECT_NAMESPACE::IdeaPlaceEx::numPins)
+      .def("xPin", &PROJECT_NAMESPACE::IdeaPlaceEx::xPin)
+      .def("yPin", &PROJECT_NAMESPACE::IdeaPlaceEx::yPin)
       .def("runtimeIdeaPlaceEx",
            &PROJECT_NAMESPACE::IdeaPlaceEx::runtimeIdeaPlaceEx,
            "Get the runtime for the Ideaplace")

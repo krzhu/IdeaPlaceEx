@@ -188,6 +188,7 @@ public:
   void addPinToNet(IndexType pinIdx, IndexType netIdx) {
     _db.net(netIdx).addPin(pinIdx);
     _db.pin(pinIdx).addNetIdx(netIdx);
+    _db.pin(pinIdx).setName(_db.net(netIdx).name());
   }
   /// @brief set the external net bounding box
   /// @param first: index of net
@@ -341,6 +342,10 @@ public:
   /// @param  the cell index
   /// @return the y coordinate
   LocType yCellLoc(IndexType cellIdx) { return _db.cell(cellIdx).yLoc(); }
+  IndexType numPins() const { return _db.numPins(); }
+  const std::string & pinName(IndexType pinIdx) { return _db.pin(pinIdx).name(); } 
+  LocType xPin(IndexType pinIdx) { const auto &pin = _db.pin(pinIdx); LocType x = pin.midLoc().x(); LocType xCell = xCellLoc(pin.cellIdx()); return x + xCell; } 
+  LocType yPin(IndexType pinIdx) { const auto &pin = _db.pin(pinIdx); LocType y = pin.midLoc().y(); LocType yCell = yCellLoc(pin.cellIdx()); return y + yCell; } 
   /// @brief get the index of the cell based on name
   /// @param cell name
   /// @return the cellIdx
