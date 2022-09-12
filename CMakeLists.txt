@@ -195,27 +195,7 @@ else()
     add_compile_definitions(LP_NOT_USE_GUROBI)
 endif()
 
-#wnlib: conjugate gradient for reference
-if (WNLIB_DIR)
-    set(WNLIB_ROOT_DIR ${WNLIB_DIR})
-    message(STATUS "Use wnlib ${WNLIB_ROOT_DIR}")
-    set(USE_WNLIB TRUE)
-elseif(DEFINED ENV{WNLIB_DIR})
-    set(WNLIB_ROOT_DIR $ENV{WNLIB_DIR})
-    message(STATUS "Use system wnlib ${WNLIB_ROOT_DIR}")
-    set(USE_WNLIB TRUE)
-else()
-    message(STATUS "Disable wnlib")
-    set(USE_WNLIB FALSE)
-endif()
-unset(WNLIB_DIR CACHE)
 
-if (USE_WNLIB)
-    find_library(WNLIB_LIBRARIES
-        NAMES text.a
-        HINTS ${WNLIB_ROOT_DIR}/acc
-        )
-endif()
 
 
 
@@ -264,10 +244,7 @@ if (USE_GUROBI)
     set(TO_INCLUDE_PATH ${TO_INCLUDE_PATH} ${GUROBI_ROOT_DIR}/include)
 endif()
 
-if (USE_WNLIB)
-    set(TO_LINK_LIBS ${TO_LINK_LIBS} ${WNLIB_LIBRARIES})
-    set(TO_INCLUDE_PATH ${TO_INCLUDE_PATH} ${WNLIB_ROOT_DIR}/acc/h)
-endif()
+
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${EXE_SOURCES})
 
