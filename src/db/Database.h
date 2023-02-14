@@ -192,6 +192,9 @@ class Database
         /// @return HPWL
         LocType hpwl() const;
         LocType hpwlWithVitualPins() const;
+        /// @brief calculate total core placement area (exclude pin etc.)
+        /// @return core area
+        RealType coreArea() const;
         void expandCellToGridSize(LocType gridSize)
         {
            for (auto &cell : _cellArray)

@@ -5,6 +5,21 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 set(PROJECT_NAME "IdeaPlaceEx")
 project(${PROJECT_NAME})
 
+
+
+
+
+# deal with GCC dual ABI issue
+if(NOT CMAKE_CXX_ABI)
+set(CMAKE_CXX_ABI 0 CACHE STRING
+"Choose the value for _GLIBCXX_USE_CXX11_ABI, options are: 0|1."
+FORCE)
+endif(NOT CMAKE_CXX_ABI)
+message(STATUS "CMAKE_CXX_ABI: _GLIBCXX_USE_CXX11_ABI=${CMAKE_CXX_ABI}")
+add_definitions(-D_GLIBCXX_USE_CXX11_ABI=${CMAKE_CXX_ABI})
+
+
+
 find_package (PkgConfig)
 
 #The project version number
@@ -164,6 +179,7 @@ else()
     set(USE_GUROBI FALSE)
 endif()
 unset(GUROBI_HOME CACHE)
+set(USE_GUROBI FALSE)
 
 
 if (USE_GUROBI)

@@ -291,6 +291,11 @@ class IdeaPlaceEx
                 return INDEX_TYPE_MAX;
             return _db.cell(cellIdx).pinIdx(pinCellIdx); 
         }
+        /// @brief Get the core placement area (exclude IO pin etc.)
+        RealType coreArea() const 
+        {
+            return _db.coreArea();
+        }
         /* Run time */
         /// @brief get the total run time
         /// @return time in us

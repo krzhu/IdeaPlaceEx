@@ -22,6 +22,24 @@ bool Database::initCell(IndexType cellIdx)
     return true;
 }
 
+RealType Database::coreArea() const
+{
+    LocType xLo = LOC_TYPE_MAX;
+    LocType yLo = LOC_TYPE_MAX;
+    LocType xHi = LOC_TYPE_MIN;
+    LocType yHi = LOC_TYPE_MIN;
+    for (const auto& cell : _cellArray)
+    {
+        xLo = std::min(cell.xLo(), xLo);
+        yLo = std::min(cell.yLo(), yLo);
+        xHi = std::max(cell.xHi(), xHi);
+        yHi = std::max(cell.yHi(), yHi);
+    }
+    RealType area = static_cast<RealType>(xHi - xLo);
+    area *= static_cast<RealType>(yHi - yLo);
+    return area;
+}
+
 LocType Database::hpwl() const
 {
     LocType hpwl = 0;
